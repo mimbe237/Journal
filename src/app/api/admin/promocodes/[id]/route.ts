@@ -37,18 +37,20 @@ async function updatePromo(req: NextRequest, id: string) {
   return NextResponse.json({ promo }, { status: 200 });
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    return await updatePromo(req, params.id);
+    const { id } = await params;
+    return await updatePromo(req, id);
   } catch (error: any) {
     return NextResponse.json({ error: error?.message ?? "Erreur lors de la mise à jour" }, { status: 400 });
   }
 }
 
 // Accepte PATCH pour activer/désactiver depuis l'UI
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    return await updatePromo(req, params.id);
+    const { id } = await params;
+    return await updatePromo(req, id);
   } catch (error: any) {
     return NextResponse.json({ error: error?.message ?? "Erreur lors de la mise à jour" }, { status: 400 });
   }

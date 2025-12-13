@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserFromRequest } from '@/lib/auth/currentUser';
 import { prisma } from '@/lib/config/prisma';
+import { UserRole } from '@prisma/client';
 
 export async function PATCH(
   request: NextRequest,
@@ -10,7 +11,9 @@ export async function PATCH(
     const { id } = await params;
     const user = await getCurrentUserFromRequest(request);
 
-    if (!user || (user.role !== 'ADMIN' && user.role !== 'COMPTE_ENTREPRISE')) {
+    const allowedRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT];
+
+    if (!user || !allowedRoles.includes(user.role)) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }

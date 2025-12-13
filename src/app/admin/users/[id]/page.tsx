@@ -42,7 +42,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   if (!currentUser) return notFound();
 
   // Check permissions
-  const allowedRoles = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
+  const allowedRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
   if (!allowedRoles.includes(currentUser.role)) {
     return <div className="p-8">Accès refusé</div>;
   }
@@ -116,7 +116,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">{sub.montant} {sub.devise}</p>
+                        <p className="font-medium">{sub.montant.toString()} {sub.devise}</p>
                         <p className="text-xs text-slate-400">{sub.source}</p>
                       </div>
                     </div>

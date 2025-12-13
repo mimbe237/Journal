@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "prisma:generate": "prisma generate"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.948.0",
     "@prisma/client": "^5.22.0",
     "@types/mime-types": "^3.0.1",
     "bcrypt": "latest",

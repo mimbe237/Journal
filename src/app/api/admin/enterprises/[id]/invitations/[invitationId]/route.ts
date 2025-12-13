@@ -80,9 +80,10 @@ export async function PATCH(
         data: {
           email: invitation.email,
           nom: invitation.email.split('@')[0],
-          role: invitation.role,
+          role: invitation.role as UserRole,
           enterpriseAccountId: id,
-          emailVerified: new Date(),
+          motDePasseHash: "PENDING_ACTIVATION_" + Math.random().toString(36), // Mot de passe temporaire obligatoire
+          // emailVerified: new Date(), // Champ non existant dans le schéma User actuel
         }
       });
     } else if (!user.enterpriseAccountId) {
@@ -90,7 +91,7 @@ export async function PATCH(
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
-          role: invitation.role,
+          role: invitation.role as UserRole,
           enterpriseAccountId: id,
         }
       });

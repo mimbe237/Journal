@@ -88,7 +88,7 @@ async function main() {
 
   const editionIds = await fsp.readdir(editionsDir);
   let converted = 0;
-  let skipped = 0;
+  let removedAlreadyConverted = 0;
   let failures = 0;
 
   for (const editionId of editionIds) {
@@ -102,7 +102,14 @@ async function main() {
       const pngPath = path.join(imagesDir, file);
       const webpPath = pngPath.replace(/\.png$/, ".webp");
       if (await fileExists(webpPath)) {
-        skipped += 1;
+        // WebP déjà présent : on peut supprimer le PNG pour libérer l'espace
+        try {
+          await fsp.unlink(pngPath);
+          removedAlreadyConverted += 1;
+        } catch (err) {
+          failures += 1;
+          console.error(`\nSuppression du PNG échouée pour ${pngPath}:`, err?.message ?? err);
+        }
         continue;
       }
 
@@ -119,7 +126,7 @@ async function main() {
   }
 
   console.log(
-    `\nTerminé. Converties: ${converted}, déjà en WebP: ${skipped}, échecs: ${failures}. Qualité=${quality}.`
+    `\nTerminé. Converties: ${converted}, PNG retirés (WebP existant): ${removedAlreadyConverted}, échecs: ${failures}. Qualité=${quality}.`
   );
 }
 

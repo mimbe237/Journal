@@ -5,8 +5,9 @@ import { requireUserWithRoles } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/config/prisma";
 
 // PATCH : met à jour un compte entreprise (licences, contact, etc.)
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT]);
     const body = await req.json();
     const { nombreUtilisateursInclus, contactEmail, contactTelephone, nom } = body ?? {};
@@ -20,7 +21,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (typeof nom === "string") data.nom = nom;
 
     const enterprise = await prisma.enterpriseAccount.update({
-      where: { id: params.id },
+      where: { id },
       data
     });
 

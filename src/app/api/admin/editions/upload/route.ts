@@ -6,10 +6,6 @@ import { EditionType } from "@prisma/client";
 import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 import { convertPdfToImages, createEditionInDb } from "@/modules/editions/editionUploadService";
 
-export const config = {
-  api: { bodyParser: { sizeLimit: "100mb" } }
-};
-
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUserFromRequest(req);

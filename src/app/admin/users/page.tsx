@@ -26,7 +26,8 @@ async function updateUserRole(formData: FormData) {
   const isSuperAdmin = currentUser.role === UserRole.SUPER_ADMIN;
   
   // Si on essaie d'assigner un rôle staff (SUPER_ADMIN, FACTURATION, SUPPORT)
-  const isTargetStaffRole = [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT].includes(newRole);
+  const staffRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT];
+  const isTargetStaffRole = staffRoles.includes(newRole);
   
   if (isTargetStaffRole && !isSuperAdmin) {
     throw new Error("Seul un Super Admin peut assigner des rôles staff.");

@@ -19,7 +19,7 @@ export default function AdminDashboardPage() {
           <Card className="space-y-3">
             <h2 className="text-lg font-semibold text-slate-900">Abonnés</h2>
             <p className="text-sm text-slate-600">Nombre d’abonnés actifs (TODO : données réelles).</p>
-            <Link href="/admin/subscribers">
+            <Link href="/admin/users">
               <ButtonSecondary className="w-full justify-center" disabled>
                 Voir la liste (TODO)
               </ButtonSecondary>

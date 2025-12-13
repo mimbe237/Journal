@@ -5,12 +5,6 @@ import { fileStorageProvider } from "@/services/fileStorage";
 import { sendManualSubscriptionReceivedEmail } from "@/modules/notifications/notificationService";
 import path from "path";
 
-export const config = {
-  api: {
-    bodyParser: false, // Disable built-in parsing to handle FormData manually if needed (though Next.js App Router handles it differently)
-  },
-};
-
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();

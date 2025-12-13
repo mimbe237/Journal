@@ -14,7 +14,7 @@ export default async function AdminLayout({
     redirect("/auth/login");
   }
 
-  const allowedRoles = [
+  const allowedRoles: UserRole[] = [
     UserRole.SUPER_ADMIN,
     UserRole.FACTURATION,
     UserRole.SUPPORT,

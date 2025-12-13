@@ -14,21 +14,21 @@ async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const allowedRoles = [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT];
+  const allowedRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT];
   if (!allowedRoles.includes(user.role)) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
-  const justificatifId = params.id;
+  const { id: justificatifId } = await params;
   
-  const justificatif = await prisma.justificatif.findUnique({
+  const justificatif = await prisma.documentJustificatif.findUnique({
     where: { id: justificatifId }
   });
 

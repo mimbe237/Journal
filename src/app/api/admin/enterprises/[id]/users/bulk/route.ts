@@ -5,10 +5,10 @@ import { requireUserWithRoles } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/config/prisma";
 
 // Création en masse d'utilisateurs pour un compte entreprise
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: enterpriseId } = await params;
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN]);
-    const enterpriseId = params.id;
     const body = await req.json();
     const users = Array.isArray(body?.users) ? body.users : [];
 
@@ -26,9 +26,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     const toCreate = users
-      .filter((u) => u?.email && u?.nom)
+      .filter((u: any) => u?.email && u?.nom)
       .slice(0, licencesDisponibles)
-      .map((u) => ({
+      .map((u: any) => ({
         nom: u.nom,
         email: u.email.toLowerCase(),
         motDePasseHash: "placeholder", // l’admin devra définir un flux d’invitation/réinitialisation
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             email: data.email,
             role: "UTILISATEUR_ENTREPRISE",
             enterpriseAccountId: data.enterpriseAccountId,
-            fonction: data.fonction,
+            // fonction: data.fonction, // Champ non existant dans le schéma User actuel
             // TODO: générer et envoyer un mot de passe/invitation réel
             motDePasseHash: data.motDePasseHash
           }

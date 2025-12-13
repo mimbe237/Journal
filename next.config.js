@@ -3,7 +3,6 @@ const nextConfig = {
   reactStrictMode: true,
   typedRoutes: true,
   // Optimisations de build et runtime
-  swcMinify: true,
   compress: true,
   productionBrowserSourceMaps: false,
   // Image optimization
@@ -16,12 +15,6 @@ const nextConfig = {
   onDemandEntries: {
     maxInactiveAge: 60 * 1000,
     pagesBufferLength: 5
-  },
-  // Turbopack optimizations (dev mode)
-  experimental: {
-    turbopack: {
-      resolveAlias: {}
-    }
   }
 };
 

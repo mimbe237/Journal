@@ -1,4 +1,13 @@
 import { LocalFileStorageProvider } from "./LocalFileStorageProvider";
+import { S3FileStorageProvider } from "./S3FileStorageProvider";
+import { IFileStorageProvider } from "./IFileStorageProvider";
 
-// Provider par défaut. TODO: le rendre configurable (S3, GCS...) via env.
-export const fileStorageProvider = new LocalFileStorageProvider();
+let provider: IFileStorageProvider;
+
+if (process.env.STORAGE_PROVIDER === "s3") {
+  provider = new S3FileStorageProvider();
+} else {
+  provider = new LocalFileStorageProvider();
+}
+
+export const fileStorageProvider = provider;

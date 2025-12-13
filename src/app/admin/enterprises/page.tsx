@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Input, Label } from '@/components/ui/FormControls';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/States';
 
 interface EnterpriseAccount {
