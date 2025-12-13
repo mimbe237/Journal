@@ -53,12 +53,19 @@ export default function AdminEditionsPage() {
       if (!presignRes.ok) throw new Error(presignData.error || "Erreur pré-signature");
 
       // 2. Upload PDF directly to R2
-      const uploadRes = await fetch(presignData.url, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type }
-      });
-      if (!uploadRes.ok) throw new Error("Erreur lors de l'upload vers le stockage");
+      try {
+        const uploadRes = await fetch(presignData.url, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": file.type }
+        });
+        if (!uploadRes.ok) throw new Error("Erreur lors de l'upload vers le stockage");
+      } catch (err: any) {
+        if (err.message === "Failed to fetch") {
+          throw new Error("Erreur CORS : Configurez les règles CORS sur votre bucket R2.");
+        }
+        throw err;
+      }
 
       // 3. Send metadata to backend for processing
       setCurrentStep("conversion");
