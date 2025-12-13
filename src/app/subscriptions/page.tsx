@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { ButtonPrimary } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SubscriptionType } from "@prisma/client";
@@ -233,9 +232,9 @@ export default function SubscriptionsPage() {
         <div className="mt-12 text-center">
           <p className="text-slate-400">
             Besoin d'aide ?{" "}
-            <Link href="/contact" className="text-emerald-400 underline hover:text-emerald-300">
+            <a href="mailto:support@journal.com" className="text-emerald-400 underline hover:text-emerald-300">
               Contactez-nous
-            </Link>
+            </a>
           </p>
         </div>
       </div>

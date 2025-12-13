@@ -5,6 +5,9 @@ import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 export async function GET(req: NextRequest) {
   try {
     const user = await getCurrentUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    }
     
     return NextResponse.json({
       user: {

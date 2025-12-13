@@ -39,6 +39,7 @@ export async function GET(
   try {
     const stream = await fileStorageProvider.getFileStream({ path: justificatif.cheminFichier });
     const buffer = await streamToBuffer(stream);
+    const body = new Uint8Array(buffer);
     
     const ext = justificatif.nomFichier.split('.').pop()?.toLowerCase();
     let contentType = "application/octet-stream";
@@ -46,7 +47,7 @@ export async function GET(
     else if (["jpg", "jpeg"].includes(ext || "")) contentType = "image/jpeg";
     else if (ext === "png") contentType = "image/png";
 
-    return new NextResponse(buffer, {
+    return new NextResponse(body, {
       headers: {
         "Content-Type": contentType,
         "Content-Disposition": `inline; filename="${justificatif.nomFichier}"`

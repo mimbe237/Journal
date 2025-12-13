@@ -10,7 +10,11 @@ export async function GET(req: NextRequest) {
     if (!user) {
       throw new Error("Non authentifié");
     }
-    if ([UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT].includes(user.role)) {
+    const isStaff =
+      user.role === UserRole.SUPER_ADMIN ||
+      user.role === UserRole.FACTURATION ||
+      user.role === UserRole.SUPPORT;
+    if (isStaff) {
       return NextResponse.json({ subscription: null }, { status: 200 });
     }
 

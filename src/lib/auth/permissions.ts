@@ -269,7 +269,11 @@ export function isEnterpriseAdmin(role: UserRole): boolean {
  * Check if role is staff (can access admin panel)
  */
 export function isStaff(role: UserRole): boolean {
-  return [UserRole.FACTURATION, UserRole.SUPPORT, UserRole.SUPER_ADMIN].includes(role);
+  return (
+    role === UserRole.FACTURATION ||
+    role === UserRole.SUPPORT ||
+    role === UserRole.SUPER_ADMIN
+  );
 }
 
 /**

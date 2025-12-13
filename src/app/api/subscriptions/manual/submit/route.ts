@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
         destinationPath: relativePath
       });
 
-      const justificatif = await prisma.justificatif.create({
+      const justificatif = await prisma.documentJustificatif.create({
         data: {
           submissionId: submission.id,
           type: typeJustif,

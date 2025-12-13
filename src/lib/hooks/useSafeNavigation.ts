@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 
@@ -9,7 +10,7 @@ export function useSafeNavigation() {
   const router = useRouter();
 
   const navigate = useCallback(
-    (href: string) => {
+    (href: Route) => {
       try {
         router.push(href);
       } catch (error) {

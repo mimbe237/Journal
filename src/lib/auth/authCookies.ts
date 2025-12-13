@@ -1,12 +1,13 @@
 import type { NextRequest } from "next/server";
 import type { NextApiRequest, NextApiResponse } from "next";
-import type { ResponseCookies } from "next/headers";
+
+type ResponseCookiesLike = { set: (...args: any[]) => any };
 
 // Nom unique du cookie d'auth utilisé partout (middleware, API, clients).
 export const AUTH_COOKIE_NAME = "journal_auth";
 const AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 jours
 
-type ResponseWithCookies = { cookies: ResponseCookies } | NextApiResponse;
+type ResponseWithCookies = { cookies: ResponseCookiesLike } | NextApiResponse;
 
 // Pose un cookie httpOnly avec le JWT. Secure seulement en prod.
 export function setAuthCookie(res: ResponseWithCookies, token: string) {

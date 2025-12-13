@@ -60,7 +60,7 @@ export async function processSubscriptionExpiryReminders(dateReference: Date): P
             subscriptionId: sub.id,
             enterpriseAccountId: sub.enterpriseAccountId ?? null,
             daysBefore: days,
-            dateFin: sub.dateFin
+            dateFin: sub.dateFin.toISOString()
           }
         });
       } catch (err: any) {
