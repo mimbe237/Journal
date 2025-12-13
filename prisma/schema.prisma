@@ -1,0 +1,355 @@
+/// Schéma Prisma complet pour la plateforme d'abonnement du journal numérique.
+/// Convention : noms lisibles côté code, tables en snake_case via @@map pour propreté SQL.
+
+// ----- Générateur & datasource -----
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----- Enums -----
+
+/// Rôles utilisateurs (B2C, admin, et comptes liés à une entreprise).
+enum UserRole {
+  ABONNE
+  UTILISATEUR_ENTREPRISE
+  COMPTE_ENTREPRISE
+  FACTURATION
+  SUPPORT
+  SUPER_ADMIN
+}
+
+/// Types d'abonnement disponibles.
+enum SubscriptionType {
+  MENSUEL
+  ANNUEL
+  OFFERT
+  PROMOTIONNEL
+  TEST
+}
+
+/// Statuts d'abonnement.
+enum SubscriptionStatus {
+  ACTIF
+  EXPIRE
+  SUSPENDU
+}
+
+/// Source de l'abonnement (utile pour la BI / reporting).
+enum SubscriptionSource {
+  ONLINE
+  OFFLINE
+  CODE_PROMO
+  PARTENARIAT
+  AUTRE
+}
+
+/// Typologie d'édition du journal.
+enum EditionType {
+  QUOTIDIEN
+  HEBDOMADAIRE
+  HORS_SERIE
+  SPECIAL
+}
+
+/// Type de remise d'un code promotionnel.
+enum DiscountType {
+  POURCENTAGE
+  MONTANT_FIXE
+}
+
+/// Types d'événements système (audit / journalisation).
+enum SystemEventType {
+  CONNEXION
+  LECTURE_EDITION
+  TENTATIVE_TELECHARGEMENT
+  CHANGEMENT_IP
+  REMBOURSEMENT
+  RENOUVELLEMENT_ABONNEMENT
+  CREATION_ABONNEMENT
+  ANNULATION_ABONNEMENT
+  AJUSTEMENT_ABONNEMENT
+  CREATION_COMPTE_ENTREPRISE
+  MODIFICATION_COMPTE_ENTREPRISE
+  AJOUT_UTILISATEUR_ENTREPRISE
+  SUPPRESSION_UTILISATEUR_ENTREPRISE
+  CREATION_CODE_PROMO
+  MODIFICATION_CODE_PROMO
+  UTILISATION_CODE_PROMO
+  CREATION_EDITION
+  CONVERSION_EDITION
+  RAPPEL_EXPIRATION_ABONNEMENT
+  EXECUTION_RAPPELS_EXPIRATION
+  VALIDATION_SOUMISSION_ABONNEMENT
+  REJET_SOUMISSION_ABONNEMENT
+  AUTRE
+}
+
+/// Statut des soumissions manuelles d'abonnement.
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Type de document justificatif.
+enum JustificatifType {
+  RECU_CAISSE
+  BULLETIN_ABONNEMENT
+  FACTURE
+  AUTRE
+}
+
+/// Statuts de transaction de paiement (préparation future PSP).
+enum PaymentStatus {
+  SUCCES
+  ECHEC
+  EN_ATTENTE
+}
+
+// ----- Modèles -----
+
+/// Utilisateurs finaux et administrateurs. Peut appartenir à un compte entreprise.
+model User {
+  id                String              @id @default(cuid())
+  nom               String
+  email             String              @unique
+  motDePasseHash    String
+  role              UserRole
+  dateCreation      DateTime            @default(now())
+  dernierLoginAt    DateTime?
+  enterpriseAccountId String?
+
+  enterpriseAccount EnterpriseAccount?  @relation(fields: [enterpriseAccountId], references: [id])
+  subscriptions     Subscription[]
+  systemEvents      SystemEvent[]
+  readingSessions   ReadingSession[]
+  paymentTransactions PaymentTransaction[]
+
+  @@map("users")
+}
+
+/// Compte entreprise B2B permettant plusieurs utilisateurs.
+model EnterpriseAccount {
+  id                     String         @id @default(cuid())
+  nom                    String
+  contactEmail           String
+  contactTelephone       String?
+  nombreUtilisateursInclus Int
+  dateCreation           DateTime       @default(now())
+  
+  // Informations de facturation
+  adresseFacturation     String?
+  numeroSiret            String?
+  
+  // Gouvernance et sécurité
+  ssoEnabled             Boolean        @default(false)
+  ssoProvider            String?        // "google" | "microsoft" | "saml"
+  ssoConfig              Json?          // Configuration SSO (clientId, tenantId, etc.)
+  domaineAutorise        String?        // Domaine email autorisé (ex: @entreprise.com)
+  restrictionIp          Boolean        @default(false)
+  plagesIpAutorisees     String[]       // Liste des plages IP autorisées
+  
+  // Niveau de service
+  niveauSla              String?        // "standard" | "premium" | "enterprise"
+  contactDedieEmail      String?
+  contactDedieTelephone  String?
+  
+  // Statut
+  actif                  Boolean        @default(true)
+  notes                  String?        // Notes internes admin
+
+  users                  User[]
+  subscriptions          Subscription[]
+  invitations            EnterpriseInvitation[]
+  submissions            ManualSubscriptionSubmission[]
+
+  @@map("enterprise_accounts")
+}
+
+/// Invitation pour rejoindre un compte entreprise.
+model EnterpriseInvitation {
+  id                   String         @id @default(cuid())
+  enterpriseAccountId  String
+  email                String
+  role                 String         @default("UTILISATEUR_ENTREPRISE") // COMPTE_ENTREPRISE ou UTILISATEUR_ENTREPRISE
+  token                String         @unique
+  expireAt             DateTime
+  acceptedAt           DateTime?
+  createdAt            DateTime       @default(now())
+
+  enterpriseAccount    EnterpriseAccount @relation(fields: [enterpriseAccountId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([enterpriseAccountId])
+  @@map("enterprise_invitations")
+}
+
+/// Abonnement individuel ou entreprise, relié à un utilisateur OU à un compte entreprise.
+model Subscription {
+  id                   String               @id @default(cuid())
+  type                 SubscriptionType
+  statut               SubscriptionStatus
+  dateDebut            DateTime
+  dateFin              DateTime
+  montant              Decimal              @db.Decimal(10, 2)
+  devise               String               @db.VarChar(3)
+  source               SubscriptionSource
+  submissionId         String?              // Référence si créée via soumission manuelle
+  userId               String?
+  enterpriseAccountId  String?
+  promoCodeId          String?
+
+  user                User?                 @relation(fields: [userId], references: [id])
+  enterpriseAccount   EnterpriseAccount?    @relation(fields: [enterpriseAccountId], references: [id])
+  promoCode           PromoCode?            @relation(fields: [promoCodeId], references: [id])
+  submission          ManualSubscriptionSubmission? @relation(fields: [submissionId], references: [id])
+  paymentTransactions PaymentTransaction[]
+
+  @@index([userId, statut, dateFin])
+  @@index([submissionId])
+  @@index([enterpriseAccountId, statut, dateFin])
+  @@map("subscriptions")
+}
+
+/// Édition du journal (fichier PDF privé sur serveur ou bucket).
+model Edition {
+  id                String            @id @default(cuid())
+  titre             String
+  datePublication   DateTime
+  type              EditionType
+  cheminInternePdf  String
+  cheminImageUne    String?
+  nombrePages       Int?
+  createdAt         DateTime          @default(now())
+
+  readingSessions   ReadingSession[]
+
+  @@map("editions")
+}
+
+/// Codes promotionnels pour les campagnes marketing.
+model PromoCode {
+  id                          String          @id @default(cuid())
+  code                        String          @unique
+  typeRemise                  DiscountType
+  valeurRemise                Decimal         @db.Decimal(10, 2)
+  dateDebut                   DateTime
+  dateFin                     DateTime
+  nombreUtilisationsMax       Int?
+  nombreUtilisationsActuel    Int             @default(0)
+  actif                       Boolean         @default(true)
+  createdAt                   DateTime        @default(now())
+
+  subscriptions               Subscription[]
+
+  @@index([actif, dateFin])
+  @@map("promo_codes")
+}
+
+/// Session de lecture d'une édition (pour statistiques et détection de fraude).
+model ReadingSession {
+  id              String    @id @default(cuid())
+  userId          String
+  editionId       String
+  pageDebut       Int
+  pageFin         Int
+  dateHeureDebut  DateTime
+  dateHeureFin    DateTime
+  adresseIp       String
+  userAgent       String
+
+  user    User    @relation(fields: [userId], references: [id])
+  edition Edition @relation(fields: [editionId], references: [id])
+
+  @@index([userId, editionId, dateHeureDebut])
+  @@map("reading_sessions")
+}
+
+/// Événements système/audit (connexion, lecture, changements sensibles, etc.).
+model SystemEvent {
+  id             String           @id @default(cuid())
+  typeEvenement  SystemEventType
+  userId         String?
+  ip             String?
+  createdAt      DateTime         @default(now())
+  meta           Json
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([typeEvenement, createdAt])
+  @@index([userId, createdAt])
+  @@map("system_events")
+}
+
+/// Préparation à l'intégration PSP : trace les transactions liées aux abonnements.
+model PaymentTransaction {
+  id                String            @id @default(cuid())
+  userId            String?
+  subscriptionId    String
+  montant           Decimal           @db.Decimal(10, 2)
+  devise            String            @db.VarChar(3)
+  statut            PaymentStatus
+  referenceExterne  String?           @unique
+  createdAt         DateTime          @default(now())
+
+  user         User?          @relation(fields: [userId], references: [id])
+  subscription Subscription   @relation(fields: [subscriptionId], references: [id])
+
+  @@index([subscriptionId, statut, createdAt])
+  @@map("payment_transactions")
+}
+
+/// Soumissions manuelles d'abonnement (papier, en personne, etc.).
+model ManualSubscriptionSubmission {
+  id                String              @id @default(cuid())
+  email             String
+  nom               String
+  entrepriseId      String?             // NULL si abonné individuel
+  type              SubscriptionType    // MENSUEL, ANNUEL, etc.
+  periode           String              // "2025-01", "2025-12-20"
+  montant           Decimal             @db.Decimal(10, 2)
+  devise            String              @default("XOF") @db.VarChar(3)
+  
+  // Statut du processus
+  statut            SubmissionStatus    @default(PENDING)
+  motifRejet        String?             // Raison du rejet
+  
+  // Métadonnées
+  soumisA           DateTime            @default(now())
+  validePar         String?             // ID de l'utilisateur FACTURATION ou SUPPORT
+  valideA           DateTime?           // Timestamp de validation/rejet
+  
+  // Relations
+  justificatifs     DocumentJustificatif[]
+  subscriptions     Subscription[]      // Peut créer 1+ abonnements (renouvellements, etc.)
+  
+  enterprise        EnterpriseAccount?  @relation(fields: [entrepriseId], references: [id], onDelete: SetNull)
+  
+  @@index([email, statut])
+  @@index([statut, soumisA])
+  @@index([entrepriseId])
+  @@map("manual_subscriptions")
+}
+
+/// Documents justificatifs (reçus, bulletins, etc.) associés à une soumission.
+model DocumentJustificatif {
+  id                String              @id @default(cuid())
+  submissionId      String
+  type              JustificatifType    // RECU_CAISSE, BULLETIN_ABONNEMENT, etc.
+  nomFichier        String              // Nom original du fichier
+  cheminFichier     String              // Chemin de stockage
+  tailleMo          Float               // Taille en MB
+  
+  uploadA           DateTime            @default(now())
+  
+  submission        ManualSubscriptionSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  
+  @@index([submissionId])
+  @@map("justificatifs")
+}
+

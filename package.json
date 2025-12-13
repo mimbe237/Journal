@@ -1,0 +1,40 @@
+{
+  "name": "digital-journal-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "prisma:generate": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@types/mime-types": "^3.0.1",
+    "bcrypt": "latest",
+    "clsx": "latest",
+    "date-fns": "latest",
+    "jsonwebtoken": "latest",
+    "lightningcss": "^1.30.2",
+    "mime-types": "^3.0.2",
+    "next": "^16.0.10",
+    "react": "latest",
+    "react-dom": "latest",
+    "resend": "^6.6.0",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/bcrypt": "latest",
+    "@types/jsonwebtoken": "latest",
+    "@types/node": "latest",
+    "@types/react": "19.2.7",
+    "autoprefixer": "latest",
+    "eslint": "latest",
+    "postcss": "latest",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "latest"
+  }
+}
