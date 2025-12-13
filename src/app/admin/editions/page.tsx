@@ -42,15 +42,32 @@ export default function AdminEditionsPage() {
     setCurrentStep("upload");
 
     try {
+      // 1. Get Presigned URL for PDF
+      setCurrentStep("upload");
+      const presignRes = await fetch("/api/admin/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, contentType: file.type })
+      });
+      const presignData = await presignRes.json();
+      if (!presignRes.ok) throw new Error(presignData.error || "Erreur pré-signature");
+
+      // 2. Upload PDF directly to R2
+      const uploadRes = await fetch(presignData.url, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type }
+      });
+      if (!uploadRes.ok) throw new Error("Erreur lors de l'upload vers le stockage");
+
+      // 3. Send metadata to backend for processing
+      setCurrentStep("conversion");
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("fileKey", presignData.key); // Send the key, not the file
       if (coverImage) formData.append("coverImage", coverImage);
       formData.append("titre", titre);
       formData.append("type", type);
       formData.append("datePublication", datePublication);
-
-      // Directly switch to conversion state while the upload is in flight
-      setCurrentStep("conversion");
 
       const res = await fetch("/api/admin/editions/upload", {
         method: "POST",
@@ -58,7 +75,7 @@ export default function AdminEditionsPage() {
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Upload échoué");
+      if (!res.ok) throw new Error(json?.error || "Traitement échoué");
 
       setCurrentStep("database");
 
