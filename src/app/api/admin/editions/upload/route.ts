@@ -6,6 +6,10 @@ import { EditionType } from "@prisma/client";
 import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 import { convertPdfToImages, createEditionInDb } from "@/modules/editions/editionUploadService";
 
+// Next.js App Router handles body parsing automatically.
+// The 'config' export is deprecated and removed in newer versions.
+// Limits are now handled by the platform (Vercel) or middleware.
+
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUserFromRequest(req);

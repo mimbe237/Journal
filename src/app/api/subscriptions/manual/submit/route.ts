@@ -5,6 +5,9 @@ import { fileStorageProvider } from "@/services/fileStorage";
 import { sendManualSubscriptionReceivedEmail } from "@/modules/notifications/notificationService";
 import path from "path";
 
+// Next.js App Router handles body parsing automatically.
+// The 'config' export is deprecated and removed in newer versions.
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
