@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
-export default function FakePaymentPage() {
+function FakePaymentContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const sessionId = searchParams.get("sessionId");
@@ -70,5 +70,13 @@ export default function FakePaymentPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function FakePaymentPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-white">Chargement...</div>}>
+      <FakePaymentContent />
+    </Suspense>
   );
 }
