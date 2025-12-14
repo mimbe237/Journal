@@ -148,11 +148,11 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
     const isEnterprise = Boolean(row.enterprise);
     const text = isEnterprise
       ? row.role === UserRole.COMPTE_ENTREPRISE
-        ? "Admin entreprise"
-        : "Utilisateur entreprise"
+        ? "Admin Ent."
+        : "Util. Ent."
       : "Individuel";
     const palette = isEnterprise ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700";
-    return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${palette}`}>{text}</span>;
+    return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${palette} whitespace-nowrap`}>{text}</span>;
   };
 
   const isSuperAdmin = currentUser.role === UserRole.SUPER_ADMIN;
