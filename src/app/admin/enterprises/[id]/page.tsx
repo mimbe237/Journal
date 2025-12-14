@@ -59,6 +59,7 @@ export default function EnterpriseDetailPage({ params }: { params: Promise<{ id:
   const [activeTab, setActiveTab] = useState<'users' | 'subscriptions' | 'settings' | 'security'>('users');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddSubscriptionModal, setShowAddSubscriptionModal] = useState(false);
 
   useEffect(() => {
     fetchEnterprise();
@@ -226,16 +227,20 @@ export default function EnterpriseDetailPage({ params }: { params: Promise<{ id:
       </div>
 
       {/* Tab Content */}
-          {activeTab === 'users' && (
-            <UsersTab 
-              enterprise={enterprise}
-              onInvite={() => setShowInviteModal(true)}
-              onRemoveUser={handleRemoveUser}
-              onCancelInvitation={handleCancelInvitation}
-              onValidateInvitation={handleValidateInvitation}
-            />
-          )}      {activeTab === 'subscriptions' && (
-        <SubscriptionsTab enterprise={enterprise} />
+      {activeTab === 'users' && (
+        <UsersTab 
+          enterprise={enterprise}
+          onInvite={() => setShowInviteModal(true)}
+          onRemoveUser={handleRemoveUser}
+          onCancelInvitation={handleCancelInvitation}
+          onValidateInvitation={handleValidateInvitation}
+        />
+      )}
+      {activeTab === 'subscriptions' && (
+        <SubscriptionsTab 
+          enterprise={enterprise} 
+          onAdd={() => setShowAddSubscriptionModal(true)} 
+        />
       )}
 
       {activeTab === 'security' && (
@@ -254,6 +259,16 @@ export default function EnterpriseDetailPage({ params }: { params: Promise<{ id:
           onClose={() => setShowInviteModal(false)}
           onInvited={() => {
             setShowInviteModal(false);
+            fetchEnterprise();
+          }}
+        />
+      )}
+      {showAddSubscriptionModal && (
+        <AddSubscriptionModal
+          enterpriseId={id}
+          onClose={() => setShowAddSubscriptionModal(false)}
+          onCreated={() => {
+            setShowAddSubscriptionModal(false);
             fetchEnterprise();
           }}
         />
@@ -414,12 +429,12 @@ function UsersTab({
 // ============================================
 // SUBSCRIPTIONS TAB
 // ============================================
-function SubscriptionsTab({ enterprise }: { enterprise: EnterpriseAccount }) {
+function SubscriptionsTab({ enterprise, onAdd }: { enterprise: EnterpriseAccount; onAdd: () => void }) {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Abonnements</h3>
-        <Button>+ Nouvel abonnement</Button>
+        <Button onClick={onAdd}>+ Nouvel abonnement</Button>
       </div>
 
       <Card className="overflow-hidden">
@@ -779,6 +794,199 @@ function InviteUserModal({
             </Button>
             <Button type="submit" disabled={loading || licensesRemaining <= 0}>
               {loading ? 'Envoi...' : 'Envoyer l\'invitation'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// ADD SUBSCRIPTION MODAL
+// ============================================
+function AddSubscriptionModal({
+  enterpriseId,
+  onClose,
+  onCreated
+}: {
+  enterpriseId: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const today = new Date();
+  const defaultStart = today.toISOString().split('T')[0];
+  const defaultEnd = new Date(today.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  const [form, setForm] = useState({
+    type: 'ANNUEL',
+    dateDebut: defaultStart,
+    dateFin: defaultEnd,
+    montant: '0',
+    devise: 'FCFA',
+    source: 'OFFLINE',
+    promoCodeId: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    const montantNumber = Number(form.montant);
+    const startDate = new Date(form.dateDebut);
+    const endDate = new Date(form.dateFin);
+
+    if (Number.isNaN(montantNumber) || montantNumber < 0) {
+      setError('Montant invalide');
+      return;
+    }
+    if (!(startDate < endDate)) {
+      setError('La date de fin doit être postérieure à la date de début');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/subscriptions/create-for-enterprise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enterpriseAccountId: enterpriseId,
+          type: form.type,
+          dateDebut: form.dateDebut,
+          dateFin: form.dateFin,
+          montant: montantNumber,
+          devise: form.devise,
+          source: form.source,
+          promoCodeId: form.promoCodeId || undefined
+        })
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Erreur lors de la création de l'abonnement");
+      }
+
+      onCreated();
+    } catch (err: any) {
+      setError(err?.message || 'Erreur lors de la création');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+        <div className="p-6 border-b">
+          <h2 className="text-xl font-semibold">Nouvel abonnement</h2>
+          <p className="text-sm text-gray-500 mt-1">Création manuelle pour le compte entreprise</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && (
+            <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <select
+                value={form.type}
+                onChange={(e) => setForm({ ...form, type: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="MENSUEL">Mensuel</option>
+                <option value="ANNUEL">Annuel</option>
+                <option value="OFFERT">Offert</option>
+                <option value="PROMOTIONNEL">Promotionnel</option>
+                <option value="TEST">Test</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
+              <select
+                value={form.source}
+                onChange={(e) => setForm({ ...form, source: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="OFFLINE">Offline</option>
+                <option value="ONLINE">Online</option>
+                <option value="CODE_PROMO">Code promo</option>
+                <option value="PARTENARIAT">Partenariat</option>
+                <option value="AUTRE">Autre</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date début</label>
+              <input
+                type="date"
+                value={form.dateDebut}
+                onChange={(e) => setForm({ ...form, dateDebut: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date fin</label>
+              <input
+                type="date"
+                value={form.dateFin}
+                onChange={(e) => setForm({ ...form, dateFin: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Montant</label>
+              <input
+                type="number"
+                min="0"
+                value={form.montant}
+                onChange={(e) => setForm({ ...form, montant: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Devise</label>
+              <input
+                type="text"
+                value={form.devise}
+                onChange={(e) => setForm({ ...form, devise: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Code promo (optionnel)</label>
+            <input
+              type="text"
+              value={form.promoCodeId}
+              onChange={(e) => setForm({ ...form, promoCodeId: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg"
+              placeholder="ID du code promo"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
+              Annuler
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Création...' : 'Créer'}
             </Button>
           </div>
         </form>

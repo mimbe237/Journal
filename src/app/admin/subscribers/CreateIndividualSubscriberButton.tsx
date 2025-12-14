@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { ButtonPrimary } from "@/components/ui/Button";
-import { UserRole } from "@prisma/client";
-import { createUser } from "./actions";
+import { createIndividualSubscriber } from "./actions";
 
-export function CreateUserButton() {
+export function CreateIndividualSubscriberButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,13 +15,13 @@ export function CreateUserButton() {
     setError(null);
 
     const formData = new FormData(e.currentTarget);
-    
+
     try {
-      await createUser(formData);
+      await createIndividualSubscriber(formData);
       setIsOpen(false);
-      alert("Utilisateur créé et invité par email !");
+      alert("Abonné créé et invité par email.");
     } catch (err: any) {
-      setError(err.message || "Erreur lors de la création");
+      setError(err?.message || "Erreur lors de la création");
     } finally {
       setLoading(false);
     }
@@ -31,17 +30,22 @@ export function CreateUserButton() {
   return (
     <>
       <ButtonPrimary onClick={() => setIsOpen(true)}>
-        + Nouvel Utilisateur
+        + Abonné individuel
       </ButtonPrimary>
 
       {isOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-semibold text-lg">Créer un utilisateur</h3>
-              <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <div>
+                <h3 className="font-semibold text-lg">Créer un abonné individuel</h3>
+                <p className="text-sm text-slate-500">Compte standard (rôle ABONNE)</p>
+              </div>
+              <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-600">
+                ✕
+              </button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {error && (
                 <div className="bg-red-50 text-red-600 text-sm p-3 rounded">
@@ -51,38 +55,25 @@ export function CreateUserButton() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                <input 
-                  name="email" 
-                  type="email" 
-                  required 
+                <input
+                  name="email"
+                  type="email"
+                  required
                   className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nom (Optionnel)</label>
-                <input 
-                  name="nom" 
-                  type="text" 
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nom (optionnel)</label>
+                <input
+                  name="nom"
+                  type="text"
                   className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Rôle</label>
-                <select 
-                  name="role" 
-                  className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
-                >
-                  <option value="SUPPORT">Support</option>
-                  <option value="FACTURATION">Facturation</option>
-                  <option value="SUPER_ADMIN">Super Admin</option>
-                </select>
-                <p className="text-xs text-slate-500 mt-1">Réservé aux comptes Staff.</p>
               </div>
 
               <div className="pt-2 flex justify-end gap-3">
-                <button 
+                <button
                   type="button"
                   onClick={() => setIsOpen(false)}
                   className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded"
@@ -90,7 +81,7 @@ export function CreateUserButton() {
                   Annuler
                 </button>
                 <ButtonPrimary type="submit" disabled={loading}>
-                  {loading ? "Création..." : "Créer & Inviter"}
+                  {loading ? "Création..." : "Créer l'abonné"}
                 </ButtonPrimary>
               </div>
             </form>
