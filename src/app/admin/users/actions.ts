@@ -79,6 +79,8 @@ export async function updateUserRoleWithAuth(formData: FormData) {
 
   const userId = formData.get("userId")?.toString();
   const newRole = formData.get("newRole")?.toString() as UserRole;
+  const newName = formData.get("newName")?.toString();
+  const newEmail = formData.get("newEmail")?.toString();
   const newPassword = formData.get("newPassword")?.toString();
   const adminPassword = formData.get("adminPassword")?.toString();
 
@@ -129,13 +131,26 @@ export async function updateUserRoleWithAuth(formData: FormData) {
   const DEFAULT_ADMIN_EMAIL = "admin@journal.com"; 
   
   if (targetUser.email === DEFAULT_ADMIN_EMAIL) {
-    return { error: "Le compte Super Admin par défaut ne peut pas être modifié." };
+    if (newRole !== targetUser.role) {
+      return { error: "Le rôle du Super Admin par défaut ne peut pas être modifié." };
+    }
+  }
+
+  // Check if email is already taken if it's changed
+  if (newEmail && newEmail !== targetUser.email) {
+    const existing = await prisma.user.findUnique({ where: { email: newEmail } });
+    if (existing) {
+      return { error: "Cet email est déjà utilisé par un autre compte." };
+    }
   }
 
   // 4. Perform Update
   try {
     const updateData: any = { role: newRole };
     
+    if (newName !== undefined) updateData.nom = newName;
+    if (newEmail !== undefined) updateData.email = newEmail;
+
     if (newPassword) {
       const saltRounds = 12;
       updateData.motDePasseHash = await bcrypt.hash(newPassword, saltRounds);

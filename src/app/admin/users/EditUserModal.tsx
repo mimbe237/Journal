@@ -18,16 +18,21 @@ interface EditUserModalProps {
 export function EditUserModal({ user, allRoles }: EditUserModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole>(user.role);
+  const [name, setName] = useState(user.nom || "");
+  const [email, setEmail] = useState(user.email);
   const [newPassword, setNewPassword] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const isSubscriber = ["ABONNE", "COMPTE_ENTREPRISE", "UTILISATEUR_ENTREPRISE"].includes(user.role);
+  const isDefaultAdmin = user.email === "admin@journal.com";
 
   const handleOpen = () => {
     setIsOpen(true);
     setSelectedRole(user.role);
+    setName(user.nom || "");
+    setEmail(user.email);
     setNewPassword("");
     setAdminPassword("");
     setError(null);
@@ -45,6 +50,8 @@ export function EditUserModal({ user, allRoles }: EditUserModalProps) {
     const formData = new FormData();
     formData.append("userId", user.id);
     formData.append("newRole", selectedRole);
+    formData.append("newName", name);
+    formData.append("newEmail", email);
     if (newPassword) {
       formData.append("newPassword", newPassword);
     }
@@ -78,21 +85,47 @@ export function EditUserModal({ user, allRoles }: EditUserModalProps) {
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl ring-1 ring-slate-900/5">
             <h2 className="mb-4 text-lg font-bold text-slate-900">Modifier l'utilisateur</h2>
             
-            <div className="mb-6 space-y-2 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
-              <p><span className="font-semibold text-slate-900">Nom :</span> {user.nom || "Sans nom"}</p>
-              <p><span className="font-semibold text-slate-900">Email :</span> {user.email}</p>
-            </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-4 rounded-lg bg-slate-50 p-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Nom
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    required
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
                   Rôle
                 </label>
-                {isSubscriber ? (
+                {isSubscriber || isDefaultAdmin ? (
                   <div className="py-1">
                     <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
                       {user.role}
                     </span>
+                    {isDefaultAdmin && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        Le rôle du super admin principal n'est pas modifiable.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <select
