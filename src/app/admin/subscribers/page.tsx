@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/currentUser";
 import { UserRole, SubscriptionStatus } from "@prisma/client";
 import { AddSubscriberModal } from "./AddSubscriberModal";
 import { ImportSubscribersModal } from "./ImportSubscribersModal";
+import { EditUserModal } from "../users/EditUserModal";
 
 const subscriberRoles: UserRole[] = [UserRole.ABONNE, UserRole.COMPTE_ENTREPRISE, UserRole.UTILISATEUR_ENTREPRISE];
 const allowedRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
@@ -287,13 +288,14 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
         </Card>
 
         <Card className="p-0 overflow-hidden">
-          <div className="grid grid-cols-[1.5fr_1.5fr_1fr_0.8fr_1.2fr_0.8fr] gap-3 border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 bg-slate-50">
+          <div className="grid grid-cols-[1.5fr_1.5fr_1fr_0.8fr_1.2fr_0.8fr_0.5fr] gap-3 border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 bg-slate-50">
             <div>Nom</div>
             <div>Email</div>
             <div>Entreprise</div>
             <div>Type</div>
             <div>Période</div>
             <div className="text-right">Statut</div>
+            <div className="text-right">Action</div>
           </div>
           <div className="divide-y divide-slate-100">
             {filtered.length === 0 ? (
@@ -302,7 +304,7 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
               filtered.map((row) => (
                 <div
                   key={row.id}
-                  className="grid grid-cols-[1.5fr_1.5fr_1fr_0.8fr_1.2fr_0.8fr] items-center gap-3 px-4 py-3 text-sm text-slate-800"
+                  className="grid grid-cols-[1.5fr_1.5fr_1fr_0.8fr_1.2fr_0.8fr_0.5fr] items-center gap-3 px-4 py-3 text-sm text-slate-800"
                 >
                   <div className="font-medium">
                     <Link href={`/admin/users/${row.id}`} className="hover:text-emerald-600 hover:underline">
@@ -339,6 +341,11 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
                   </div>
                   <div className="text-right">
                     {statusBadge(row.enterprise ? row.enterprise.latestStatus ?? row.latestStatus : row.latestStatus)}
+                  </div>
+                  <div className="text-right">
+                    {isSuperAdmin && (
+                      <EditUserModal user={row} allRoles={Object.values(UserRole)} />
+                    )}
                   </div>
                 </div>
               ))
