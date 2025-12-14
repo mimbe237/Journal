@@ -105,7 +105,7 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
         title: "Abonnements",
         items: [
           { href: "/admin/subscriptions", label: "Abonnements", icon: Icons.Subscriptions },
-          { href: "/admin/subscribers", label: "Abonnés", icon: Icons.Subscribers },
+          { href: "/admin/subscribers", label: "Tous les abonnés", icon: Icons.Subscribers },
         ]
       },
       {
@@ -152,7 +152,7 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
       {
         title: "Abonnés",
         items: [
-          { href: "/admin/subscribers", label: "Abonnés", icon: Icons.Subscribers },
+          { href: "/admin/subscribers", label: "Tous les abonnés", icon: Icons.Subscribers },
           { href: "/admin/subscribers/individuals", label: "Abonnés individuels", icon: Icons.Individual },
           { href: "/admin/enterprises", label: "Comptes entreprise", icon: Icons.Enterprise },
           { href: "/admin/subscriptions", label: "Abonnements", icon: Icons.Subscriptions },

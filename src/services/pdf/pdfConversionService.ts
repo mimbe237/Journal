@@ -2,9 +2,6 @@ import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import sharp from "sharp";
-import { createCanvas } from "canvas";
-// @ts-ignore
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
 export type PdfConversionResult = {
   imagesPaths: string[];
@@ -23,7 +20,6 @@ export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfC
   const storageRoot = process.env.PRIVATE_STORAGE_ROOT ?? path.join(process.cwd(), "storage");
   const prefix = params.filenamePrefix ?? "page-";
   const density = params.density ?? 180;
-  const scale = density / 72;
   const quality = params.quality ?? 92;
 
   const resolvedPdfPath = path.isAbsolute(params.pdfPath)
@@ -39,39 +35,24 @@ export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfC
 
   await fsp.mkdir(resolvedOutputDir, { recursive: true });
 
-  const pdfBuffer = await fsp.readFile(resolvedPdfPath);
-  const loadingTask = pdfjsLib.getDocument({
-    data: new Uint8Array(pdfBuffer),
-    disableFontFace: true,
-    verbosity: 0
-  });
+  // Load PDF metadata to get page count
+  const metadata = await sharp(resolvedPdfPath).metadata();
+  const pageCount = metadata.pages || 0;
 
-  const pdfDocument = await loadingTask.promise;
-  const pageCount = pdfDocument.numPages;
+  if (pageCount === 0) {
+    throw new Error("Impossible de lire le nombre de pages du PDF ou PDF vide.");
+  }
+
   const imagesPaths: string[] = [];
 
-  for (let pageIndex = 1; pageIndex <= pageCount; pageIndex++) {
-    const page = await pdfDocument.getPage(pageIndex);
-    const viewport = page.getViewport({ scale });
-
-    const canvas = createCanvas(viewport.width, viewport.height);
-    const context = canvas.getContext("2d");
-
-    await page.render({
-      canvasContext: context as any,
-      viewport: viewport,
-    } as any).promise;
-
-    const buffer = canvas.toBuffer("image/png");
-
-    const filename = `${prefix}${pageIndex}.webp`;
+  for (let i = 0; i < pageCount; i++) {
+    const filename = `${prefix}${i + 1}.webp`;
     const absoluteOut = path.join(resolvedOutputDir, filename);
 
-    await sharp(buffer)
+    // Convert page i to WebP
+    await sharp(resolvedPdfPath, { page: i, density })
       .webp({ quality })
       .toFile(absoluteOut);
-
-    page.cleanup();
 
     imagesPaths.push(
       path.isAbsolute(params.outputDir) ? absoluteOut : path.join(params.outputDir, filename)
