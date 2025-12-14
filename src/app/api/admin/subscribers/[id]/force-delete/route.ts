@@ -5,10 +5,10 @@ import { UserRole } from "@prisma/client";
 
 const ALLOWED = [UserRole.SUPER_ADMIN];
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireUserWithRoles(req, undefined, ALLOWED);
-    const { id } = params;
+    const { id } = await params;
 
     await prisma.subscription.deleteMany({ where: { userId: id } });
     await prisma.user.delete({ where: { id } });
