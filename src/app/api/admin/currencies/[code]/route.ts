@@ -7,7 +7,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { code: string } }
 ) {
-  await requireUserWithRoles([UserRole.SUPER_ADMIN]);
+  await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN]);
   const body = await req.json();
   const updates: { name?: string; rateToXaf?: number; isActive?: boolean } = {};
   if (body.name !== undefined) updates.name = body.name;

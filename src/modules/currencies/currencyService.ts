@@ -92,4 +92,3 @@ export async function getCurrencyByCode(code: string): Promise<CurrencyConfig | 
 export function convertFromXaf(amount: number, rate: number) {
   return Number((amount / rate).toFixed(2));
 }
-*** End of file
