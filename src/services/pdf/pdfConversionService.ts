@@ -1,46 +1,66 @@
+import fs from "fs";
+import fsp from "fs/promises";
 import path from "path";
-import fs from "fs/promises";
-
-// TODO: Brancher une librairie de conversion PDF->images (pdf-poppler, pdf2pic, pdftoppm, etc.).
-// L'implémentation actuelle est un stub qui décrit le flux attendu.
+import sharp from "sharp";
 
 export type PdfConversionResult = {
-  imagesPaths: string[]; // chemins relatifs vers les images générées
+  imagesPaths: string[]; // chemins vers les images générées (relatifs si outputDir est relatif)
   pageCount: number;
 };
 
-export async function convertPdfToImages(params: {
-  pdfPath: string; // chemin local du PDF
-  outputDir: string; // dossier cible (relatif au storage provider)
+type ConvertPdfParams = {
+  pdfPath: string; // chemin du PDF (relatif au storage root ou absolu)
+  outputDir: string; // dossier cible (relatif au storage root ou absolu)
   filenamePrefix?: string; // ex: page-
-}): Promise<PdfConversionResult> {
-  const prefix = params.filenamePrefix ?? "page-";
+  density?: number; // résolution de rendu (dpi)
+  quality?: number; // qualité WebP
+};
 
-  // Pseudo-code (à remplacer par l'appel réel à la librairie choisie) :
-  // 1) S'assurer que outputDir existe (géré côté storage).
-  // 2) Appeler la conversion PDF -> images (png/jpg) en écrivant dans outputDir.
-  // 3) Retourner la liste triée des chemins d'images et le nombre de pages.
-  // Exemple avec pdftoppm :
-  // const cmd = `pdftoppm -png "${params.pdfPath}" "${path.join(outputDir, prefix)}"`;
-  // exec(cmd) ...
-
-  // Stub : aucune conversion réelle, on indique un TODO.
-  // Pour éviter un flux cassé, on génère une page unique fictive (PNG transparent 1x1).
-  const fakeImageName = `${prefix}1.png`;
-  const fakeFullPath = path.join(params.outputDir, fakeImageName);
+/**
+ * Convertit un PDF en WebP sans dépendance système (ImageMagick).
+ * S'appuie sur sharp/libvips, compatible avec l'environnement serverless Vercel.
+ */
+export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfConversionResult> {
   const storageRoot = process.env.PRIVATE_STORAGE_ROOT ?? path.join(process.cwd(), "storage");
-  const absPath = path.join(storageRoot, fakeFullPath);
-  await fs.mkdir(path.dirname(absPath), { recursive: true });
-  const transparent1x1Png = Buffer.from(
-    "89504e470d0a1a0a0000000d4948445200000001000000010806000000" +
-      "1f15c4890000000a49444154789c6360000002000154010a0d0a000000" +
-      "0049454e44ae426082",
-    "hex"
-  );
-  await fs.writeFile(absPath, transparent1x1Png);
+  const prefix = params.filenamePrefix ?? "page-";
+  const density = params.density ?? 180;
+  const quality = params.quality ?? 92;
+
+  const resolvedPdfPath = path.isAbsolute(params.pdfPath)
+    ? params.pdfPath
+    : path.join(storageRoot, params.pdfPath);
+  const resolvedOutputDir = path.isAbsolute(params.outputDir)
+    ? params.outputDir
+    : path.join(storageRoot, params.outputDir);
+
+  if (!fs.existsSync(resolvedPdfPath)) {
+    throw new Error(`PDF introuvable: ${resolvedPdfPath}`);
+  }
+
+  await fsp.mkdir(resolvedOutputDir, { recursive: true });
+
+  // Récupération du nombre de pages du PDF
+  const meta = await sharp(resolvedPdfPath, { density }).metadata();
+  const pageCount = meta.pages ?? 1;
+
+  const imagesPaths: string[] = [];
+
+  for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+    const filename = `${prefix}${pageIndex + 1}.webp`;
+    const absoluteOut = path.join(resolvedOutputDir, filename);
+
+    await sharp(resolvedPdfPath, { density, page: pageIndex })
+      .webp({ quality })
+      .toFile(absoluteOut);
+
+    // Si outputDir est relatif, on renvoie un chemin relatif cohérent avec l'entrée
+    imagesPaths.push(
+      path.isAbsolute(params.outputDir) ? absoluteOut : path.join(params.outputDir, filename)
+    );
+  }
 
   return {
-    imagesPaths: [fakeFullPath],
-    pageCount: 1
+    imagesPaths,
+    pageCount
   };
 }

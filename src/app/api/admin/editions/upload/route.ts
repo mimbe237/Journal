@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     } catch (err: any) {
       console.error("Conversion error:", err);
       return NextResponse.json(
-        { error: `Conversion échouée. ImageMagick installé ? ${err.message}` },
+        { error: `Conversion échouée: ${err.message}` },
         { status: 400 }
       );
     }
