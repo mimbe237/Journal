@@ -15,9 +15,9 @@ import {
   JournalTypeInput 
 } from "@/modules/journal-types/journalTypeService";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    await requireUserWithRoles([UserRole.SUPER_ADMIN]);
+    await requireUserWithRoles(request, undefined, [UserRole.SUPER_ADMIN]);
     
     const journalTypes = await listJournalTypes(true);
     return NextResponse.json(journalTypes);
@@ -37,7 +37,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireUserWithRoles([UserRole.SUPER_ADMIN]);
+    await requireUserWithRoles(request, undefined, [UserRole.SUPER_ADMIN]);
     
     const body = await request.json();
     
