@@ -7,7 +7,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { Readable } from "stream";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 
 // Configuration S3/R2
 const s3Client = new S3Client({
@@ -96,7 +96,7 @@ async function deletePdfFromPending(key: string): Promise<void> {
 }
 
 async function processEdition(edition: EditionToProcess): Promise<ProcessResult> {
-  const tempDir = path.join(os.tmpdir(), `bulk-import-${uuidv4()}`);
+  const tempDir = path.join(os.tmpdir(), `bulk-import-${randomUUID()}`);
   
   try {
     // Créer le dossier temporaire
@@ -126,7 +126,7 @@ async function processEdition(edition: EditionToProcess): Promise<ProcessResult>
     }
     
     // Générer un ID unique pour l'édition
-    const editionId = uuidv4();
+    const editionId = randomUUID();
     const editionFolder = `editions/${editionId}`;
     
     // Uploader le PDF original
