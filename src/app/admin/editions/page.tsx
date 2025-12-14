@@ -189,23 +189,6 @@ export default function AdminEditionsPage() {
               />
             </div>
 
-            {/* Type (Auto-filled but editable if needed, or just display) */}
-            <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Fréquence (définie par le journal)</label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as EditionType)}
-                className="w-full rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-slate-700 focus:outline-none"
-                disabled
-              >
-                <option value="QUOTIDIEN">Quotidien</option>
-                <option value="HEBDOMADAIRE">Hebdomadaire</option>
-                <option value="MENSUEL">Mensuel</option>
-                <option value="HORS_SERIE">Hors-série</option>
-                <option value="SPECIAL">Spécial</option>
-              </select>
-            </div>
-
             {/* Date de publication */}
             <div>
               <label className="block text-sm font-medium text-slate-900 mb-2">Date de publication</label>
@@ -213,20 +196,6 @@ export default function AdminEditionsPage() {
                 type="date"
                 value={datePublication}
                 onChange={(e) => setDatePublication(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
-              />
-            </div>
-
-            {/* Prix */}
-            <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Prix (XAF)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={prix}
-                onChange={(e) => setPrix(e.target.value)}
-                placeholder="ex: 1500"
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
               />
             </div>
