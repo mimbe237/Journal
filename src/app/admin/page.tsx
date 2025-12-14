@@ -15,7 +15,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat("fr-FR", {
   timeStyle: "short"
 });
 
-const quickLinks = [
+const quickLinks: Array<{ href: "/admin/editions/bulk-import" | "/admin/editions/list" | "/admin/subscribers" | "/admin/exports" | "/admin/promocodes"; label: string }> = [
   { href: "/admin/editions/bulk-import", label: "Import en masse" },
   { href: "/admin/editions/list", label: "Gérer les éditions" },
   { href: "/admin/subscribers", label: "Abonnés" },
