@@ -236,8 +236,8 @@ export async function loadAdminDashboardStats(now = new Date()): Promise<Dashboa
       expiringSoon30
     },
     revenue: {
-      currentMonth: currentMonthRevenue._sum.montant || 0,
-      lastMonth: lastMonthRevenue._sum.montant || 0
+      currentMonth: Number(currentMonthRevenue._sum.montant) || 0,
+      lastMonth: Number(lastMonthRevenue._sum.montant) || 0
     },
     editions: {
       total: totalEditions,
