@@ -53,6 +53,14 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
       subscriptions: {
         orderBy: { dateFin: 'desc' }
       },
+      enterpriseAccount: {
+        include: {
+          subscriptions: {
+            where: { statut: 'ACTIF' },
+            take: 1
+          }
+        }
+      },
       systemEvents: {
         orderBy: { createdAt: 'desc' },
         take: 20
@@ -102,9 +110,32 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
             
             {/* Abonnements */}
             <Card className="p-6 space-y-4">
-              <h3 className="font-semibold text-slate-900">Abonnements ({user.subscriptions.length})</h3>
+              <h3 className="font-semibold text-slate-900">Abonnements</h3>
+
+              {user.enterpriseAccount && (
+                <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                  <h4 className="text-sm font-semibold text-blue-900 mb-2">
+                    Abonnement Entreprise ({user.enterpriseAccount.nom})
+                  </h4>
+                  {user.enterpriseAccount.subscriptions[0] ? (
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium">
+                        {user.enterpriseAccount.subscriptions[0].type} ({user.enterpriseAccount.subscriptions[0].statut})
+                      </p>
+                      <p className="text-xs mt-1">
+                        Du {new Date(user.enterpriseAccount.subscriptions[0].dateDebut).toLocaleDateString()} au{" "}
+                        {new Date(user.enterpriseAccount.subscriptions[0].dateFin).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-blue-600">Aucun abonnement actif pour l'entreprise.</p>
+                  )}
+                </div>
+              )}
+
+              <h4 className="text-sm font-semibold text-slate-700">Abonnements Individuels ({user.subscriptions.length})</h4>
               {user.subscriptions.length === 0 ? (
-                <p className="text-sm text-slate-500">Aucun abonnement trouvé.</p>
+                <p className="text-sm text-slate-500">Aucun abonnement individuel trouvé.</p>
               ) : (
                 <div className="divide-y divide-slate-100">
                   {user.subscriptions.map(sub => (

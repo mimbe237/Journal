@@ -5,6 +5,10 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/currentUser";
 import { emailProvider } from "@/services/email";
 import { registerUser } from "@/modules/auth/authService";
+import { prisma } from "@/lib/config/prisma";
+import bcrypt from "bcrypt";
+
+const staffRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
 
 export async function createUser(formData: FormData) {
   const currentUser = await getCurrentUser();
@@ -64,4 +68,88 @@ export async function createUser(formData: FormData) {
 
   revalidatePath("/admin/users");
   return { success: true };
+}
+
+export async function updateUserRoleWithAuth(formData: FormData) {
+  const currentUser = await getCurrentUser();
+  
+  if (!currentUser) {
+    return { error: "Non authentifié" };
+  }
+
+  const userId = formData.get("userId")?.toString();
+  const newRole = formData.get("newRole")?.toString() as UserRole;
+  const newPassword = formData.get("newPassword")?.toString();
+  const adminPassword = formData.get("adminPassword")?.toString();
+
+  if (!userId || !newRole || !adminPassword) {
+    return { error: "Tous les champs obligatoires sont requis" };
+  }
+
+  if (!Object.values(UserRole).includes(newRole)) {
+    return { error: "Rôle invalide" };
+  }
+
+  if (newPassword && newPassword.length < 8) {
+    return { error: "Le nouveau mot de passe doit contenir au moins 8 caractères" };
+  }
+
+  // 1. Verify Admin Password
+  const adminUser = await prisma.user.findUnique({
+    where: { id: currentUser.id }
+  });
+
+  if (!adminUser || !adminUser.motDePasseHash) {
+    return { error: "Erreur d'authentification admin" };
+  }
+
+  const passwordValid = await bcrypt.compare(adminPassword, adminUser.motDePasseHash);
+  if (!passwordValid) {
+    return { error: "Mot de passe administrateur incorrect" };
+  }
+
+  // 2. Check Permissions
+  const isSuperAdmin = currentUser.role === UserRole.SUPER_ADMIN;
+  
+  const isTargetStaffRole = staffRoles.includes(newRole);
+  if (isTargetStaffRole && !isSuperAdmin) {
+    return { error: "Seul un Super Admin peut assigner des rôles staff." };
+  }
+
+  if (!isSuperAdmin) {
+     return { error: "Action non autorisée" };
+  }
+
+  // 3. Protect Default Super Admin
+  const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+  if (!targetUser) {
+    return { error: "Utilisateur introuvable" };
+  }
+
+  const DEFAULT_ADMIN_EMAIL = "admin@journal.com"; 
+  
+  if (targetUser.email === DEFAULT_ADMIN_EMAIL) {
+    return { error: "Le compte Super Admin par défaut ne peut pas être modifié." };
+  }
+
+  // 4. Perform Update
+  try {
+    const updateData: any = { role: newRole };
+    
+    if (newPassword) {
+      const saltRounds = 12;
+      updateData.motDePasseHash = await bcrypt.hash(newPassword, saltRounds);
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: updateData
+    });
+    
+    revalidatePath("/admin/users");
+    return { success: true };
+  } catch (e) {
+    console.error(e);
+    return { error: "Erreur lors de la mise à jour" };
+  }
 }

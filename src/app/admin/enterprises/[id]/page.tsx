@@ -306,6 +306,7 @@ function UsersTab({
   onValidateInvitation: (invitationId: string) => void;
 }) {
   const pendingInvitations = enterprise.invitations.filter(i => !i.acceptedAt);
+  const activeSubscription = enterprise.subscriptions.find(s => s.statut === 'ACTIF') || enterprise.subscriptions[0];
 
   return (
     <div className="space-y-6">
@@ -323,6 +324,7 @@ function UsersTab({
             <tr>
               <th className="text-left p-4 font-medium text-gray-700">Utilisateur</th>
               <th className="text-left p-4 font-medium text-gray-700">Rôle</th>
+              <th className="text-left p-4 font-medium text-gray-700">Période</th>
               <th className="text-left p-4 font-medium text-gray-700">Dernière connexion</th>
               <th className="text-right p-4 font-medium text-gray-700">Actions</th>
             </tr>
@@ -330,7 +332,7 @@ function UsersTab({
           <tbody className="divide-y divide-gray-100">
             {enterprise.users.length === 0 ? (
               <tr>
-                <td colSpan={4} className="p-8 text-center text-gray-500">
+                <td colSpan={5} className="p-8 text-center text-gray-500">
                   Aucun utilisateur dans cette entreprise
                 </td>
               </tr>
@@ -349,6 +351,16 @@ function UsersTab({
                     }`}>
                       {user.role === 'COMPTE_ENTREPRISE' ? 'Administrateur' : 'Utilisateur'}
                     </span>
+                  </td>
+                  <td className="p-4 text-gray-500">
+                    {activeSubscription ? (
+                      <div className="flex flex-col text-xs">
+                        <span>Du {new Date(activeSubscription.dateDebut).toLocaleDateString('fr-FR')}</span>
+                        <span>Au {new Date(activeSubscription.dateFin).toLocaleDateString('fr-FR')}</span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
                   </td>
                   <td className="p-4 text-gray-500">
                     {user.dernierLoginAt 

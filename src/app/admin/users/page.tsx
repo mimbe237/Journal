@@ -6,47 +6,10 @@ import { Card } from "@/components/ui/Card";
 import { getCurrentUser } from "@/lib/auth/currentUser";
 import { UserRole } from "@prisma/client";
 import { CreateUserButton } from "./CreateUserButton";
+import { EditUserModal } from "./EditUserModal";
 
 const staffRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
 type SearchParams = Record<string, string | string[] | undefined>;
-
-async function updateUserRole(formData: FormData) {
-  "use server";
-  const currentUser = await getCurrentUser();
-  
-  if (!currentUser) {
-    throw new Error("Non authentifié");
-  }
-
-  const userId = formData.get("userId")?.toString();
-  const newRole = formData.get("newRole")?.toString() as UserRole;
-
-  if (!userId || !newRole || !Object.values(UserRole).includes(newRole)) {
-    throw new Error("Paramètres invalides");
-  }
-
-  // Logic de permission
-  const isSuperAdmin = currentUser.role === UserRole.SUPER_ADMIN;
-  
-  // Si on essaie d'assigner un rôle staff (SUPER_ADMIN, FACTURATION, SUPPORT)
-  const isTargetStaffRole = staffRoles.includes(newRole);
-  
-  if (isTargetStaffRole && !isSuperAdmin) {
-    throw new Error("Seul un Super Admin peut assigner des rôles staff.");
-  }
-
-  // Pour l'instant, on restreint la modification de rôle aux Super Admins pour simplifier et sécuriser.
-  if (!isSuperAdmin) {
-     throw new Error("Action non autorisée");
-  }
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { role: newRole }
-  });
-  
-  revalidatePath("/admin/users");
-}
 
 export default async function AdminUsersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
@@ -177,21 +140,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
                   </div>
                   <div>
                     {isSuperAdmin ? (
-                      <form action={updateUserRole} className="flex items-center gap-2">
-                        <input type="hidden" name="userId" value={user.id} />
-                        <select 
-                          name="newRole" 
-                          defaultValue={user.role}
-                          className="text-xs border-slate-200 rounded shadow-sm py-1 px-2"
-                        >
-                          {allRoles.map(r => (
-                            <option key={r} value={r}>{r}</option>
-                          ))}
-                        </select>
-                        <ButtonPrimary type="submit" className="px-2 py-1 text-xs">
-                          OK
-                        </ButtonPrimary>
-                      </form>
+                      <EditUserModal user={user} allRoles={allRoles} />
                     ) : (
                       <span className="text-xs text-slate-400">Lecture seule</span>
                     )}

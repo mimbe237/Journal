@@ -26,8 +26,12 @@ type Row = {
     id: string;
     nom: string;
     latestStatus?: SubscriptionStatus | null;
+    dateDebut?: Date;
+    dateFin?: Date;
   } | null;
   latestStatus?: SubscriptionStatus | null;
+  dateDebut?: Date;
+  dateFin?: Date;
 };
 
 export default async function SubscribersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -64,7 +68,9 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
           take: 1,
           orderBy: { dateFin: "desc" },
           select: {
-            statut: true
+            statut: true,
+            dateDebut: true,
+            dateFin: true
           }
         },
         enterpriseAccount: {
@@ -74,7 +80,11 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
             subscriptions: {
               take: 1,
               orderBy: { dateFin: "desc" },
-              select: { statut: true }
+              select: { 
+                statut: true,
+                dateDebut: true,
+                dateFin: true
+              }
             }
           }
         }
@@ -93,11 +103,15 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
     role: u.role,
     dateCreation: u.dateCreation,
     latestStatus: u.subscriptions[0]?.statut ?? null,
+    dateDebut: u.subscriptions[0]?.dateDebut,
+    dateFin: u.subscriptions[0]?.dateFin,
     enterprise: u.enterpriseAccount
       ? {
           id: u.enterpriseAccount.id,
           nom: u.enterpriseAccount.nom,
-          latestStatus: u.enterpriseAccount.subscriptions[0]?.statut ?? null
+          latestStatus: u.enterpriseAccount.subscriptions[0]?.statut ?? null,
+          dateDebut: u.enterpriseAccount.subscriptions[0]?.dateDebut,
+          dateFin: u.enterpriseAccount.subscriptions[0]?.dateFin
         }
       : null
   }));
@@ -149,7 +163,7 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
     const text = isEnterprise
       ? row.role === UserRole.COMPTE_ENTREPRISE
         ? "Admin Ent."
-        : "Util. Ent."
+        : "Entreprise"
       : "Individuel";
     const palette = isEnterprise ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700";
     return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${palette} whitespace-nowrap`}>{text}</span>;
@@ -163,7 +177,7 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-emerald-600">Administration</p>
-            <h1 className="text-3xl font-bold text-slate-900">Abonnés</h1>
+            <h1 className="text-3xl font-bold text-slate-900">Tous les abonnés</h1>
             <p className="text-sm text-slate-600">Vue globale avec distinction entreprise/individuel.</p>
           </div>
           <div className="flex items-center gap-3">
@@ -273,11 +287,12 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
         </Card>
 
         <Card className="p-0 overflow-hidden">
-          <div className="grid grid-cols-[1.6fr_1.6fr_1fr_1fr_1fr] gap-3 border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 bg-slate-50">
+          <div className="grid grid-cols-[1.5fr_1.5fr_1fr_0.8fr_1.2fr_0.8fr] gap-3 border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 bg-slate-50">
             <div>Nom</div>
             <div>Email</div>
             <div>Entreprise</div>
             <div>Type</div>
+            <div>Période</div>
             <div className="text-right">Statut</div>
           </div>
           <div className="divide-y divide-slate-100">
@@ -287,7 +302,7 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
               filtered.map((row) => (
                 <div
                   key={row.id}
-                  className="grid grid-cols-[1.6fr_1.6fr_1fr_1fr_1fr] items-center gap-3 px-4 py-3 text-sm text-slate-800"
+                  className="grid grid-cols-[1.5fr_1.5fr_1fr_0.8fr_1.2fr_0.8fr] items-center gap-3 px-4 py-3 text-sm text-slate-800"
                 >
                   <div className="font-medium">
                     <Link href={`/admin/users/${row.id}`} className="hover:text-emerald-600 hover:underline">
@@ -295,8 +310,8 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
                     </Link>
                     <div className="text-xs text-slate-500">{formatDate(row.dateCreation)}</div>
                   </div>
-                  <div className="text-slate-600">{row.email}</div>
-                  <div className="text-slate-700">
+                  <div className="text-slate-600 truncate" title={row.email}>{row.email}</div>
+                  <div className="text-slate-700 truncate" title={row.enterprise?.nom}>
                     {row.enterprise ? (
                       <Link
                         href={`/admin/enterprises/${row.enterprise.id}`}
@@ -309,6 +324,19 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
                     )}
                   </div>
                   <div>{typeBadge(row)}</div>
+                  <div className="text-xs text-slate-500">
+                    {(() => {
+                      const start = row.enterprise ? row.enterprise.dateDebut : row.dateDebut;
+                      const end = row.enterprise ? row.enterprise.dateFin : row.dateFin;
+                      if (!start || !end) return <span className="text-slate-400">-</span>;
+                      return (
+                        <div className="flex flex-col">
+                          <span>Du {formatDate(start)}</span>
+                          <span>Au {formatDate(end)}</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
                   <div className="text-right">
                     {statusBadge(row.enterprise ? row.enterprise.latestStatus ?? row.latestStatus : row.latestStatus)}
                   </div>
