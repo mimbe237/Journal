@@ -309,6 +309,8 @@ model ManualSubscriptionSubmission {
   id                String              @id @default(cuid())
   email             String
   nom               String
+  telephone         String?
+  pays              String?
   entrepriseId      String?             // NULL si abonné individuel
   type              SubscriptionType    // MENSUEL, ANNUEL, etc.
   periode           String              // "2025-01", "2025-12-20"
@@ -352,4 +354,3 @@ model DocumentJustificatif {
   @@index([submissionId])
   @@map("justificatifs")
 }
-

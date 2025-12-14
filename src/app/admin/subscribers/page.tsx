@@ -2,9 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/config/prisma";
 import { Card } from "@/components/ui/Card";
 import { getCurrentUser } from "@/lib/auth/currentUser";
-import { UserRole } from "@prisma/client";
-import { CreateIndividualSubscriberButton } from "./CreateIndividualSubscriberButton";
-import { CreateEnterpriseButton } from "./CreateEnterpriseButton";
+import { UserRole, SubscriptionStatus } from "@prisma/client";
+import { AddSubscriberModal } from "./AddSubscriberModal";
 
 const subscriberRoles: UserRole[] = [UserRole.ABONNE, UserRole.COMPTE_ENTREPRISE, UserRole.UTILISATEUR_ENTREPRISE];
 const allowedRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
@@ -16,6 +15,20 @@ function parseParam(params: SearchParams, key: string): string {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
 }
 
+type Row = {
+  id: string;
+  nom: string | null;
+  email: string;
+  role: UserRole;
+  dateCreation: Date;
+  enterprise?: {
+    id: string;
+    nom: string;
+    latestStatus?: SubscriptionStatus | null;
+  } | null;
+  latestStatus?: SubscriptionStatus | null;
+};
+
 export default async function SubscribersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const currentUser = await getCurrentUser();
@@ -24,16 +37,11 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
   }
 
   const q = parseParam(params, "q").toLowerCase().trim();
-  const typeFilter = parseParam(params, "type") as
-    | "all"
-    | "ABONNE"
-    | "COMPTE_ENTREPRISE"
-    | "UTILISATEUR_ENTREPRISE"
-    | "";
-  const enterpriseStatus = parseParam(params, "enterpriseStatus") as "all" | "active" | "inactive" | "";
-  const licenceUsage = parseParam(params, "licence") as "all" | "low" | "near" | "full" | "";
+  const typeFilter = parseParam(params, "type") as "all" | "individu" | "entreprise" | "";
+  const statusFilter = parseParam(params, "status") as "all" | SubscriptionStatus | "";
+  const enterpriseFilter = parseParam(params, "enterpriseId");
 
-  const [individuals, enterprises] = await Promise.all([
+  const [users, enterprisesOptions] = await Promise.all([
     prisma.user.findMany({
       where: { role: { in: subscriberRoles } },
       orderBy: { dateCreation: "desc" },
@@ -43,55 +51,96 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
         email: true,
         role: true,
         dateCreation: true,
+        subscriptions: {
+          take: 1,
+          orderBy: { dateFin: "desc" },
+          select: {
+            statut: true
+          }
+        },
         enterpriseAccount: {
-          select: { id: true, nom: true }
+          select: {
+            id: true,
+            nom: true,
+            subscriptions: {
+              take: 1,
+              orderBy: { dateFin: "desc" },
+              select: { statut: true }
+            }
+          }
         }
       }
     }),
     prisma.enterpriseAccount.findMany({
-      orderBy: { dateCreation: "desc" },
-      select: {
-        id: true,
-        nom: true,
-        contactEmail: true,
-        dateCreation: true,
-        actif: true,
-        nombreUtilisateursInclus: true,
-        users: {
-          select: { id: true }
-        }
-      }
+      orderBy: { nom: "asc" },
+      select: { id: true, nom: true }
     })
   ]);
+
+  const rows: Row[] = users.map((u) => ({
+    id: u.id,
+    nom: u.nom,
+    email: u.email,
+    role: u.role,
+    dateCreation: u.dateCreation,
+    latestStatus: u.subscriptions[0]?.statut ?? null,
+    enterprise: u.enterpriseAccount
+      ? {
+          id: u.enterpriseAccount.id,
+          nom: u.enterpriseAccount.nom,
+          latestStatus: u.enterpriseAccount.subscriptions[0]?.statut ?? null
+        }
+      : null
+  }));
 
   const matchesSearch = (text: string | null | undefined) => {
     if (!q) return true;
     return (text ?? "").toLowerCase().includes(q);
   };
 
-  const filteredIndividuals = individuals.filter((user) => {
-    if (typeFilter && typeFilter !== "all" && user.role !== typeFilter) return false;
+  const filtered = rows.filter((row) => {
+    const isEnterprise = Boolean(row.enterprise);
+    if (typeFilter === "individu" && isEnterprise) return false;
+    if (typeFilter === "entreprise" && !isEnterprise) return false;
+
+    if (enterpriseFilter && row.enterprise?.id !== enterpriseFilter) return false;
+
+    const statusToCheck = row.enterprise ? row.enterprise.latestStatus ?? row.latestStatus : row.latestStatus;
+    if (statusFilter && statusFilter !== "all") {
+      if (!statusToCheck) return false;
+      if (statusToCheck !== statusFilter) return false;
+    }
+
     const inSearch =
-      matchesSearch(user.nom) ||
-      matchesSearch(user.email) ||
-      matchesSearch(user.enterpriseAccount?.nom);
-    return inSearch;
-  });
-
-  const filteredEnterprises = enterprises.filter((ent) => {
-    if (enterpriseStatus === "active" && !ent.actif) return false;
-    if (enterpriseStatus === "inactive" && ent.actif) return false;
-
-    const usage = ent.users.length / ent.nombreUtilisateursInclus;
-    if (licenceUsage === "low" && usage >= 0.5) return false; // moins de 50%
-    if (licenceUsage === "near" && !(usage >= 0.75 && usage < 1)) return false; // 75-99%
-    if (licenceUsage === "full" && usage < 1) return false; // plein
-
-    const inSearch = matchesSearch(ent.nom) || matchesSearch(ent.contactEmail);
+      matchesSearch(row.nom) ||
+      matchesSearch(row.email) ||
+      matchesSearch(row.enterprise?.nom);
     return inSearch;
   });
 
   const formatDate = (d: Date) => new Date(d).toLocaleDateString("fr-FR");
+
+  const statusBadge = (statut: SubscriptionStatus | null | undefined) => {
+    if (!statut) return <span className="text-xs text-slate-400">Aucun</span>;
+    const palette =
+      statut === "ACTIF"
+        ? "bg-emerald-100 text-emerald-800"
+        : statut === "EXPIRE"
+        ? "bg-slate-100 text-slate-700"
+        : "bg-amber-100 text-amber-800";
+    return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${palette}`}>{statut}</span>;
+  };
+
+  const typeBadge = (row: Row) => {
+    const isEnterprise = Boolean(row.enterprise);
+    const text = isEnterprise
+      ? row.role === UserRole.COMPTE_ENTREPRISE
+        ? "Admin entreprise"
+        : "Utilisateur entreprise"
+      : "Individuel";
+    const palette = isEnterprise ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700";
+    return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${palette}`}>{text}</span>;
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -100,11 +149,10 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-emerald-600">Administration</p>
             <h1 className="text-3xl font-bold text-slate-900">Abonnés</h1>
-            <p className="text-sm text-slate-600">Séparation Staff / Abonnés : entreprises et individuels.</p>
+            <p className="text-sm text-slate-600">Vue globale avec distinction entreprise/individuel.</p>
           </div>
           <div className="flex items-center gap-3">
-            <CreateEnterpriseButton />
-            <CreateIndividualSubscriberButton />
+            <AddSubscriberModal enterprises={enterprisesOptions} />
           </div>
         </div>
 
@@ -125,35 +173,32 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
               >
                 <option value="all">Tous</option>
-                <option value="ABONNE">Individuel</option>
-                <option value="COMPTE_ENTREPRISE">Admin entreprise</option>
-                <option value="UTILISATEUR_ENTREPRISE">Utilisateur entreprise</option>
+                <option value="individu">Individuel</option>
+                <option value="entreprise">Entreprise</option>
               </select>
             </label>
             <label className="text-sm text-slate-600 flex items-center gap-2">
-              Entreprise
+              Statut
               <select
-                name="enterpriseStatus"
-                defaultValue={enterpriseStatus || "all"}
+                name="status"
+                defaultValue={statusFilter || "all"}
                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
               >
-                <option value="all">Actives + inactives</option>
-                <option value="active">Actives</option>
-                <option value="inactive">Inactives</option>
+                <option value="all">Tous</option>
+                <option value="ACTIF">Actif</option>
+                <option value="EXPIRE">Expiré</option>
+                <option value="SUSPENDU">Suspendu</option>
               </select>
             </label>
             <label className="text-sm text-slate-600 flex items-center gap-2">
-              Licences
-              <select
-                name="licence"
-                defaultValue={licenceUsage || "all"}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              >
-                <option value="all">Toutes</option>
-                <option value="low">Sous-utilisé (&lt;50%)</option>
-                <option value="near">Quasi plein (75-99%)</option>
-                <option value="full">Plein (100%)</option>
-              </select>
+              Entreprise (ID)
+              <input
+                type="text"
+                name="enterpriseId"
+                defaultValue={enterpriseFilter}
+                placeholder="ID entreprise (optionnel)"
+                className="w-full md:max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500"
+              />
             </label>
             <button
               type="submit"
@@ -164,103 +209,51 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
           </form>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">Comptes entreprise</h2>
-                <p className="text-sm text-slate-500">B2B : accès multi-utilisateurs</p>
-              </div>
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
-                {filteredEnterprises.length} comptes
-              </span>
-            </div>
-
-            <div className="border rounded-lg overflow-hidden">
-              <div className="grid grid-cols-[2fr_2fr_1fr_1fr] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 bg-slate-50">
-                <div>Entreprise</div>
-                <div>Contact</div>
-                <div>Créé le</div>
-                <div className="text-right">Licences</div>
-              </div>
-              <div className="divide-y divide-slate-100 bg-white">
-                {filteredEnterprises.length === 0 ? (
-                  <div className="p-6 text-sm text-slate-500">Aucune entreprise</div>
-                ) : (
-                  filteredEnterprises.map((ent) => (
-                    <div key={ent.id} className="grid grid-cols-[2fr_2fr_1fr_1fr] px-4 py-3 text-sm items-center">
-                      <div className="font-medium">
-                        <Link href={`/admin/enterprises/${ent.id}`} className="hover:text-emerald-600 hover:underline">
-                          {ent.nom}
-                        </Link>
-                        <div className="text-xs text-slate-500">Statut : {ent.actif ? "Actif" : "Inactif"}</div>
-                      </div>
-                      <div className="text-slate-600">{ent.contactEmail}</div>
-                      <div className="text-slate-500">{formatDate(ent.dateCreation)}</div>
-                      <div className="text-right text-slate-700">
-                        {ent.users.length} / {ent.nombreUtilisateursInclus}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">Abonnés individuels</h2>
-                <p className="text-sm text-slate-500">Inclut abonnés B2C et utilisateurs liés à une entreprise</p>
-              </div>
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
-                {filteredIndividuals.length} comptes
-              </span>
-            </div>
-
-            <div className="border rounded-lg overflow-hidden">
-              <div className="grid grid-cols-[2fr_2fr_1fr_1fr] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 bg-slate-50">
-                <div>Nom</div>
-                <div>Email</div>
-                <div>Type</div>
-                <div className="text-right">Créé le</div>
-              </div>
-              <div className="divide-y divide-slate-100 bg-white">
-                {filteredIndividuals.length === 0 ? (
-                  <div className="p-6 text-sm text-slate-500">Aucun abonné</div>
-                ) : (
-                  filteredIndividuals.map((user) => (
-                    <div key={user.id} className="grid grid-cols-[2fr_2fr_1fr_1fr] px-4 py-3 text-sm items-center">
-                      <div className="font-medium">
-                        <Link href={`/admin/users/${user.id}`} className="hover:text-emerald-600 hover:underline">
-                          {user.nom || "Sans nom"}
-                        </Link>
-                        {user.enterpriseAccount ? (
-                          <div className="text-xs text-slate-500">
-                            Entreprise:{" "}
-                            <Link
-                              href={`/admin/enterprises/${user.enterpriseAccount.id}`}
-                              className="hover:text-emerald-600 hover:underline"
-                            >
-                              {user.enterpriseAccount.nom}
-                            </Link>
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="text-slate-600">{user.email}</div>
-                      <div className="text-xs font-semibold text-slate-700">
-                        {user.role === UserRole.ABONNE && "Individuel"}
-                        {user.role === UserRole.COMPTE_ENTREPRISE && "Admin entreprise"}
-                        {user.role === UserRole.UTILISATEUR_ENTREPRISE && "Utilisateur entreprise"}
-                      </div>
-                      <div className="text-right text-slate-500">{formatDate(user.dateCreation)}</div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </Card>
-        </div>
+        <Card className="p-0 overflow-hidden">
+          <div className="grid grid-cols-[1.6fr_1.6fr_1fr_1fr_1fr] gap-3 border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 bg-slate-50">
+            <div>Nom</div>
+            <div>Email</div>
+            <div>Entreprise</div>
+            <div>Type</div>
+            <div className="text-right">Statut</div>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {filtered.length === 0 ? (
+              <div className="p-6 text-sm text-slate-500">Aucun abonné</div>
+            ) : (
+              filtered.map((row) => (
+                <div
+                  key={row.id}
+                  className="grid grid-cols-[1.6fr_1.6fr_1fr_1fr_1fr] items-center gap-3 px-4 py-3 text-sm text-slate-800"
+                >
+                  <div className="font-medium">
+                    <Link href={`/admin/users/${row.id}`} className="hover:text-emerald-600 hover:underline">
+                      {row.nom || "Sans nom"}
+                    </Link>
+                    <div className="text-xs text-slate-500">{formatDate(row.dateCreation)}</div>
+                  </div>
+                  <div className="text-slate-600">{row.email}</div>
+                  <div className="text-slate-700">
+                    {row.enterprise ? (
+                      <Link
+                        href={`/admin/enterprises/${row.enterprise.id}`}
+                        className="hover:text-emerald-600 hover:underline"
+                      >
+                        {row.enterprise.nom}
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-slate-400">Aucune</span>
+                    )}
+                  </div>
+                  <div>{typeBadge(row)}</div>
+                  <div className="text-right">
+                    {statusBadge(row.enterprise ? row.enterprise.latestStatus ?? row.latestStatus : row.latestStatus)}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
       </div>
     </div>
   );
