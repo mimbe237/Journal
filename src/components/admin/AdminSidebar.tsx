@@ -177,7 +177,9 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
       <a
         key={item.href}
         href={item.href}
-        className={}
+        className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition ${
+          isActive ? "bg-emerald-50 text-emerald-600" : "text-slate-600 hover:bg-slate-100"
+        }`}
       >
         <span className={isActive ? "text-emerald-600" : "text-slate-400"}>
           {item.icon}
