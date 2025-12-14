@@ -18,6 +18,8 @@ type Row = {
   email: string;
   dateCreation: Date;
   latestStatus?: SubscriptionStatus | null;
+  dateDebut?: Date | null;
+  dateFin?: Date | null;
 };
 
 export default async function IndividualSubscribersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -46,7 +48,7 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
         subscriptions: {
           take: 1,
           orderBy: { dateFin: "desc" },
-          select: { statut: true }
+          select: { statut: true, dateDebut: true, dateFin: true }
         }
       }
     }),
@@ -61,7 +63,9 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
     nom: u.nom,
     email: u.email,
     dateCreation: u.dateCreation,
-    latestStatus: u.subscriptions[0]?.statut ?? null
+    latestStatus: u.subscriptions[0]?.statut ?? null,
+    dateDebut: u.subscriptions[0]?.dateDebut ?? null,
+    dateFin: u.subscriptions[0]?.dateFin ?? null
   }));
 
   const matchesSearch = (text: string | null | undefined) => {
@@ -134,10 +138,12 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
         </Card>
 
         <Card className="p-0 overflow-hidden">
-          <div className="grid grid-cols-[2fr_2fr_1fr_1fr] gap-3 border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 bg-slate-50">
+          <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr] gap-3 border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 bg-slate-50">
             <div>Nom</div>
             <div>Email</div>
             <div>Créé le</div>
+            <div>Début</div>
+            <div>Fin</div>
             <div className="text-right">Statut</div>
           </div>
           <div className="divide-y divide-slate-100">
@@ -147,15 +153,17 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
               filtered.map((row) => (
                 <div
                   key={row.id}
-                  className="grid grid-cols-[2fr_2fr_1fr_1fr] items-center gap-3 px-4 py-3 text-sm text-slate-800"
+                  className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr] items-center gap-3 px-4 py-3 text-sm text-slate-800"
                 >
                   <div className="font-medium">
                     <Link href={`/admin/users/${row.id}`} className="hover:text-emerald-600 hover:underline">
                       {row.nom || "Sans nom"}
                     </Link>
                   </div>
-                  <div className="text-slate-600">{row.email}</div>
+                  <div className="text-slate-600 truncate" title={row.email}>{row.email}</div>
                   <div className="text-slate-500">{formatDate(row.dateCreation)}</div>
+                  <div className="text-slate-500">{row.dateDebut ? formatDate(row.dateDebut) : "-"}</div>
+                  <div className="text-slate-500">{row.dateFin ? formatDate(row.dateFin) : "-"}</div>
                   <div className="text-right">{statusBadge(row.latestStatus)}</div>
                 </div>
               ))
