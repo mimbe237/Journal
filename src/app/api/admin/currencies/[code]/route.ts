@@ -5,9 +5,10 @@ import { updateCurrency } from "@/modules/currencies/currencyService";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { code: string } }
+  { params }: { params: Promise<{ code: string }> }
 ) {
   await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN]);
+  const { code } = await params;
   const body = await req.json();
   const updates: { name?: string; rateToXaf?: number; isActive?: boolean } = {};
   if (body.name !== undefined) updates.name = body.name;
@@ -19,7 +20,7 @@ export async function PATCH(
   }
 
   try {
-    const currency = await updateCurrency(params.code, updates);
+    const currency = await updateCurrency(code, updates);
     return NextResponse.json(currency);
   } catch (error: unknown) {
     console.error("Erreur mise à jour devise:", error);
