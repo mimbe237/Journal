@@ -60,7 +60,7 @@ export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfC
     await page.render({
       canvasContext: context as any,
       viewport: viewport,
-    }).promise;
+    } as any).promise;
 
     const buffer = canvas.toBuffer("image/png");
 
