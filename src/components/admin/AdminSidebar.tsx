@@ -79,6 +79,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   ),
+  Logs: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    </svg>
+  ),
 };
 
 interface AdminSidebarProps {
@@ -122,6 +127,7 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
         items: [
           { href: "/admin/support", label: "Tableau de bord", icon: Icons.Dashboard },
           { href: "/admin/users", label: "Utilisateurs", icon: Icons.Users },
+          { href: "/admin/logs", label: "Journal d'activités", icon: Icons.Logs },
         ]
       },
       {
@@ -146,6 +152,7 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
         items: [
           { href: "/admin", label: "Tableau de bord", icon: Icons.Dashboard },
           { href: "/admin/users", label: "Utilisateurs (Staff)", icon: Icons.Users },
+          { href: "/admin/logs", label: "Journal d'activités", icon: Icons.Logs },
         ]
       },
       {

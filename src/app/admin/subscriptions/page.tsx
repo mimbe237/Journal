@@ -6,6 +6,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/States';
+import { getUserRole, softDeleteSubscription, restoreSubscription, hardDeleteSubscription } from './actions';
+import { UserRole } from '@prisma/client';
 
 interface Subscription {
   id: string;
@@ -16,6 +18,8 @@ interface Subscription {
   montant: number;
   devise: string;
   source: string;
+  deletedAt?: string | null;
+  trashedUntil?: string | null;
   user?: {
     id: string;
     nom: string;
@@ -36,15 +40,21 @@ export default function AdminSubscriptionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'ACTIF' | 'EXPIRE' | 'ANNULE'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'MENSUEL' | 'ANNUEL'>('all');
+  const [view, setView] = useState<'active' | 'trash'>('active');
+  const [userRole, setUserRole] = useState<UserRole | undefined>(undefined);
+
+  useEffect(() => {
+    getUserRole().then(setUserRole);
+  }, []);
 
   useEffect(() => {
     fetchSubscriptions();
-  }, []);
+  }, [view]);
 
   const fetchSubscriptions = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/admin/subscriptions');
+      const res = await fetch(`/api/admin/subscriptions?view=${view}`);
       if (!res.ok) throw new Error('Erreur de chargement');
       const data = await res.json();
       setSubscriptions(data.subscriptions || []);
@@ -54,6 +64,28 @@ export default function AdminSubscriptionsPage() {
       setLoading(false);
     }
   };
+
+  const handleSoftDelete = async (id: string) => {
+    if (!confirm("Êtes-vous sûr de vouloir mettre cet abonnement à la corbeille ?")) return;
+    const res = await softDeleteSubscription(id);
+    if (res.success) fetchSubscriptions();
+    else alert(res.error);
+  };
+
+  const handleRestore = async (id: string) => {
+    const res = await restoreSubscription(id);
+    if (res.success) fetchSubscriptions();
+    else alert(res.error);
+  };
+
+  const handleHardDelete = async (id: string) => {
+    if (!confirm("ATTENTION : Cette action est irréversible. Voulez-vous vraiment supprimer définitivement cet abonnement ?")) return;
+    const res = await hardDeleteSubscription(id);
+    if (res.success) fetchSubscriptions();
+    else alert(res.error);
+  };
+
+  const canEdit = userRole === 'SUPPORT' || userRole === 'SUPER_ADMIN';
 
   const filteredSubscriptions = subscriptions.filter(sub => {
     if (filter !== 'all' && sub.statut !== filter) return false;
@@ -105,6 +137,31 @@ export default function AdminSubscriptionsPage() {
             {stats.total > 0 ? Math.round((stats.annuel / stats.total) * 100) : 0}%
           </p>
         </Card>
+      </div>
+
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setView('active')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              view === 'active' 
+                ? 'bg-emerald-600 text-white' 
+                : 'bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Actifs
+          </button>
+          <button
+            onClick={() => setView('trash')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              view === 'trash' 
+                ? 'bg-emerald-600 text-white' 
+                : 'bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Corbeille
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -196,11 +253,44 @@ export default function AdminSubscriptionsPage() {
                       <div className="text-xs text-gray-500">
                         → {new Date(sub.dateFin).toLocaleDateString('fr-FR')}
                       </div>
-                    </td>
                     <td className="p-4 text-right">
-                      <div className="font-medium text-gray-900">
-                        {Number(sub.montant).toLocaleString('fr-FR')} {sub.devise}
+                      <div className="flex justify-end gap-2">
+                        {view === 'active' ? (
+                          <>
+                            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                              Détails
+                            </button>
+                            {canEdit && (
+                              <button 
+                                onClick={() => handleSoftDelete(sub.id)}
+                                className="text-red-600 hover:text-red-800 text-sm font-medium"
+                              >
+                                Supprimer
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {canEdit && (
+                              <>
+                                <button 
+                                  onClick={() => handleRestore(sub.id)}
+                                  className="text-emerald-600 hover:text-emerald-800 text-sm font-medium"
+                                >
+                                  Restaurer
+                                </button>
+                                <button 
+                                  onClick={() => handleHardDelete(sub.id)}
+                                  className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                >
+                                  Supprimer définitivement
+                                </button>
+                              </>
+                            )}
+                          </>
+                        )}
                       </div>
+                    </td>iv>
                       {sub.promoCode && (
                         <div className="text-xs text-green-600">
                           Code: {sub.promoCode.code}

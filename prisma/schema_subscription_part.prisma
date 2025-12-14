@@ -1,0 +1,29 @@
+
+model Subscription {
+  id                   String               @id @default(cuid())
+  type                 SubscriptionType
+  statut               SubscriptionStatus
+  dateDebut            DateTime
+  dateFin              DateTime
+  montant              Decimal              @db.Decimal(10, 2)
+  devise               String               @db.VarChar(3)
+  source               SubscriptionSource
+  submissionId         String?              // Référence si créée via soumission manuelle
+  userId               String?
+  enterpriseAccountId  String?
+  promoCodeId          String?
+  
+  deletedAt            DateTime?
+  trashedUntil         DateTime?
+
+  user                User?                 @relation(fields: [userId], references: [id])
+  enterpriseAccount   EnterpriseAccount?    @relation(fields: [enterpriseAccountId], references: [id])
+  promoCode           PromoCode?            @relation(fields: [promoCodeId], references: [id])
+  submission          ManualSubscriptionSubmission? @relation(fields: [submissionId], references: [id])
+  paymentTransactions PaymentTransaction[]
+
+  @@index([userId, statut, dateFin])
+  @@index([submissionId])
+  @@index([enterpriseAccountId, statut, dateFin])
+  @@map("subscriptions")
+}

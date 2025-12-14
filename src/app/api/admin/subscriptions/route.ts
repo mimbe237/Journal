@@ -9,7 +9,18 @@ export async function GET(req: NextRequest) {
   try {
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT]);
 
+    const { searchParams } = new URL(req.url);
+    const view = searchParams.get('view');
+
+    const where: any = {};
+    if (view === 'trash') {
+      where.deletedAt = { not: null };
+    } else {
+      where.deletedAt = null;
+    }
+
     const subscriptions = await prisma.subscription.findMany({
+      where,
       orderBy: { dateDebut: 'desc' },
       include: {
         user: {

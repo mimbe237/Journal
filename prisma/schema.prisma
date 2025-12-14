@@ -87,6 +87,10 @@ enum SystemEventType {
   EXECUTION_RAPPELS_EXPIRATION
   VALIDATION_SOUMISSION_ABONNEMENT
   REJET_SOUMISSION_ABONNEMENT
+  MODIFICATION_ABONNEMENT
+  SUPPRESSION_ABONNEMENT
+  SUPPRESSION_DEFINITIVE_ABONNEMENT
+  RESTAURATION_ABONNEMENT
   AUTRE
 }
 
@@ -208,6 +212,9 @@ model Subscription {
   userId               String?
   enterpriseAccountId  String?
   promoCodeId          String?
+
+  deletedAt            DateTime?
+  trashedUntil         DateTime?
 
   user                User?                 @relation(fields: [userId], references: [id])
   enterpriseAccount   EnterpriseAccount?    @relation(fields: [enterpriseAccountId], references: [id])
