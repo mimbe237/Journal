@@ -229,7 +229,7 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
                   Type
                   <select
                     name="type"
-                    defaultValue={typeFilter || "all"}
+                    defaultValue={typeFilterList[0] || "all"}
                     className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   >
                     <option value="all">Tous</option>
