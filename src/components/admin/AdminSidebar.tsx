@@ -129,7 +129,6 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
         items: [
           { href: "/admin/editions", label: "Nouvelle édition", icon: Icons.NewEdition },
           { href: "/admin/editions/list", label: "Gérer les éditions", icon: Icons.ListEditions },
-          { href: "/admin/editions/bulk-import", label: "Import en masse", icon: Icons.BulkImport },
         ]
       },
       {
