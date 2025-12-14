@@ -4,7 +4,7 @@ import path from "path";
 import sharp from "sharp";
 import { createCanvas } from "canvas";
 // @ts-ignore
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.js";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
 export type PdfConversionResult = {
   imagesPaths: string[];
