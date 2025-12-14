@@ -28,7 +28,8 @@ export async function POST(req: NextRequest) {
     const type = (formData.get("type") as string) || "QUOTIDIEN";
     const datePublicationStr = formData.get("datePublication") as string;
     const prixRaw = formData.get("prix") as string | null;
-    const devise = (formData.get("devise") as string | null)?.toUpperCase() || null;
+    const devise = (formData.get("devise") as string | null)?.toUpperCase() || "XAF";
+    const journalTypeId = formData.get("journalTypeId") as string | null;
 
     if (!fileKey) return NextResponse.json({ error: "Fichier PDF requis (fileKey manquant)" }, { status: 400 });
     if (!titre) return NextResponse.json({ error: "Titre requis" }, { status: 400 });
@@ -106,7 +107,8 @@ export async function POST(req: NextRequest) {
       cheminInternePdf: `editions/${editionId}/source.pdf`,
       cheminImageUne: coverImagePath || `editions/${editionId}/images/page-1.webp`,
       prix: prix ?? null,
-      devise
+      devise,
+      journalTypeId
     });
 
     return NextResponse.json(

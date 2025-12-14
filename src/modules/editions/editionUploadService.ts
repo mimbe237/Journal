@@ -37,6 +37,7 @@ export type CreateEditionInput = {
   cheminImageUne?: string | null;
   prix?: number | null;
   devise?: string | null;
+  journalTypeId?: string | null;
 };
 
 /**
@@ -52,7 +53,8 @@ export async function createEditionInDb(input: CreateEditionInput) {
       cheminInternePdf: input.cheminInternePdf,
       cheminImageUne: input.cheminImageUne,
       prix: input.prix ?? null,
-      devise: input.devise ?? null
+      devise: input.devise ?? null,
+      journalTypeId: input.journalTypeId ?? null
     }
   });
 

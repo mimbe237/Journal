@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ButtonPrimary } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -9,6 +9,13 @@ import { EditionType } from "@prisma/client";
 type UploadState = "idle" | "uploading" | "success" | "error";
 type UploadStep = "upload" | "conversion" | "database" | "complete";
 
+interface JournalType {
+  id: string;
+  name: string;
+  frequency: EditionType;
+  unitPrice: number;
+}
+
 export default function AdminEditionsPage() {
   const [file, setFile] = useState<File | null>(null);
   const [coverImage, setCoverImage] = useState<File | null>(null);
@@ -16,12 +23,34 @@ export default function AdminEditionsPage() {
   const [type, setType] = useState<EditionType>(EditionType.QUOTIDIEN);
   const [datePublication, setDatePublication] = useState(new Date().toISOString().split("T")[0]);
   const [prix, setPrix] = useState<string>("");
-  const [devise, setDevise] = useState<string>("XOF");
   const [state, setState] = useState<UploadState>("idle");
   const [currentStep, setCurrentStep] = useState<UploadStep | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [editionId, setEditionId] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
+
+  const [journalTypes, setJournalTypes] = useState<JournalType[]>([]);
+  const [selectedJournalTypeId, setSelectedJournalTypeId] = useState<string>("");
+
+  useEffect(() => {
+    fetch("/api/admin/journal-types")
+      .then((res) => res.json())
+      .then((data) => {
+        setJournalTypes(data);
+        if (data.length > 0) {
+          setSelectedJournalTypeId(data[0].id);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch journal types", err));
+  }, []);
+
+  useEffect(() => {
+    const jt = journalTypes.find(j => j.id === selectedJournalTypeId);
+    if (jt) {
+      setType(jt.frequency);
+      setPrix(jt.unitPrice.toString());
+    }
+  }, [selectedJournalTypeId, journalTypes]);
 
   const steps = [
     { key: "upload" as UploadStep, label: "Téléchargement du PDF" },
@@ -78,7 +107,7 @@ export default function AdminEditionsPage() {
       formData.append("type", type);
       formData.append("datePublication", datePublication);
       if (prix) formData.append("prix", prix);
-      if (devise) formData.append("devise", devise);
+      if (selectedJournalTypeId) formData.append("journalTypeId", selectedJournalTypeId);
 
       const res = await fetch("/api/admin/editions/upload", {
         method: "POST",
@@ -129,6 +158,24 @@ export default function AdminEditionsPage() {
 
         <Card className="space-y-6 bg-white shadow-sm border border-slate-200">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Journal Type */}
+            <div>
+              <label className="block text-sm font-medium text-slate-900 mb-2">Journal / Publication</label>
+              <select
+                value={selectedJournalTypeId}
+                onChange={(e) => setSelectedJournalTypeId(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                required
+              >
+                <option value="" disabled>Sélectionner un journal</option>
+                {journalTypes.map((jt) => (
+                  <option key={jt.id} value={jt.id}>
+                    {jt.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Titre */}
             <div>
               <label className="block text-sm font-medium text-slate-900 mb-2">Titre de l'édition</label>
@@ -142,16 +189,18 @@ export default function AdminEditionsPage() {
               />
             </div>
 
-            {/* Type */}
+            {/* Type (Auto-filled but editable if needed, or just display) */}
             <div>
-              <label className="block text-sm font-medium text-slate-900 mb-2">Type</label>
+              <label className="block text-sm font-medium text-slate-900 mb-2">Fréquence (définie par le journal)</label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as EditionType)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                className="w-full rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-slate-700 focus:outline-none"
+                disabled
               >
                 <option value="QUOTIDIEN">Quotidien</option>
                 <option value="HEBDOMADAIRE">Hebdomadaire</option>
+                <option value="MENSUEL">Mensuel</option>
                 <option value="HORS_SERIE">Hors-série</option>
                 <option value="SPECIAL">Spécial</option>
               </select>
@@ -169,29 +218,17 @@ export default function AdminEditionsPage() {
             </div>
 
             {/* Prix */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-900 mb-2">Prix</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={prix}
-                  onChange={(e) => setPrix(e.target.value)}
-                  placeholder="ex: 1500"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-900 mb-2">Devise</label>
-                <input
-                  type="text"
-                  maxLength={3}
-                  value={devise}
-                  onChange={(e) => setDevise(e.target.value.toUpperCase())}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-900 mb-2">Prix (XAF)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={prix}
+                onChange={(e) => setPrix(e.target.value)}
+                placeholder="ex: 1500"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              />
             </div>
 
             {/* Fichier PDF */}
@@ -342,3 +379,4 @@ export default function AdminEditionsPage() {
     </div>
   );
 }
+
