@@ -15,6 +15,8 @@ export default function AdminEditionsPage() {
   const [titre, setTitre] = useState("");
   const [type, setType] = useState<EditionType>(EditionType.QUOTIDIEN);
   const [datePublication, setDatePublication] = useState(new Date().toISOString().split("T")[0]);
+  const [prix, setPrix] = useState<string>("");
+  const [devise, setDevise] = useState<string>("XOF");
   const [state, setState] = useState<UploadState>("idle");
   const [currentStep, setCurrentStep] = useState<UploadStep | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -75,6 +77,8 @@ export default function AdminEditionsPage() {
       formData.append("titre", titre);
       formData.append("type", type);
       formData.append("datePublication", datePublication);
+      if (prix) formData.append("prix", prix);
+      if (devise) formData.append("devise", devise);
 
       const res = await fetch("/api/admin/editions/upload", {
         method: "POST",
@@ -162,6 +166,32 @@ export default function AdminEditionsPage() {
                 onChange={(e) => setDatePublication(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
               />
+            </div>
+
+            {/* Prix */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-900 mb-2">Prix</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={prix}
+                  onChange={(e) => setPrix(e.target.value)}
+                  placeholder="ex: 1500"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-900 mb-2">Devise</label>
+                <input
+                  type="text"
+                  maxLength={3}
+                  value={devise}
+                  onChange={(e) => setDevise(e.target.value.toUpperCase())}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                />
+              </div>
             </div>
 
             {/* Fichier PDF */}

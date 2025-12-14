@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { getCurrentUser } from "@/lib/auth/currentUser";
 import { UserRole, SubscriptionStatus } from "@prisma/client";
 import { AddSubscriberModal } from "./AddSubscriberModal";
+import { ImportSubscribersModal } from "./ImportSubscribersModal";
 
 const subscriberRoles: UserRole[] = [UserRole.ABONNE, UserRole.COMPTE_ENTREPRISE, UserRole.UTILISATEUR_ENTREPRISE];
 const allowedRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
@@ -37,8 +38,16 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
   }
 
   const q = parseParam(params, "q").toLowerCase().trim();
-  const typeFilter = parseParam(params, "type") as "all" | "individu" | "entreprise" | "";
-  const statusFilter = parseParam(params, "status") as "all" | SubscriptionStatus | "";
+
+  const parseMulti = (key: string) => {
+    const raw = params[key];
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.flatMap((v) => v.split(","));
+    return raw.split(",");
+  };
+
+  const typeFilterList = parseMulti("type").filter(Boolean) as Array<"individu" | "entreprise">;
+  const statusFilterList = parseMulti("status").filter(Boolean) as SubscriptionStatus[];
   const enterpriseFilter = parseParam(params, "enterpriseId");
 
   const [users, enterprisesOptions] = await Promise.all([
@@ -100,15 +109,19 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
 
   const filtered = rows.filter((row) => {
     const isEnterprise = Boolean(row.enterprise);
-    if (typeFilter === "individu" && isEnterprise) return false;
-    if (typeFilter === "entreprise" && !isEnterprise) return false;
+    if (typeFilterList.length) {
+      if (typeFilterList.includes("individu") && typeFilterList.includes("entreprise")) {
+        // both allowed
+      } else if (typeFilterList.includes("individu") && isEnterprise) return false;
+      else if (typeFilterList.includes("entreprise") && !isEnterprise) return false;
+    }
 
     if (enterpriseFilter && row.enterprise?.id !== enterpriseFilter) return false;
 
     const statusToCheck = row.enterprise ? row.enterprise.latestStatus ?? row.latestStatus : row.latestStatus;
-    if (statusFilter && statusFilter !== "all") {
+    if (statusFilterList.length) {
       if (!statusToCheck) return false;
-      if (statusToCheck !== statusFilter) return false;
+      if (!statusFilterList.includes(statusToCheck)) return false;
     }
 
     const inSearch =
@@ -142,6 +155,8 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
     return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${palette}`}>{text}</span>;
   };
 
+  const isSuperAdmin = currentUser.role === UserRole.SUPER_ADMIN;
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 md:px-8">
@@ -153,6 +168,7 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
           </div>
           <div className="flex items-center gap-3">
             <AddSubscriberModal enterprises={enterprisesOptions} />
+            {currentUser.role === UserRole.SUPER_ADMIN && <ImportSubscribersModal />}
           </div>
         </div>
 
@@ -165,31 +181,78 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
               placeholder="Recherche nom, email, entreprise..."
               className="w-full md:max-w-xs rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500"
             />
-            <label className="text-sm text-slate-600 flex items-center gap-2">
-              Type
-              <select
-                name="type"
-                defaultValue={typeFilter || "all"}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              >
-                <option value="all">Tous</option>
-                <option value="individu">Individuel</option>
-                <option value="entreprise">Entreprise</option>
-              </select>
-            </label>
-            <label className="text-sm text-slate-600 flex items-center gap-2">
-              Statut
-              <select
-                name="status"
-                defaultValue={statusFilter || "all"}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              >
-                <option value="all">Tous</option>
-                <option value="ACTIF">Actif</option>
-                <option value="EXPIRE">Expiré</option>
-                <option value="SUSPENDU">Suspendu</option>
-              </select>
-            </label>
+
+            {isSuperAdmin ? (
+              <>
+                <div className="flex flex-col text-sm text-slate-700 gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Type</span>
+                  <div className="flex gap-3">
+                    {[
+                      { val: "individu", label: "Individuel" },
+                      { val: "entreprise", label: "Entreprise" }
+                    ].map((opt) => (
+                      <label key={opt.val} className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          name="type"
+                          value={opt.val}
+                          defaultChecked={typeFilterList.includes(opt.val as any)}
+                          className="h-4 w-4 rounded border-slate-300"
+                        />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col text-sm text-slate-700 gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Statut</span>
+                  <div className="flex gap-3">
+                    {["ACTIF", "EXPIRE", "SUSPENDU"].map((opt) => (
+                      <label key={opt} className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          name="status"
+                          value={opt}
+                          defaultChecked={statusFilterList.includes(opt as SubscriptionStatus)}
+                          className="h-4 w-4 rounded border-slate-300"
+                        />
+                        {opt}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <label className="text-sm text-slate-600 flex items-center gap-2">
+                  Type
+                  <select
+                    name="type"
+                    defaultValue={typeFilter || "all"}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="all">Tous</option>
+                    <option value="individu">Individuel</option>
+                    <option value="entreprise">Entreprise</option>
+                  </select>
+                </label>
+                <label className="text-sm text-slate-600 flex items-center gap-2">
+                  Statut
+                  <select
+                    name="status"
+                    defaultValue={statusFilterList[0] || "all"}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="all">Tous</option>
+                    <option value="ACTIF">Actif</option>
+                    <option value="EXPIRE">Expiré</option>
+                    <option value="SUSPENDU">Suspendu</option>
+                  </select>
+                </label>
+              </>
+            )}
+
             <label className="text-sm text-slate-600 flex items-center gap-2">
               Entreprise (ID)
               <input

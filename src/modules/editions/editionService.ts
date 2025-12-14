@@ -10,6 +10,8 @@ export async function createEdition(params: {
   type: EditionType;
   cheminInternePdf: string;
   nombrePages?: number | null;
+  prix?: number | null;
+  devise?: string | null;
 }): Promise<Edition> {
   if (!params.titre?.trim()) throw new Error("Titre requis");
   if (!params.cheminInternePdf?.trim()) throw new Error("cheminInternePdf requis");
@@ -21,7 +23,9 @@ export async function createEdition(params: {
         datePublication: params.datePublication,
         type: params.type,
         cheminInternePdf: params.cheminInternePdf,
-        nombrePages: params.nombrePages ?? null
+        nombrePages: params.nombrePages ?? null,
+        prix: params.prix ?? null,
+        devise: params.devise ?? null
       }
     });
 

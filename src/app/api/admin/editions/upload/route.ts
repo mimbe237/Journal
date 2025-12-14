@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
     const titre = formData.get("titre") as string;
     const type = (formData.get("type") as string) || "QUOTIDIEN";
     const datePublicationStr = formData.get("datePublication") as string;
+    const prixRaw = formData.get("prix") as string | null;
+    const devise = (formData.get("devise") as string | null)?.toUpperCase() || null;
 
     if (!fileKey) return NextResponse.json({ error: "Fichier PDF requis (fileKey manquant)" }, { status: 400 });
     if (!titre) return NextResponse.json({ error: "Titre requis" }, { status: 400 });
@@ -95,13 +97,16 @@ export async function POST(req: NextRequest) {
 
     // 6. Créer l'entrée en base de données
     const datePublication = datePublicationStr ? new Date(datePublicationStr) : new Date();
+    const prix = prixRaw ? Number(prixRaw) : null;
     const edition = await createEditionInDb({
       titre,
       datePublication,
       type: type as EditionType,
       nombrePages: pageCount,
       cheminInternePdf: `editions/${editionId}/source.pdf`,
-      cheminImageUne: coverImagePath || `editions/${editionId}/images/page-1.webp`
+      cheminImageUne: coverImagePath || `editions/${editionId}/images/page-1.webp`,
+      prix: prix ?? null,
+      devise
     });
 
     return NextResponse.json(

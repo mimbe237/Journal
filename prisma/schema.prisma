@@ -119,9 +119,13 @@ model User {
   nom               String
   email             String              @unique
   motDePasseHash    String
+  telephone         String?
+  pays              String?
   role              UserRole
   dateCreation      DateTime            @default(now())
   dernierLoginAt    DateTime?
+  deletedAt         DateTime?
+  trashedUntil      DateTime?
   enterpriseAccountId String?
 
   enterpriseAccount EnterpriseAccount?  @relation(fields: [enterpriseAccountId], references: [id])
@@ -225,7 +229,12 @@ model Edition {
   cheminInternePdf  String
   cheminImageUne    String?
   nombrePages       Int?
+  prix              Decimal?          @db.Decimal(10, 2)
+  devise            String?           @db.VarChar(3)
   createdAt         DateTime          @default(now())
+  journalTypeId     String?
+
+  journalType       JournalType?      @relation(fields: [journalTypeId], references: [id])
 
   readingSessions   ReadingSession[]
 
@@ -296,7 +305,6 @@ model PaymentTransaction {
   statut            PaymentStatus
   referenceExterne  String?           @unique
   createdAt         DateTime          @default(now())
-
   user         User?          @relation(fields: [userId], references: [id])
   subscription Subscription   @relation(fields: [subscriptionId], references: [id])
 
@@ -353,4 +361,31 @@ model DocumentJustificatif {
   
   @@index([submissionId])
   @@map("justificatifs")
+}
+
+/// Fréquence de publication d'un type de journal.
+enum JournalFrequency {
+  QUOTIDIEN
+  HEBDOMADAIRE
+  MENSUEL
+  HORS_SERIE
+  SPECIAL
+}
+
+/// Types de journaux (ex: Cameroon Tribune, Nyanga Magazine) avec grille tarifaire.
+model JournalType {
+  id             String           @id @default(cuid())
+  name           String           @unique
+  frequency      JournalFrequency
+  unitPrice      Decimal          @db.Decimal(10, 2)
+  monthlyPrice   Decimal          @db.Decimal(10, 2)
+  sixMonthPrice  Decimal          @db.Decimal(10, 2)
+  yearlyPrice    Decimal          @db.Decimal(10, 2)
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  editions       Edition[]
+
+  @@map("journal_types")
 }

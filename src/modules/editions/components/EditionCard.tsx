@@ -11,11 +11,14 @@ type EditionCardProps = {
   type: string;
   nombrePages: number | null;
   cheminImageUne?: string | null;
+  prix?: number | null;
+  devise?: string | null;
 };
 
 // Carte simple pour le kiosque : titre, date, type, lien "Lire".
-export function EditionCard({ id, titre, datePublication, type, nombrePages, cheminImageUne }: EditionCardProps) {
+export function EditionCard({ id, titre, datePublication, type, nombrePages, cheminImageUne, prix, devise }: EditionCardProps) {
   const date = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(new Date(datePublication));
+  const priceText = prix != null ? `${prix.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${devise || ""}`.trim() : null;
 
   return (
     <Card className="mx-auto flex h-full max-w-sm flex-col gap-3 overflow-hidden transition hover:-translate-y-0.5 hover:shadow-md">
@@ -45,6 +48,7 @@ export function EditionCard({ id, titre, datePublication, type, nombrePages, che
       </div>
       <p className="text-sm text-slate-600">{date}</p>
       <p className="text-xs text-slate-500">{nombrePages ? `${nombrePages} pages` : "Nombre de pages à venir"}</p>
+      {priceText && <p className="text-sm font-semibold text-slate-900">Prix : {priceText}</p>}
 
       <div className="mt-auto pt-3">
         <Link href={`/editions/${id}`}>

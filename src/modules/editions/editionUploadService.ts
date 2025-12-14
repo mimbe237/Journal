@@ -35,6 +35,8 @@ export type CreateEditionInput = {
   nombrePages: number;
   cheminInternePdf: string;
   cheminImageUne?: string | null;
+  prix?: number | null;
+  devise?: string | null;
 };
 
 /**
@@ -48,7 +50,9 @@ export async function createEditionInDb(input: CreateEditionInput) {
       type: input.type,
       nombrePages: input.nombrePages,
       cheminInternePdf: input.cheminInternePdf,
-      cheminImageUne: input.cheminImageUne
+      cheminImageUne: input.cheminImageUne,
+      prix: input.prix ?? null,
+      devise: input.devise ?? null
     }
   });
 
