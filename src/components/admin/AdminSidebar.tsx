@@ -140,6 +140,7 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
       {
         title: "Comptes",
         items: [
+          { href: "/admin/subscribers", label: "Tous les abonnés", icon: Icons.Subscribers },
           { href: "/admin/enterprises", label: "Entreprises", icon: Icons.Enterprise },
         ]
       }

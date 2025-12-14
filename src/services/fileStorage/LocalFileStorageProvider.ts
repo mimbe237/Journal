@@ -38,4 +38,15 @@ export class LocalFileStorageProvider implements IFileStorageProvider {
     const target = this.resolvePath(params.path);
     return fs.createReadStream(target);
   }
+
+  async deleteFile(params: { path: string }): Promise<void> {
+    const target = this.resolvePath(params.path);
+    try {
+      await fsp.unlink(target);
+    } catch (error: any) {
+      if (error.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+  }
 }

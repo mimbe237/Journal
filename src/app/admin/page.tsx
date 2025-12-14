@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { loadAdminDashboardStats } from "@/lib/admin/dashboardStats";
+import { getCurrentUser } from "@/lib/auth/currentUser";
+import { UserRole } from "@prisma/client";
 
 const numberFormatter = new Intl.NumberFormat("fr-FR");
 const currencyFormatter = new Intl.NumberFormat("fr-FR", {
@@ -14,14 +16,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "medium",
   timeStyle: "short"
 });
-
-const quickLinks: Array<{ href: "/admin/editions/bulk-import" | "/admin/editions/list" | "/admin/subscribers" | "/admin/exports" | "/admin/promocodes"; label: string }> = [
-  { href: "/admin/editions/bulk-import", label: "Import en masse" },
-  { href: "/admin/editions/list", label: "Gérer les éditions" },
-  { href: "/admin/subscribers", label: "Abonnés" },
-  { href: "/admin/exports", label: "Exports" },
-  { href: "/admin/promocodes", label: "Codes promo" }
-];
 
 function formatNumber(value: number) {
   return numberFormatter.format(value);
@@ -40,6 +34,11 @@ function formatDateTime(date: Date) {
 }
 
 export default async function AdminLandingPage() {
+  const user = await getCurrentUser();
+  const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
+  const isFacturation = user?.role === UserRole.FACTURATION;
+  const isSupport = user?.role === UserRole.SUPPORT;
+
   let stats = null;
   try {
     stats = await loadAdminDashboardStats();
@@ -80,18 +79,44 @@ export default async function AdminLandingPage() {
       ]
     : [];
 
+  const quickLinks = [];
+  
+  if (isSuperAdmin) {
+    quickLinks.push(
+      { href: "/admin/editions/bulk-import", label: "Import en masse" },
+      { href: "/admin/editions/list", label: "Gérer les éditions" },
+      { href: "/admin/subscribers", label: "Abonnés" },
+      { href: "/admin/exports", label: "Exports" },
+      { href: "/admin/promocodes", label: "Codes promo" }
+    );
+  } else if (isFacturation) {
+    quickLinks.push(
+      { href: "/admin/facturation/soumissions", label: "Soumissions" },
+      { href: "/admin/subscriptions", label: "Abonnements" },
+      { href: "/admin/exports", label: "Exports" }
+    );
+  } else if (isSupport) {
+    quickLinks.push(
+      { href: "/admin/users", label: "Utilisateurs" },
+      { href: "/admin/editions/list", label: "Gérer les éditions" },
+      { href: "/admin/enterprises", label: "Entreprises" }
+    );
+  }
+
   return (
     <div className="space-y-6 px-6 py-8">
       <PageHeader
         title="Tableau de bord administratif"
         subtitle="Surveillez l'état des abonnements, le trafic lecture et lancez rapidement les actions importantes."
         actions={
-          <Link
-            href="/admin/editions/bulk-import"
-            className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-700 shadow-sm shadow-emerald-900/10 hover:bg-emerald-100"
-          >
-            Importer en masse
-          </Link>
+          isSuperAdmin ? (
+            <Link
+              href="/admin/editions/bulk-import"
+              className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-700 shadow-sm shadow-emerald-900/10 hover:bg-emerald-100"
+            >
+              Importer en masse
+            </Link>
+          ) : null
         }
       />
 

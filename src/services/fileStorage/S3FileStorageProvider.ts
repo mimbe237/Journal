@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { IFileStorageProvider } from "./IFileStorageProvider";
 import { Readable } from "stream";
 
@@ -76,5 +76,16 @@ export class S3FileStorageProvider implements IFileStorageProvider {
 
     // Dans Node.js, response.Body est un IncomingMessage (Readable Stream)
     return response.Body as NodeJS.ReadableStream;
+  }
+
+  async deleteFile(params: { path: string }): Promise<void> {
+    const key = params.path.startsWith("/") ? params.path.slice(1) : params.path;
+
+    const command = new DeleteObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    await this.client.send(command);
   }
 }

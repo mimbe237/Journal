@@ -31,7 +31,12 @@ export function Header() {
 
   useEffect(() => {
     if (!user || !pathname) return;
-    if (isStaff && !pathname.startsWith("/admin")) {
+    
+    // Allow staff to access specific public/user pages
+    const allowedPaths = ["/editions", "/dashboard", "/profile"];
+    const isAllowedPath = allowedPaths.some(path => pathname.startsWith(path));
+
+    if (isStaff && !pathname.startsWith("/admin") && !isAllowedPath) {
       const target = user.role === "FACTURATION"
         ? "/admin/facturation"
         : user.role === "SUPPORT"

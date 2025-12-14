@@ -111,6 +111,14 @@ export async function POST(req: NextRequest) {
       journalTypeId
     });
 
+    // 7. Supprimer le fichier temporaire uploadé (nettoyage)
+    try {
+      await fileStorageProvider.deleteFile({ path: fileKey });
+    } catch (cleanupErr) {
+      console.warn("Failed to delete temp uploaded file:", cleanupErr);
+      // On ne bloque pas la réponse pour ça
+    }
+
     return NextResponse.json(
       {
         ok: true,
