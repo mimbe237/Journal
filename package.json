@@ -23,7 +23,7 @@
     "lightningcss": "^1.30.2",
     "mime-types": "^3.0.2",
     "next": "^16.0.10",
-    "pdfjs-dist": "^2.16.105",
+    "pdfjs-dist": "^5.4.449",
     "pg": "^8.16.3",
     "react": "latest",
     "react-dom": "latest",
