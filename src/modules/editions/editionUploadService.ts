@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/config/prisma";
-import { convertPdfToImages as convertPdfToImagesWithSharp } from "@/services/pdf/pdfConversionService";
 import fs from "fs";
 import path from "path";
 // Avoid importing Prisma enum to keep types simple here
@@ -10,6 +9,8 @@ type EditionType = any;
  * Utilise sharp (libvips), compatible Vercel (pas d'ImageMagick requis).
  */
 export async function convertPdfToImages(pdfPath: string, outputDir: string): Promise<number> {
+  // Lazy-load heavy PDF conversion deps only when needed (avoid import-time crashes on GET/HEAD)
+  const { convertPdfToImages: convertPdfToImagesWithSharp } = await import("@/services/pdf/pdfConversionService");
   const resolvedPdfPath = path.resolve(pdfPath);
   const resolvedOutputDir = path.resolve(outputDir);
 
