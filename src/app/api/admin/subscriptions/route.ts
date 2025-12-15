@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 
-import { requireUserWithRoles } from "@/lib/auth/authorization";
+import { AuthorizationError, requireUserWithRoles } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/config/prisma";
+import { reportError } from "@/lib/observability/errorReporter";
 
 // GET liste des abonnements (admin)
 export async function GET(req: NextRequest) {
@@ -47,6 +48,17 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ subscriptions });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message ?? "Erreur de récupération" }, { status: 400 });
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[admin/subscriptions] failed to load", error);
+    await reportError({
+      message: "Failed to load subscriptions",
+      error,
+      context: {
+        url: req.url
+      }
+    });
+    return NextResponse.json({ error: error?.message ?? "Erreur de récupération" }, { status: 500 });
   }
 }

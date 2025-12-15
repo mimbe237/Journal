@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
-import { ensureFileStorageProvider } from "@/services/fileStorage";
+import { fileStorageProvider } from "@/services/fileStorage";
+import { reportError } from "@/lib/observability/errorReporter";
+
+export const runtime = "nodejs";
 
 const mimeMap: Record<string, string> = {
   ".png": "image/png",
@@ -31,11 +34,9 @@ export async function GET(
     candidatePaths.push(requested.replace(/\.png$/i, ".webp"));
   }
 
-  const storage = ensureFileStorageProvider();
-
   for (const candidate of candidatePaths) {
     try {
-      const stream = await storage.getFileStream({ path: candidate });
+      const stream = await fileStorageProvider.getFileStream({ path: candidate });
       const ext = path.extname(candidate).toLowerCase() || requestedExt;
       const contentType = mimeMap[ext] || "application/octet-stream";
 
@@ -69,6 +70,13 @@ export async function GET(
 
       if (!isNotFound) {
         console.error("[files] error while streaming", candidate, error);
+        await reportError({
+          message: "File streaming failed",
+          error,
+          context: {
+            candidate
+          }
+        });
         return NextResponse.json({ error: "Erreur interne" }, { status: 500 });
       }
       // Not found -> essayer le candidat suivant

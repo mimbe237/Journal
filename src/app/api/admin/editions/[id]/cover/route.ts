@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 import { prisma } from "@/lib/config/prisma";
-import { ensureFileStorageProvider } from "@/services/fileStorage";
+import { fileStorageProvider } from "@/services/fileStorage";
+import { reportError } from "@/lib/observability/errorReporter";
+
+export const runtime = "nodejs";
 
 export async function POST(
   req: NextRequest,
@@ -28,8 +31,7 @@ export async function POST(
     const coverFileName = `cover.${ext}`;
     const coverImagePath = `editions/${editionId}/${coverFileName}`;
 
-    const storage = ensureFileStorageProvider();
-    await storage.saveFile({
+    await fileStorageProvider.saveFile({
       buffer: coverBuffer,
       destinationPath: coverImagePath
     });
@@ -42,6 +44,14 @@ export async function POST(
 
     return NextResponse.json({ ok: true, cheminImageUne: coverImagePath });
   } catch (error: any) {
+    console.error("[admin/editions/cover] failed", error);
+    await reportError({
+      message: "Edition cover update failed",
+      error,
+      context: {
+        route: "admin/editions/[id]/cover"
+      }
+    });
     return NextResponse.json({ error: error?.message ?? "Erreur upload" }, { status: 500 });
   }
 }
