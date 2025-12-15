@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 
-import { requireUserWithRoles } from "@/lib/auth/authorization";
+import { AuthorizationError, requireUserWithRoles } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/config/prisma";
+import { reportError } from "@/lib/observability/errorReporter";
 
 // GET : récupère les détails d'un compte entreprise
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const { id } = await props.params;
   try {
-    const params = await props.params;
-    const { id } = params;
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT]);
 
     const enterprise = await prisma.enterpriseAccount.findUnique({
@@ -38,15 +38,26 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
 
     return NextResponse.json({ enterprise }, { status: 200 });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message ?? "Erreur de chargement" }, { status: 400 });
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[admin/enterprises/:id] failed to load", error);
+    await reportError({
+      message: "Failed to load enterprise account",
+      error,
+      context: {
+        enterpriseId: id,
+        url: req.url
+      }
+    });
+    return NextResponse.json({ error: error?.message ?? "Erreur de chargement" }, { status: 500 });
   }
 }
 
 // PATCH : met à jour un compte entreprise (licences, contact, etc.)
 export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const { id } = await props.params;
   try {
-    const params = await props.params;
-    const { id } = params;
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT]);
     const body = await req.json();
     const { nombreUtilisateursInclus, contactEmail, contactTelephone, nom } = body ?? {};
@@ -66,6 +77,18 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
 
     return NextResponse.json({ enterprise }, { status: 200 });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message ?? "Erreur de mise à jour" }, { status: 400 });
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("[admin/enterprises/:id] failed to update", error);
+    await reportError({
+      message: "Failed to update enterprise account",
+      error,
+      context: {
+        enterpriseId: id,
+        url: req.url
+      }
+    });
+    return NextResponse.json({ error: error?.message ?? "Erreur de mise à jour" }, { status: 500 });
   }
 }
