@@ -2,10 +2,9 @@ import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import sharp from "sharp";
+// Load canvas first so we can polyfill DOMMatrix before loading pdfjs
 // @ts-ignore
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-// @ts-ignore
-import { createCanvas } from "canvas";
+import { createCanvas, DOMMatrix as CanvasDOMMatrix } from "canvas";
 
 export type PdfConversionResult = {
   imagesPaths: string[];
@@ -21,6 +20,12 @@ type ConvertPdfParams = {
 };
 
 export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfConversionResult> {
+  // Ensure DOMMatrix exists for pdfjs in Node.js
+  const g: any = globalThis as any;
+  if (typeof g.DOMMatrix === "undefined" && typeof CanvasDOMMatrix !== "undefined") {
+    g.DOMMatrix = CanvasDOMMatrix as any;
+  }
+
   // Ensure canvas is available
   if (typeof createCanvas !== 'function') {
     throw new Error("Canvas is not installed or failed to load. Cannot convert PDF.");
@@ -47,6 +52,9 @@ export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfC
   // Read PDF file
   const pdfBuffer = await fsp.readFile(resolvedPdfPath);
   const data = new Uint8Array(pdfBuffer);
+
+  // Dynamically import pdfjs AFTER DOMMatrix polyfill is in place
+  const pdfjsLib: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
   // Load PDF
   // We try to locate cmaps/fonts relative to the package
