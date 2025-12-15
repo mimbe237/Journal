@@ -6,6 +6,8 @@ import { createRequire } from "module";
 // Load canvas first so we can polyfill DOMMatrix before loading pdfjs
 // @ts-ignore
 import { createCanvas, DOMMatrix as CanvasDOMMatrix } from "canvas";
+// @ts-ignore
+import { ImageData as CanvasImageData } from "canvas";
 
 export type PdfConversionResult = {
   imagesPaths: string[];
@@ -25,6 +27,9 @@ export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfC
   const g: any = globalThis as any;
   if (typeof g.DOMMatrix === "undefined" && typeof CanvasDOMMatrix !== "undefined") {
     g.DOMMatrix = CanvasDOMMatrix as any;
+  }
+  if (typeof g.ImageData === "undefined" && typeof CanvasImageData !== "undefined") {
+    g.ImageData = CanvasImageData as any;
   }
 
   // Ensure canvas is available
@@ -74,9 +79,17 @@ export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfC
   const imagesPaths: string[] = [];
 
   const canvasFactory = {
-    create(width: number, height: number, contextType: string) {
+    create(width: number, height: number, _contextType?: string) {
       const canvas = createCanvas(width, height);
-      const context = canvas.getContext(contextType as any);
+      // pdfjs peut appeler sans préciser "2d" -> on force "2d" pour éviter un contexte nul
+      const context = canvas.getContext("2d");
+      if (!context) {
+        throw new Error("Impossible d'initialiser le contexte 2d pour le rendu PDF");
+      }
+      // Polyfill createImageData if missing
+      if (!context.createImageData) {
+        (context as any).createImageData = (width: number, height: number) => new ImageData(width, height);
+      }
       return { canvas, context };
     },
     reset(ctx: any, width: number, height: number) {

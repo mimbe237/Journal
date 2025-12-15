@@ -1,31 +1,53 @@
 import { prisma } from "@/lib/config/prisma";
-import { SystemEventType } from "@prisma/client";
+import { SystemEventType, UserRole } from "@prisma/client";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 
+type LogWithUser = {
+  id: string;
+  typeEvenement: SystemEventType;
+  userId: string | null;
+  ip: string | null;
+  createdAt: Date;
+  meta: any;
+  user?: {
+    nom: string;
+    email: string;
+    role: UserRole;
+  } | null;
+};
+
 export default async function LogsPage() {
-  const logs = await prisma.systemEvent.findMany({
-    where: {
-      typeEvenement: {
-        in: [
-          SystemEventType.CREATION_ABONNEMENT,
-          SystemEventType.MODIFICATION_ABONNEMENT,
-          SystemEventType.SUPPRESSION_ABONNEMENT,
-          SystemEventType.SUPPRESSION_DEFINITIVE_ABONNEMENT,
-          SystemEventType.RESTAURATION_ABONNEMENT
-        ]
-      }
-    },
-    include: {
-      user: true
-    },
-    orderBy: {
-      createdAt: 'desc'
-    },
-    take: 100
-  });
+  let logs: LogWithUser[] = [];
+  let loadError: string | null = null;
+
+  try {
+    logs = await prisma.systemEvent.findMany({
+      where: {
+        typeEvenement: {
+          in: [
+            SystemEventType.CREATION_ABONNEMENT,
+            SystemEventType.MODIFICATION_ABONNEMENT,
+            SystemEventType.SUPPRESSION_ABONNEMENT,
+            SystemEventType.SUPPRESSION_DEFINITIVE_ABONNEMENT,
+            SystemEventType.RESTAURATION_ABONNEMENT
+          ]
+        }
+      },
+      include: {
+        user: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 100
+    });
+  } catch (error: any) {
+    console.error("[admin/logs] failed to load system events", error);
+    loadError = error?.message ?? "Impossible de charger les événements.";
+  }
 
   const getActionLabel = (type: SystemEventType) => {
     switch (type) {
@@ -57,6 +79,11 @@ export default async function LogsPage() {
       />
 
       <Card className="overflow-hidden">
+        {loadError ? (
+          <div className="px-6 py-4 text-sm text-red-700 bg-red-50 border-b border-red-100">
+            Impossible de charger le journal d'activité. {loadError}
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
@@ -87,10 +114,17 @@ export default async function LogsPage() {
                   </td>
                 </tr>
               ))}
-              {logs.length === 0 && (
+              {(!loadError && logs.length === 0) && (
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
                     Aucune activité enregistrée.
+                  </td>
+                </tr>
+              )}
+              {loadError && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                    Réessaie plus tard ou contacte le support.
                   </td>
                 </tr>
               )}
