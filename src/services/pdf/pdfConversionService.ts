@@ -2,6 +2,7 @@ import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import sharp from "sharp";
+import { createRequire } from "module";
 // Load canvas first so we can polyfill DOMMatrix before loading pdfjs
 // @ts-ignore
 import { createCanvas, DOMMatrix as CanvasDOMMatrix } from "canvas";
@@ -53,12 +54,18 @@ export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfC
   const pdfBuffer = await fsp.readFile(resolvedPdfPath);
   const data = new Uint8Array(pdfBuffer);
 
-  // Dynamically import the Node build of pdfjs AFTER DOMMatrix polyfill is in place
-  const pdfjsLib: any = await import("pdfjs-dist/legacy/build/pdf.node.mjs");
+  const requireModule = createRequire(import.meta.url);
+  const pdfjsLib: any = requireModule("pdfjs-dist/legacy/build/pdf.js");
 
-  // Load PDF without worker (use inline rendering for serverless compatibility)
+  // Disable workers for Node environment to avoid bundle lookups
+  if (pdfjsLib.GlobalWorkerOptions) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+    pdfjsLib.GlobalWorkerOptions.workerPort = null;
+  }
+
   const loadingTask = pdfjsLib.getDocument({
     data,
+    disableWorker: true,
     useSystemFonts: true,
   });
 
