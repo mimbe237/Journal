@@ -2,7 +2,7 @@ import { LocalFileStorageProvider } from "./LocalFileStorageProvider";
 import { S3FileStorageProvider } from "./S3FileStorageProvider";
 import { IFileStorageProvider } from "./IFileStorageProvider";
 
-let provider: IFileStorageProvider;
+let provider: IFileStorageProvider | null = null;
 let providerInitError: Error | null = null;
 
 try {
@@ -39,5 +39,5 @@ export const fileStorageProvider: IFileStorageProvider = provider ?? fallbackPro
 
 export function ensureFileStorageProvider() {
   if (providerInitError) throw providerInitError;
-  return fileStorageProvider;
+  return provider ?? fallbackProvider;
 }
