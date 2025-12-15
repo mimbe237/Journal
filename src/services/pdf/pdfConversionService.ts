@@ -56,18 +56,8 @@ export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfC
   // Dynamically import pdfjs AFTER DOMMatrix polyfill is in place
   const pdfjsLib: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
-  // Load PDF
-  // We try to locate cmaps/fonts relative to the package
-  const pdfPackagePath = path.dirname(require.resolve("pdfjs-dist/package.json"));
-  const cMapUrl = path.join(pdfPackagePath, "cmaps/");
-  const standardFontDataUrl = path.join(pdfPackagePath, "standard_fonts/");
-
-  const loadingTask = pdfjsLib.getDocument({
-    data,
-    cMapUrl,
-    cMapPacked: true,
-    standardFontDataUrl,
-  });
+  // Load PDF (omit cMapUrl/standardFontDataUrl to avoid path resolution issues in serverless bundles)
+  const loadingTask = pdfjsLib.getDocument({ data });
 
   const pdfDocument = await loadingTask.promise;
   const pageCount = pdfDocument.numPages;

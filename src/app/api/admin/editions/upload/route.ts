@@ -73,6 +73,12 @@ export async function POST(req: NextRequest) {
       pageCount = await convertPdfToImages(localPdfPath, imagesDir);
     } catch (err: any) {
       console.error("Conversion error:", err);
+      const { reportError } = await import("@/lib/observability/errorReporter");
+      await reportError({
+        message: "PDF conversion failed",
+        error: err,
+        context: { fileKey, localPdfPath, imagesDir },
+      });
       return NextResponse.json(
         { error: `Conversion échouée: ${err.message}` },
         { status: 400 }
