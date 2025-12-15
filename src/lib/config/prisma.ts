@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { ensureSubscriptionRuntimeMigrations } from "./runtimeMigrations";
 
 // Client Prisma unique pour éviter les reconnections en dev (hot-reload Next.js).
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
@@ -28,6 +29,17 @@ export const prisma =
     },
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"]
   });
+
+const runtimeMigrationsPromise = ensureSubscriptionRuntimeMigrations(prisma).catch((error) => {
+  console.error("[prisma] runtime migrations failed", error);
+  throw error;
+});
+
+export async function ensurePrismaRuntimeMigrations() {
+  await runtimeMigrationsPromise;
+}
+
+export const prismaRuntimeReady = runtimeMigrationsPromise;
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;

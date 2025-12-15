@@ -15,6 +15,15 @@ type EditionListItem = {
   cheminImageUne?: string | null;
   prix?: number | null;
   devise?: string | null;
+  access?: {
+    status: "read" | "buy_or_subscribe" | "subscribe";
+    detail?: string | null;
+    coverage?: {
+      type: "individual" | "enterprise";
+      dateDebut: string;
+      dateFin: string;
+    } | null;
+  };
 };
 
 const typeOptions = [

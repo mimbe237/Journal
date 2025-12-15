@@ -8,7 +8,7 @@ import {
 } from "@prisma/client";
 import { addDays, startOfDay, endOfDay } from "date-fns";
 
-import { prisma } from "@/lib/config/prisma";
+import { prisma, prismaRuntimeReady } from "@/lib/config/prisma";
 import {
   calculateDiscountedAmount,
   incrementPromoCodeUsage,
@@ -31,6 +31,7 @@ function assertDates(dateDebut: Date, dateFin: Date) {
  * Retourne l'abonnement ACTIF le plus récent pour un utilisateur.
  */
 export async function getActiveSubscriptionForUser(userId: string): Promise<Subscription | null> {
+  await prismaRuntimeReady;
   const now = new Date();
   return prisma.subscription.findFirst({
     where: { userId, statut: SubscriptionStatus.ACTIF, dateFin: { gte: now } },
@@ -44,6 +45,7 @@ export async function getActiveSubscriptionForUser(userId: string): Promise<Subs
 export async function getActiveSubscriptionForEnterprise(
   enterpriseAccountId: string
 ): Promise<Subscription | null> {
+  await prismaRuntimeReady;
   const now = new Date();
   return prisma.subscription.findFirst({
     where: { enterpriseAccountId, statut: SubscriptionStatus.ACTIF, dateFin: { gte: now } },
@@ -64,6 +66,7 @@ export async function createSubscriptionForUser(params: {
   source: SubscriptionSource;
   promoCodeId?: string;
 }): Promise<Subscription> {
+  await prismaRuntimeReady;
   assertDates(params.dateDebut, params.dateFin);
 
   const user = await prisma.user.findUnique({ where: { id: params.userId } });
@@ -118,6 +121,7 @@ export async function createSubscriptionWithPromoForUser(params: {
   source: SubscriptionSource;
   promoCode?: string;
 }): Promise<Subscription> {
+  await prismaRuntimeReady;
   if (!params.promoCode) {
     return createSubscriptionForUser({
       userId: params.userId,
@@ -193,6 +197,7 @@ export async function createSubscriptionWithPromoForEnterprise(params: {
   source: SubscriptionSource;
   promoCode?: string;
 }): Promise<Subscription> {
+  await prismaRuntimeReady;
   if (!params.promoCode) {
     return createSubscriptionForEnterprise({
       enterpriseAccountId: params.enterpriseAccountId,
@@ -267,6 +272,7 @@ export async function createSubscriptionForEnterprise(params: {
   source: SubscriptionSource;
   promoCodeId?: string;
 }): Promise<Subscription> {
+  await prismaRuntimeReady;
   assertDates(params.dateDebut, params.dateFin);
 
   const enterprise = await prisma.enterpriseAccount.findUnique({ where: { id: params.enterpriseAccountId } });
@@ -318,6 +324,7 @@ export async function renewSubscription(params: {
   montant?: number;
   source?: SubscriptionSource;
 }): Promise<Subscription> {
+  await prismaRuntimeReady;
   const subscription = await prisma.subscription.findUnique({ where: { id: params.subscriptionId } });
   if (!subscription) {
     throw new Error("Abonnement introuvable");
@@ -376,6 +383,7 @@ export async function adjustSubscriptionEndDate(params: {
   raison: string;
   adminId: string;
 }): Promise<Subscription> {
+  await prismaRuntimeReady;
   const subscription = await prisma.subscription.findUnique({ where: { id: params.subscriptionId } });
   if (!subscription) {
     throw new Error("Abonnement introuvable");
@@ -421,6 +429,7 @@ export async function cancelOrRefundSubscription(params: {
   raison: string;
   typeOperation: "ANNULATION" | "REMBOURSEMENT_PARTIEL" | "REMBOURSEMENT_TOTAL";
 }): Promise<Subscription> {
+  await prismaRuntimeReady;
   const subscription = await prisma.subscription.findUnique({ where: { id: params.subscriptionId } });
   if (!subscription) {
     throw new Error("Abonnement introuvable");
@@ -478,6 +487,7 @@ export async function hasValidAccessToContent(params: {
   userId: string;
   enterpriseAccountId?: string;
 }): Promise<boolean> {
+  await prismaRuntimeReady;
   const now = new Date();
 
   const individual = await prisma.subscription.findFirst({
@@ -512,6 +522,7 @@ export async function findSubscriptionsExpiringIn(
   days: number,
   dateReference: Date
 ): Promise<Subscription[]> {
+  await prismaRuntimeReady;
   if (!(dateReference instanceof Date) || isNaN(dateReference.getTime())) {
     throw new Error("dateReference invalide");
   }

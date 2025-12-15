@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { prisma } from "@/lib/config/prisma";
+import { prisma, prismaRuntimeReady } from "@/lib/config/prisma";
 import { Card } from "@/components/ui/Card";
 import { getCurrentUser } from "@/lib/auth/currentUser";
 import { UserRole, SubscriptionStatus } from "@prisma/client";
-import { AddSubscriberModal } from "./AddSubscriberModal";
 import { ImportSubscribersModal } from "./ImportSubscribersModal";
 import { EditUserModal } from "../users/EditUserModal";
 
@@ -43,6 +42,7 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
   }
 
   const q = parseParam(params, "q").toLowerCase().trim();
+  const successMsg = parseParam(params, "success") ? "Abonné créé avec succès." : "";
 
   const parseMulti = (key: string) => {
     const raw = params[key];
@@ -54,6 +54,8 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
   const typeFilterList = parseMulti("type").filter(Boolean) as Array<"individu" | "entreprise">;
   const statusFilterList = parseMulti("status").filter(Boolean) as SubscriptionStatus[];
   const enterpriseFilter = parseParam(params, "enterpriseId");
+
+  await prismaRuntimeReady;
 
   const [users, enterprisesOptions] = await Promise.all([
     prisma.user.findMany({
@@ -182,10 +184,21 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
             <p className="text-sm text-slate-600">Vue globale avec distinction entreprise/individuel.</p>
           </div>
           <div className="flex items-center gap-3">
-            <AddSubscriberModal enterprises={enterprisesOptions} />
+            <Link
+              href="/admin/subscribers/new"
+              className="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700"
+            >
+              + Nouvel abonné
+            </Link>
             {currentUser.role === UserRole.SUPER_ADMIN && <ImportSubscribersModal />}
           </div>
         </div>
+
+        {successMsg && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            {successMsg}
+          </div>
+        )}
 
         <Card className="p-4 md:p-6">
           <form className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">

@@ -1,5 +1,5 @@
 import { Edition, EditionType, SystemEventType } from "@prisma/client";
-import { prisma } from "@/lib/config/prisma";
+import { prisma, prismaRuntimeReady } from "@/lib/config/prisma";
 
 /**
  * Crée une édition (métadonnées) en base.
@@ -15,6 +15,8 @@ export async function createEdition(params: {
 }): Promise<Edition> {
   if (!params.titre?.trim()) throw new Error("Titre requis");
   if (!params.cheminInternePdf?.trim()) throw new Error("cheminInternePdf requis");
+
+  await prismaRuntimeReady;
 
   const edition = await prisma.$transaction(async (tx) => {
     const created = await tx.edition.create({
@@ -51,6 +53,8 @@ export async function listEditions(params?: {
   type?: EditionType;
   order?: "DESC" | "ASC";
 }): Promise<{ data: Edition[]; total: number }> {
+  await prismaRuntimeReady;
+
   const page = Math.max(params?.page ?? 1, 1);
   const pageSize = Math.min(Math.max(params?.pageSize ?? 20, 1), 100);
   const where = params?.type ? { type: params.type } : {};
@@ -67,11 +71,12 @@ export async function listEditions(params?: {
 /**
  * Récupère une édition par id.
  */
-export function getEditionById(id: string | null | undefined): Promise<Edition | null> {
+export async function getEditionById(id: string | null | undefined): Promise<Edition | null> {
   const editionId = id?.trim();
   if (!editionId) {
     throw new Error("Identifiant d'édition requis");
   }
+  await prismaRuntimeReady;
   return prisma.edition.findUnique({ where: { id: editionId } });
 }
 
@@ -83,6 +88,7 @@ export async function updateEditionPageCount(params: {
   nombrePages: number;
 }): Promise<Edition> {
   if (params.nombrePages <= 0) throw new Error("nombrePages doit être > 0");
+  await prismaRuntimeReady;
   return prisma.edition.update({
     where: { id: params.editionId },
     data: { nombrePages: params.nombrePages }

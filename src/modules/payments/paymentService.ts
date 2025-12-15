@@ -1,12 +1,14 @@
 import { Prisma, PaymentStatus, SubscriptionSource, SubscriptionStatus, SubscriptionType } from "@prisma/client";
 import { addDays } from "date-fns";
 
-import { prisma } from "@/lib/config/prisma";
+import { prisma, ensurePrismaRuntimeMigrations } from "@/lib/config/prisma";
 import { logEvent } from "@/modules/logs/loggingService";
 import { paymentProvider } from "@/services/payments";
 
 const DEFAULT_CURRENCY = "EUR";
 const DEFAULT_DURATION_DAYS = 30;
+
+const prismaReady = ensurePrismaRuntimeMigrations();
 
 export type StartCheckoutParams = {
   userId?: string;
@@ -20,6 +22,7 @@ export type StartCheckoutParams = {
 };
 
 export async function startCheckout(params: StartCheckoutParams) {
+  await prismaReady;
   if (!params.userId && !params.enterpriseAccountId) {
     throw new Error("userId ou enterpriseAccountId requis");
   }
@@ -28,6 +31,40 @@ export async function startCheckout(params: StartCheckoutParams) {
   const duration = Math.max(params.durationDays ?? DEFAULT_DURATION_DAYS, 1);
   const now = new Date();
   const dateFin = addDays(now, duration);
+
+  if (params.amount <= 0) {
+    const subscription = await prisma.subscription.create({
+      data: {
+        userId: params.userId ?? null,
+        enterpriseAccountId: params.enterpriseAccountId ?? null,
+        type: params.subscriptionType,
+        statut: SubscriptionStatus.ACTIF,
+        dateDebut: now,
+        dateFin,
+        montant: new Prisma.Decimal(0),
+        devise: currency,
+        source: params.source ?? SubscriptionSource.ONLINE
+      }
+    });
+
+    await logEvent({
+      type: "CREATION_ABONNEMENT",
+      userId: params.userId ?? null,
+      meta: {
+        subscriptionId: subscription.id,
+        paymentTransactionId: null,
+        statut: PaymentStatus.SUCCES,
+        free: true
+      }
+    });
+
+    return {
+      sessionId: null,
+      checkoutUrl: null,
+      subscriptionId: subscription.id,
+      transactionId: null
+    };
+  }
 
   const subscription = await prisma.subscription.create({
     data: {
@@ -80,6 +117,7 @@ export async function startCheckout(params: StartCheckoutParams) {
 }
 
 export async function markPaymentSuccess(params: { sessionId: string; userId?: string }) {
+  await prismaReady;
   const transaction = await prisma.paymentTransaction.findUnique({
     where: { referenceExterne: params.sessionId }
   });
@@ -122,6 +160,7 @@ export async function markPaymentSuccess(params: { sessionId: string; userId?: s
 }
 
 export async function markPaymentFailure(params: { sessionId: string; userId?: string }) {
+  await prismaReady;
   const transaction = await prisma.paymentTransaction.findUnique({
     where: { referenceExterne: params.sessionId }
   });

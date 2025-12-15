@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/currentUser";
-import { prisma } from "@/lib/config/prisma";
+import { prisma, prismaRuntimeReady } from "@/lib/config/prisma";
 import { 
   UserRole, 
   SubscriptionType, 
@@ -27,6 +27,7 @@ async function logEvent(
   type: SystemEventType, 
   meta: any
 ) {
+  await prismaRuntimeReady;
   await prisma.systemEvent.create({
     data: {
       typeEvenement: type,
@@ -44,6 +45,7 @@ export async function getUserRole() {
 
 export async function createSubscription(formData: FormData) {
   const user = await checkPermission([UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION]);
+  await prismaRuntimeReady;
 
   const userId = formData.get("userId")?.toString();
   const type = formData.get("type")?.toString() as SubscriptionType;
@@ -58,6 +60,14 @@ export async function createSubscription(formData: FormData) {
   }
 
   try {
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { enterpriseAccountId: true }
+    });
+    if (targetUser?.enterpriseAccountId) {
+      return { error: "Les abonnements des comptes entreprise se gèrent depuis l'espace entreprise." };
+    }
+
     const sub = await prisma.subscription.create({
       data: {
         userId,
@@ -88,6 +98,7 @@ export async function createSubscription(formData: FormData) {
 
 export async function updateSubscription(formData: FormData) {
   const user = await checkPermission([UserRole.SUPER_ADMIN, UserRole.SUPPORT]);
+  await prismaRuntimeReady;
 
   const id = formData.get("id")?.toString();
   const type = formData.get("type")?.toString() as SubscriptionType;
@@ -97,7 +108,21 @@ export async function updateSubscription(formData: FormData) {
   if (!id) return { error: "ID requis" };
 
   try {
-    const oldSub = await prisma.subscription.findUnique({ where: { id } });
+    const oldSub = await prisma.subscription.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        userId: true,
+        enterpriseAccountId: true,
+        type: true,
+        statut: true,
+        dateFin: true
+      }
+    });
+    if (!oldSub) return { error: "Abonnement introuvable" };
+    if (oldSub.enterpriseAccountId) {
+      return { error: "Modifiez cet abonnement depuis la fiche entreprise." };
+    }
     
     const sub = await prisma.subscription.update({
       where: { id },
@@ -127,8 +152,18 @@ export async function updateSubscription(formData: FormData) {
 
 export async function softDeleteSubscription(id: string) {
   const user = await checkPermission([UserRole.SUPER_ADMIN, UserRole.SUPPORT]);
+  await prismaRuntimeReady;
 
   try {
+    const current = await prisma.subscription.findUnique({
+      where: { id },
+      select: { id: true, userId: true, enterpriseAccountId: true }
+    });
+    if (!current) return { error: "Abonnement introuvable" };
+    if (current.enterpriseAccountId) {
+      return { error: "Gérez cet abonnement depuis l'entreprise correspondante." };
+    }
+
     const sub = await prisma.subscription.update({
       where: { id },
       data: {
@@ -153,8 +188,18 @@ export async function softDeleteSubscription(id: string) {
 
 export async function restoreSubscription(id: string) {
   const user = await checkPermission([UserRole.SUPER_ADMIN, UserRole.SUPPORT]);
+  await prismaRuntimeReady;
 
   try {
+    const current = await prisma.subscription.findUnique({
+      where: { id },
+      select: { id: true, userId: true, enterpriseAccountId: true }
+    });
+    if (!current) return { error: "Abonnement introuvable" };
+    if (current.enterpriseAccountId) {
+      return { error: "Gérez cet abonnement depuis l'entreprise correspondante." };
+    }
+
     const sub = await prisma.subscription.update({
       where: { id },
       data: {
@@ -178,8 +223,18 @@ export async function restoreSubscription(id: string) {
 
 export async function hardDeleteSubscription(id: string) {
   const user = await checkPermission([UserRole.SUPER_ADMIN, UserRole.SUPPORT]);
+  await prismaRuntimeReady;
 
   try {
+    const current = await prisma.subscription.findUnique({
+      where: { id },
+      select: { id: true, userId: true, enterpriseAccountId: true }
+    });
+    if (!current) return { error: "Abonnement introuvable" };
+    if (current.enterpriseAccountId) {
+      return { error: "Gérez cet abonnement depuis l'entreprise correspondante." };
+    }
+
     const sub = await prisma.subscription.delete({
       where: { id }
     });

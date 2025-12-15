@@ -255,46 +255,14 @@ export default function AdminSubscriptionsPage() {
                       </div>
                     </td>
                     <td className="p-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        {view === 'active' ? (
-                          <>
-                            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                              Détails
-                            </button>
-                            {canEdit && (
-                              <button 
-                                onClick={() => handleSoftDelete(sub.id)}
-                                className="text-red-600 hover:text-red-800 text-sm font-medium"
-                              >
-                                Supprimer
-                              </button>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            {canEdit && (
-                              <>
-                                <button 
-                                  onClick={() => handleRestore(sub.id)}
-                                  className="text-emerald-600 hover:text-emerald-800 text-sm font-medium"
-                                >
-                                  Restaurer
-                                </button>
-                                <button 
-                                  onClick={() => handleHardDelete(sub.id)}
-                                  className="text-red-600 hover:text-red-800 text-sm font-medium"
-                                >
-                                  Supprimer définitivement
-                                </button>
-                              </>
-                            )}
-                          </>
-                        )}
+                      <div className="text-sm font-semibold text-gray-900">
+                        {Number(sub.montant ?? 0).toLocaleString('fr-FR')} {sub.devise}
                       </div>
+                      {sub.enterpriseAccount && (
+                        <div className="text-xs text-slate-500">Abonnement entreprise</div>
+                      )}
                       {sub.promoCode && (
-                        <div className="text-xs text-green-600">
-                          Code: {sub.promoCode.code}
-                        </div>
+                        <div className="text-xs text-green-600">Code: {sub.promoCode.code}</div>
                       )}
                     </td>
                     <td className="p-4 text-center">
@@ -312,9 +280,50 @@ export default function AdminSubscriptionsPage() {
                       <span className="text-xs text-gray-600">{sub.source}</span>
                     </td>
                     <td className="p-4 text-right">
-                      <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                        Détails →
-                      </button>
+                      {sub.enterpriseAccount ? (
+                        <div className="text-right text-xs text-slate-500">
+                          Géré via{' '}
+                          <Link
+                            href={`/admin/enterprises/${sub.enterpriseAccount.id}`}
+                            className="font-semibold text-emerald-600 hover:text-emerald-700"
+                          >
+                            {sub.enterpriseAccount.nom}
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="flex justify-end gap-2">
+                          <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            Détails
+                          </button>
+                          {view === 'active' ? (
+                            canEdit && (
+                              <button
+                                onClick={() => handleSoftDelete(sub.id)}
+                                className="text-red-600 hover:text-red-800 text-sm font-medium"
+                              >
+                                Supprimer
+                              </button>
+                            )
+                          ) : (
+                            canEdit && (
+                              <>
+                                <button
+                                  onClick={() => handleRestore(sub.id)}
+                                  className="text-emerald-600 hover:text-emerald-800 text-sm font-medium"
+                                >
+                                  Restaurer
+                                </button>
+                                <button
+                                  onClick={() => handleHardDelete(sub.id)}
+                                  className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                >
+                                  Supprimer définitivement
+                                </button>
+                              </>
+                            )
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

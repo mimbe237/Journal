@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 
 import { AuthorizationError, requireUserWithRoles } from "@/lib/auth/authorization";
-import { prisma } from "@/lib/config/prisma";
+import { prisma, prismaRuntimeReady } from "@/lib/config/prisma";
 import { reportError } from "@/lib/observability/errorReporter";
 
 // GET : récupère les détails d'un compte entreprise
@@ -10,6 +10,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const { id } = await props.params;
   try {
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT]);
+    await prismaRuntimeReady;
 
     const enterprise = await prisma.enterpriseAccount.findUnique({
       where: { id },
@@ -59,6 +60,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   const { id } = await props.params;
   try {
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT]);
+    await prismaRuntimeReady;
     const body = await req.json();
     const { nombreUtilisateursInclus, contactEmail, contactTelephone, nom } = body ?? {};
 

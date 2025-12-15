@@ -4,12 +4,14 @@ import { randomUUID } from "crypto";
 import { UserRole, SubscriptionStatus, SubscriptionSource, SubscriptionType } from "@prisma/client";
 
 import { requireUserWithRoles } from "@/lib/auth/authorization";
-import { prisma } from "@/lib/config/prisma";
+import { prisma, ensurePrismaRuntimeMigrations } from "@/lib/config/prisma";
 import { registerUser } from "@/modules/auth/authService";
 import { createSubscriptionForEnterprise, createSubscriptionForUser } from "@/modules/subscriptions/subscriptionService";
 import { fileStorageProvider } from "@/services/fileStorage";
 
 const ALLOWED_ROLES = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
+
+export const runtime = "nodejs";
 
 async function bufferFromFile(f: File | null): Promise<{ buffer: Buffer; filename: string } | null> {
   if (!f) return null;
@@ -24,6 +26,8 @@ function pickType(start: Date, end: Date): SubscriptionType {
 
 export async function POST(req: NextRequest) {
   try {
+    // Garantit la présence des colonnes soft-delete (deletedAt/trashedUntil) sur subscriptions en prod
+    await ensurePrismaRuntimeMigrations();
     await requireUserWithRoles(req, undefined, ALLOWED_ROLES);
     const form = await req.formData();
 

@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
     if (!subscriptionType || !Object.values(SubscriptionType).includes(subscriptionType)) {
       return NextResponse.json({ error: "subscriptionType invalide" }, { status: 400 });
     }
-    if (typeof amount !== "number" || Number.isNaN(amount) || amount <= 0) {
-      return NextResponse.json({ error: "amount doit être > 0" }, { status: 400 });
+    if (typeof amount !== "number" || Number.isNaN(amount) || amount < 0) {
+      return NextResponse.json({ error: "amount doit être >= 0" }, { status: 400 });
     }
 
     const session = await startCheckout({

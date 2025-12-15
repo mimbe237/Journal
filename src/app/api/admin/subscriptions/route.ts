@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 
 import { AuthorizationError, requireUserWithRoles } from "@/lib/auth/authorization";
-import { prisma } from "@/lib/config/prisma";
+import { prisma, prismaRuntimeReady } from "@/lib/config/prisma";
 import { reportError } from "@/lib/observability/errorReporter";
 
 // GET liste des abonnements (admin)
 export async function GET(req: NextRequest) {
   try {
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT]);
+    await prismaRuntimeReady;
 
     const { searchParams } = new URL(req.url);
     const view = searchParams.get('view');

@@ -114,8 +114,16 @@ export default function SubscriptionsPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Erreur checkout");
 
-      // Redirection vers la page de paiement fictive
-      window.location.href = json.checkoutUrl;
+      if (json.checkoutUrl) {
+        window.location.href = json.checkoutUrl;
+        return;
+      }
+
+      // Abonnement gratuit : on rafraîchit l'état local
+      setLoading(null);
+      setCurrentPlanType(plan.type);
+      setError(null);
+      return;
     } catch (err: any) {
       setError(err?.message ?? "Erreur checkout");
       setLoading(null);
