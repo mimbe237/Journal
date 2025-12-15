@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireUserWithRoles } from "@/lib/auth/authorization";
+import { AuthorizationError, requireUserWithRoles } from "@/lib/auth/authorization";
 import { UserRole } from "@prisma/client";
 import { 
   listJournalTypes, 
@@ -17,11 +17,14 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
-    await requireUserWithRoles(request, undefined, [UserRole.SUPER_ADMIN]);
+    await requireUserWithRoles(request, undefined, [UserRole.SUPER_ADMIN, UserRole.SUPPORT]);
     
     const journalTypes = await listJournalTypes(true);
     return NextResponse.json(journalTypes);
   } catch (error: unknown) {
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status ?? 403 });
+    }
     if (error instanceof Error) {
       if (error.message === "Non authentifié" || error.message === "Accès refusé") {
         return NextResponse.json({ error: error.message }, { status: 403 });
@@ -65,6 +68,9 @@ export async function POST(request: NextRequest) {
     const journalType = await createJournalType(input);
     return NextResponse.json(journalType, { status: 201 });
   } catch (error: unknown) {
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status ?? 403 });
+    }
     if (error instanceof Error) {
       if (error.message === "Non authentifié" || error.message === "Accès refusé") {
         return NextResponse.json({ error: error.message }, { status: 403 });
