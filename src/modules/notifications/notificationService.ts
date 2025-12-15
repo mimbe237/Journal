@@ -1,6 +1,8 @@
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { emailProvider } from "@/services/email";
+import { sendTemplatedEmail, triggerEmailAutomation, TokenValues } from "@/modules/emails";
+import { EmailTriggerType } from "@prisma/client";
 
 export interface ISmsProvider {
   sendSms(params: { to: string; message: string }): Promise<void>;
@@ -18,15 +20,40 @@ const smsProvider: ISmsProvider = new ConsoleSmsProvider();
 
 /**
  * Envoie un email d'alerte d'expiration d'abonnement.
+ * Utilise le template "expiration-abonnement" si disponible, sinon fallback HTML.
  */
 export async function sendSubscriptionExpiryEmail(params: {
   userEmail: string;
   userName?: string | null;
+  userId?: string;
   daysBefore: number;
   dateFin: Date;
 }): Promise<void> {
-  const subject = `[Journal] Votre abonnement expire dans ${params.daysBefore} jour${params.daysBefore > 1 ? "s" : ""}`;
   const dateFinLocale = format(params.dateFin, "PPP", { locale: fr });
+  
+  // Essayer d'utiliser un template DB
+  const values: TokenValues = {
+    user: { nom: params.userName || "", email: params.userEmail },
+    subscription: { dateFin: dateFinLocale },
+    daysBefore: params.daysBefore,
+    app: { url: process.env.NEXT_PUBLIC_APP_URL || "https://journal.example.com" }
+  };
+
+  try {
+    await sendTemplatedEmail({
+      templateSlug: "expiration-abonnement",
+      to: params.userEmail,
+      toName: params.userName || undefined,
+      userId: params.userId,
+      values
+    });
+    return;
+  } catch {
+    // Fallback si template non trouvé
+  }
+
+  // Fallback HTML en dur
+  const subject = `[Journal] Votre abonnement expire dans ${params.daysBefore} jour${params.daysBefore > 1 ? "s" : ""}`;
   const htmlBody = `
     <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
       <h2 style="color:#0f172a;">Bonjour ${params.userName ?? ""}</h2>
@@ -61,6 +88,28 @@ export async function sendManualSubscriptionReceivedEmail(params: {
   // TODO: Récupérer les emails des admins FACTURATION depuis la DB ou config
   const adminEmail = "facturation@journal.com"; 
   
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  
+  // Essayer d'envoyer via template
+  const values: TokenValues = {
+    'user.nom': params.userName,
+    'user.email': params.userEmail,
+    'abonnement.montant': params.amount.toString(),
+    'abonnement.devise': params.currency,
+    'lien.admin': `${appUrl}/admin/facturation/soumissions`,
+  };
+
+  try {
+    await sendTemplatedEmail({
+      templateSlug: 'admin-soumission-recue',
+      to: adminEmail,
+      values,
+    });
+    return;
+  } catch {
+    // Fallback: email codé en dur
+  }
+
   const subject = `[Admin] Nouvelle soumission d'abonnement : ${params.userName}`;
   const html = `
     <div style="font-family: Arial, sans-serif;">
@@ -68,7 +117,7 @@ export async function sendManualSubscriptionReceivedEmail(params: {
       <p><strong>Utilisateur :</strong> ${params.userName} (${params.userEmail})</p>
       <p><strong>Montant :</strong> ${params.amount} ${params.currency}</p>
       <p>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin/facturation/soumissions">
+        <a href="${appUrl}/admin/facturation/soumissions">
           Voir la demande
         </a>
       </p>
@@ -86,6 +135,26 @@ export async function sendManualSubscriptionApprovedEmail(params: {
   userEmail: string;
   userName: string;
 }): Promise<void> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  
+  // Essayer d'envoyer via template
+  const values: TokenValues = {
+    'user.nom': params.userName,
+    'user.email': params.userEmail,
+    'lien.dashboard': `${appUrl}/dashboard`,
+  };
+
+  try {
+    await sendTemplatedEmail({
+      templateSlug: 'abonnement-approuve',
+      to: params.userEmail,
+      values,
+    });
+    return;
+  } catch {
+    // Fallback: email codé en dur
+  }
+
   const subject = `[Journal] Votre abonnement a été validé`;
   const html = `
     <div style="font-family: Arial, sans-serif;">
@@ -93,7 +162,7 @@ export async function sendManualSubscriptionApprovedEmail(params: {
       <p>Votre demande d'abonnement a été validée par notre équipe.</p>
       <p>Vous avez désormais accès à toutes les éditions.</p>
       <p>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard">
+        <a href="${appUrl}/dashboard">
           Accéder à mon espace
         </a>
       </p>
@@ -112,6 +181,24 @@ export async function sendManualSubscriptionRejectedEmail(params: {
   userName: string;
   reason: string;
 }): Promise<void> {
+  // Essayer d'envoyer via template
+  const values: TokenValues = {
+    'user.nom': params.userName,
+    'user.email': params.userEmail,
+    'abonnement.raison_rejet': params.reason,
+  };
+
+  try {
+    await sendTemplatedEmail({
+      templateSlug: 'abonnement-rejete',
+      to: params.userEmail,
+      values,
+    });
+    return;
+  } catch {
+    // Fallback: email codé en dur
+  }
+
   const subject = `[Journal] Problème avec votre demande d'abonnement`;
   const html = `
     <div style="font-family: Arial, sans-serif;">

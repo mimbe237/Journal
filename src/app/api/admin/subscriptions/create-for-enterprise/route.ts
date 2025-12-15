@@ -4,6 +4,13 @@ import { UserRole } from "@prisma/client";
 import { requireUserWithRoles } from "@/lib/auth/authorization";
 import { createSubscriptionForEnterprise } from "@/modules/subscriptions/subscriptionService";
 
+function sanitizeDevise(devise: string | null | undefined) {
+  if (!devise) return "XAF";
+  const up = devise.toUpperCase();
+  if (up === "FCFA") return "XAF";
+  return up.slice(0, 3);
+}
+
 export async function POST(req: NextRequest) {
   try {
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.FACTURATION]);
@@ -15,10 +22,12 @@ export async function POST(req: NextRequest) {
       dateDebut,
       dateFin,
       montant,
-      devise,
+      devise: rawDevise,
       source,
       promoCodeId
     } = body ?? {};
+
+    const devise = sanitizeDevise(rawDevise);
 
     const subscription = await createSubscriptionForEnterprise({
       enterpriseAccountId,

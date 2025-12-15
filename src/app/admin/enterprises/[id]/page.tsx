@@ -265,7 +265,7 @@ export default function EnterpriseDetailPage({ params }: { params: Promise<{ id:
       )}
       {showAddSubscriptionModal && (
         <AddSubscriptionModal
-          enterpriseId={id}
+          enterprise={enterprise}
           onClose={() => setShowAddSubscriptionModal(false)}
           onCreated={() => {
             setShowAddSubscriptionModal(false);
@@ -818,11 +818,11 @@ function InviteUserModal({
 // ADD SUBSCRIPTION MODAL
 // ============================================
 function AddSubscriptionModal({
-  enterpriseId,
+  enterprise,
   onClose,
   onCreated
 }: {
-  enterpriseId: string;
+  enterprise: EnterpriseAccount;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -835,9 +835,16 @@ function AddSubscriptionModal({
     dateDebut: defaultStart,
     dateFin: defaultEnd,
     montant: '0',
-    devise: 'FCFA',
+    devise: 'XAF',
     source: 'OFFLINE',
-    promoCodeId: ''
+    promoCodeId: '',
+    contactName: enterprise.nom || '',
+    contactEmail: enterprise.contactEmail || '',
+    telephone: enterprise.contactTelephone || '',
+    pays: '',
+    licencesDemandees: enterprise.nombreUtilisateursInclus || 1,
+    bulletin: null as File | null,
+    receipt: null as File | null,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -861,29 +868,36 @@ function AddSubscriptionModal({
 
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/subscriptions/create-for-enterprise', {
+      const fd = new FormData();
+      fd.append("enterpriseAccountId", enterprise.id);
+      fd.append("contactName", form.contactName || enterprise.nom || "Contact");
+      fd.append("contactEmail", form.contactEmail || enterprise.contactEmail || "");
+      if (form.telephone) fd.append("telephone", form.telephone);
+      if (form.pays) fd.append("pays", form.pays);
+      fd.append("type", form.type);
+      fd.append("dateDebut", form.dateDebut);
+      fd.append("dateFin", form.dateFin);
+      fd.append("montant", montantNumber.toString());
+      fd.append("devise", form.devise);
+      fd.append("source", form.source);
+      fd.append("licencesDemandees", (form.licencesDemandees || enterprise.nombreUtilisateursInclus || 1).toString());
+      if (form.promoCodeId) fd.append("promoCodeId", form.promoCodeId);
+      if (form.bulletin) fd.append("bulletin", form.bulletin);
+      if (form.receipt) fd.append("receipt", form.receipt);
+
+      const res = await fetch('/api/admin/subscriptions/manual/enterprise', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          enterpriseAccountId: enterpriseId,
-          type: form.type,
-          dateDebut: form.dateDebut,
-          dateFin: form.dateFin,
-          montant: montantNumber,
-          devise: form.devise,
-          source: form.source,
-          promoCodeId: form.promoCodeId || undefined
-        })
+        body: fd
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Erreur lors de la création de l'abonnement");
+        throw new Error(data.error || "Erreur lors de la soumission");
       }
 
       onCreated();
     } catch (err: any) {
-      setError(err?.message || 'Erreur lors de la création');
+      setError(err?.message || 'Erreur lors de la soumission');
     } finally {
       setLoading(false);
     }
@@ -983,14 +997,83 @@ function AddSubscriptionModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Code promo (optionnel)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Licences demandées</label>
             <input
-              type="text"
-              value={form.promoCodeId}
-              onChange={(e) => setForm({ ...form, promoCodeId: e.target.value })}
+              type="number"
+              min={enterprise.nombreUtilisateursInclus || 1}
+              value={form.licencesDemandees}
+              onChange={(e) => setForm({ ...form, licencesDemandees: parseInt(e.target.value) || enterprise.nombreUtilisateursInclus || 1 })}
               className="w-full px-3 py-2 border rounded-lg"
-              placeholder="ID du code promo"
+              required
             />
+            <p className="text-sm text-gray-500 mt-1">Au minimum : {enterprise.nombreUtilisateursInclus || 1} (quota actuel)</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contact (nom)</label>
+              <input
+                type="text"
+                value={form.contactName}
+                onChange={(e) => setForm({ ...form, contactName: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email de contact</label>
+              <input
+                type="email"
+                value={form.contactEmail}
+                onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone (optionnel)</label>
+              <input
+                type="tel"
+                value={form.telephone}
+                onChange={(e) => setForm({ ...form, telephone: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                placeholder="+237..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pays (optionnel)</label>
+              <input
+                type="text"
+                value={form.pays}
+                onChange={(e) => setForm({ ...form, pays: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                placeholder="Cameroun"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Bulletin d'abonnement (optionnel)</label>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => setForm({ ...form, bulletin: e.target.files?.[0] || null })}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Reçu de caisse (optionnel)</label>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => setForm({ ...form, receipt: e.target.files?.[0] || null })}
+                className="w-full"
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">

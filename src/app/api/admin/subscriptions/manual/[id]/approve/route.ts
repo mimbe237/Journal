@@ -29,61 +29,93 @@ export async function POST(
       return NextResponse.json({ error: "Cette soumission a déjà été traitée" }, { status: 400 });
     }
 
-    // 1. Find or Create User
-    let user = await prisma.user.findUnique({
-      where: { email: submission.email },
-    });
+    // Dates : priorité au format "start__end" (+ __licences-X), sinon fallback en mois
+    let dateDebut = new Date();
+    let dateFin = new Date();
+    let licencesDemandees: number | undefined;
+    if (submission.periode?.includes("__")) {
+      const [start, end, extra] = submission.periode.split("__");
+      const dStart = new Date(start);
+      const dEnd = new Date(end);
+      if (!isNaN(dStart.getTime()) && !isNaN(dEnd.getTime()) && dStart < dEnd) {
+        dateDebut = dStart;
+        dateFin = dEnd;
+      }
+      if (extra?.startsWith("licences-")) {
+        const n = parseInt(extra.replace("licences-", ""));
+        if (!isNaN(n) && n > 0) licencesDemandees = n;
+      }
+    } else {
+      const months = parseInt(submission.periode);
+      if (!isNaN(months)) {
+        dateFin.setMonth(dateFin.getMonth() + months);
+      } else {
+        dateFin.setMonth(dateFin.getMonth() + 1);
+      }
+    }
 
-    if (!user) {
-      // Create user with a placeholder password or handle invitation flow
-      // For now, we create a user with role ABONNE (or UTILISATEUR_ENTREPRISE if enterpriseId is set?)
-      // If enterpriseId is set, they should probably be linked to it.
-      
-      user = await prisma.user.create({
+    // 1. Si soumission entreprise : créer un abonnement entreprise sans créer de user
+    let user: any = null;
+    let createdSubscription: any = null;
+    if (submission.entrepriseId) {
+      createdSubscription = await prisma.subscription.create({
         data: {
-          email: submission.email,
-          nom: submission.nom,
-          role: submission.entrepriseId ? "UTILISATEUR_ENTREPRISE" : "ABONNE",
-          enterpriseAccountId: submission.entrepriseId || null,
-          // TODO: Handle password generation / email invitation
-          motDePasseHash: "MANUAL_CREATION_PLACEHOLDER", 
+          enterpriseAccountId: submission.entrepriseId,
+          type: submission.type,
+          statut: "ACTIF",
+          dateDebut,
+          dateFin,
+          montant: submission.montant,
+          devise: submission.devise,
+          source: "OFFLINE",
+          submissionId: submission.id,
         }
       });
-    } else {
-      // If user exists but we have an enterpriseId in submission, maybe we should link them?
-      // Let's be careful not to override existing enterprise links without check.
-      // For now, we assume the submission matches the user's context or we just link the subscription.
-    }
 
-    // 2. Create Subscription
-    // Calculate dates based on 'periode' (assuming it's months count for now, or we need logic)
-    // If 'periode' is "12", it's 1 year.
-    // Let's assume 'periode' is a number of months string.
-    
-    const months = parseInt(submission.periode);
-    const dateDebut = new Date();
-    const dateFin = new Date();
-    if (!isNaN(months)) {
-      dateFin.setMonth(dateFin.getMonth() + months);
-    } else {
-      // Fallback or error? Let's default to 1 month if parse fails
-      dateFin.setMonth(dateFin.getMonth() + 1);
-    }
-
-    const subscription = await prisma.subscription.create({
-      data: {
-        userId: user.id,
-        enterpriseAccountId: submission.entrepriseId || null,
-        type: submission.type,
-        statut: "ACTIF",
-        dateDebut,
-        dateFin,
-        montant: submission.montant,
-        devise: submission.devise,
-        source: "OFFLINE", // Manual submission implies offline payment usually
-        submissionId: submission.id,
+      // Met à jour le quota de licences si demandé
+      if (licencesDemandees) {
+        const current = await prisma.enterpriseAccount.findUnique({
+          where: { id: submission.entrepriseId },
+          select: { nombreUtilisateursInclus: true }
+        });
+        const target = Math.max(current?.nombreUtilisateursInclus ?? 0, licencesDemandees);
+        await prisma.enterpriseAccount.update({
+          where: { id: submission.entrepriseId },
+          data: { nombreUtilisateursInclus: target }
+        });
       }
-    });
+    } else {
+      // 2. Sinon (individuel) -> find or create user puis abonnement user
+      user = await prisma.user.findUnique({
+        where: { email: submission.email },
+      });
+
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            email: submission.email,
+            nom: submission.nom,
+            role: "ABONNE",
+            motDePasseHash: "MANUAL_CREATION_PLACEHOLDER",
+          }
+        });
+      }
+
+      createdSubscription = await prisma.subscription.create({
+        data: {
+          userId: user.id,
+          enterpriseAccountId: null,
+          type: submission.type,
+          statut: "ACTIF",
+          dateDebut,
+          dateFin,
+          montant: submission.montant,
+          devise: submission.devise,
+          source: "OFFLINE",
+          submissionId: submission.id,
+        }
+      });
+    }
 
     // 3. Update Submission
     await prisma.manualSubscriptionSubmission.update({
@@ -97,17 +129,19 @@ export async function POST(
 
     // 4. Send Notification
     try {
-      await sendManualSubscriptionApprovedEmail({
-        userEmail: user.email,
-        userName: user.nom || "Abonné",
-      });
+      if (user) {
+        await sendManualSubscriptionApprovedEmail({
+          userEmail: user.email,
+          userName: user.nom || "Abonné",
+        });
+      }
     } catch (emailError) {
       console.error("Failed to send approval email:", emailError);
     }
 
     return NextResponse.json({ 
       success: true, 
-      subscription,
+      subscription: createdSubscription,
       user 
     });
 

@@ -408,3 +408,169 @@ model Currency {
 
   @@map("currencies")
 }
+
+// ----- Email System -----
+
+/// Statut d'un modèle d'email.
+enum EmailTemplateStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// Catégorie d'email (pour organisation).
+enum EmailCategory {
+  TRANSACTIONAL
+  MARKETING
+  NOTIFICATION
+  SYSTEM
+}
+
+/// Statut d'un envoi d'email.
+enum EmailSendStatus {
+  PENDING
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  FAILED
+  COMPLAINED
+}
+
+/// Type de trigger pour automatisations.
+enum EmailTriggerType {
+  INSCRIPTION
+  ABONNEMENT_ACTIF
+  ABONNEMENT_EXPIRE
+  ABONNEMENT_EXPIRE_BIENTOT
+  PAIEMENT_RECU
+  PAIEMENT_ECHOUE
+  NOUVELLE_EDITION
+  BIENVENUE_ENTREPRISE
+  INVITATION_ENTREPRISE
+  MANUEL
+}
+
+/// Layout réutilisable (header/footer).
+model EmailLayout {
+  id          String   @id @default(cuid())
+  nom         String   @unique
+  description String?
+  mjml        String   @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  templates   EmailTemplate[]
+
+  @@map("email_layouts")
+}
+
+/// Modèle d'email personnalisable.
+model EmailTemplate {
+  id          String              @id @default(cuid())
+  slug        String              @unique
+  nom         String
+  description String?
+  category    EmailCategory       @default(TRANSACTIONAL)
+  sujet       String
+  corps       String              @db.Text  // MJML ou HTML
+  corpsText   String?             @db.Text  // Version texte brut
+  locale      String              @default("fr") @db.VarChar(5)
+  status      EmailTemplateStatus @default(DRAFT)
+  layoutId    String?
+  tokens      Json?               // Liste des tokens attendus avec exemples
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  layout      EmailLayout?        @relation(fields: [layoutId], references: [id])
+  versions    EmailTemplateVersion[]
+  sends       EmailSend[]
+  automations EmailAutomation[]
+
+  @@index([slug, locale])
+  @@index([status, category])
+  @@map("email_templates")
+}
+
+/// Historique des versions d'un modèle.
+model EmailTemplateVersion {
+  id          String   @id @default(cuid())
+  templateId  String
+  version     Int
+  sujet       String
+  corps       String   @db.Text
+  corpsText   String?  @db.Text
+  createdAt   DateTime @default(now())
+  createdBy   String?  // userId de l'auteur
+
+  template    EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, version])
+  @@index([templateId])
+  @@map("email_template_versions")
+}
+
+/// Automatisation d'envoi d'email sur événement.
+model EmailAutomation {
+  id            String           @id @default(cuid())
+  nom           String
+  description   String?
+  triggerType   EmailTriggerType
+  templateId    String
+  delayMinutes  Int              @default(0)  // Délai avant envoi
+  conditions    Json?            // Conditions additionnelles (filtres)
+  active        Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  template      EmailTemplate    @relation(fields: [templateId], references: [id])
+
+  @@index([triggerType, active])
+  @@map("email_automations")
+}
+
+/// Log de chaque envoi d'email.
+model EmailSend {
+  id              String          @id @default(cuid())
+  templateId      String?
+  recipientEmail  String
+  recipientName   String?
+  userId          String?
+  subject         String
+  status          EmailSendStatus @default(PENDING)
+  providerMessageId String?       // ID retourné par Resend/SendGrid
+  metadata        Json?           // Données de contexte (tokens résolus, etc.)
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  openedAt        DateTime?
+  clickedAt       DateTime?
+  bouncedAt       DateTime?
+  failedAt        DateTime?
+  errorMessage    String?
+  createdAt       DateTime        @default(now())
+
+  template        EmailTemplate?  @relation(fields: [templateId], references: [id])
+  events          EmailEvent[]
+
+  @@index([recipientEmail, createdAt])
+  @@index([templateId, status])
+  @@index([userId, createdAt])
+  @@map("email_sends")
+}
+
+/// Événements post-envoi (webhooks provider).
+model EmailEvent {
+  id          String   @id @default(cuid())
+  sendId      String
+  type        String   // delivered, opened, clicked, bounced, complained
+  occurredAt  DateTime
+  metadata    Json?    // Données brutes du webhook
+  createdAt   DateTime @default(now())
+
+  send        EmailSend @relation(fields: [sendId], references: [id], onDelete: Cascade)
+
+  @@index([sendId, occurredAt])
+  @@index([type, occurredAt])
+  @@map("email_events")
+}
