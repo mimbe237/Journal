@@ -53,18 +53,13 @@ export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfC
   const pdfBuffer = await fsp.readFile(resolvedPdfPath);
   const data = new Uint8Array(pdfBuffer);
 
-  // Dynamically import pdfjs AFTER DOMMatrix polyfill is in place
-  const pdfjsLib: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  // Dynamically import the Node build of pdfjs AFTER DOMMatrix polyfill is in place
+  const pdfjsLib: any = await import("pdfjs-dist/legacy/build/pdf.node.mjs");
 
   // Load PDF without worker (use inline rendering for serverless compatibility)
   const loadingTask = pdfjsLib.getDocument({
     data,
-    disableWorker: true,
-    useWorkerFetch: false,
-    isEvalSupported: false,
     useSystemFonts: true,
-    disableAutoFetch: false,
-    disableStream: false,
   });
 
   const pdfDocument = await loadingTask.promise;
