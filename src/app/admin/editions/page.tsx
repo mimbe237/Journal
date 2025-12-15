@@ -59,6 +59,19 @@ export default function AdminEditionsPage() {
     { key: "complete" as UploadStep, label: "Terminé" },
   ];
 
+  async function readJsonResponse(response: Response) {
+    const raw = await response.text();
+    if (!raw) {
+      return { data: null, raw, parseError: false } as const;
+    }
+    try {
+      return { data: JSON.parse(raw), raw, parseError: false } as const;
+    } catch (err) {
+      console.warn("Réponse non JSON lors de l'upload de l'édition", err, raw);
+      return { data: null, raw, parseError: true } as const;
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!file || !titre) {
@@ -114,8 +127,19 @@ export default function AdminEditionsPage() {
         body: formData
       });
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Traitement échoué");
+      const { data: json, raw, parseError } = await readJsonResponse(res);
+      if (!res.ok) {
+        const errorDetail =
+          (json && (json.error || json.message)) ||
+          (parseError ? `Réponse non JSON: ${raw?.slice(0, 200) || "vide"}` : "Réponse vide");
+        const statusText = res.statusText || "";
+        throw new Error(
+          `Erreur upload (${res.status}${statusText ? ` ${statusText}` : ""}). ${errorDetail}`.trim()
+        );
+      }
+      if (!json || parseError) {
+        throw new Error("Réponse inattendue du serveur: JSON valide requis.");
+      }
 
       setCurrentStep("database");
 
@@ -131,6 +155,7 @@ export default function AdminEditionsPage() {
       // Réinitialiser l'étape après 2 secondes
       setTimeout(() => setCurrentStep(null), 2000);
     } catch (err: any) {
+      console.error("Erreur lors de l'upload de l'édition", err);
       setState("error");
       setCurrentStep(null);
       setMessage(err?.message ?? "Erreur upload");
@@ -280,52 +305,6 @@ export default function AdminEditionsPage() {
                   />
                 </div>
 
-                {/* Liste des étapes */}
-                <div className="space-y-2">
-                  {steps.map((step, index) => {
-                    const currentIndex = steps.findIndex((s) => s.key === currentStep);
-                    const isComplete = index < currentIndex;
-                    const isCurrent = index === currentIndex;
-                    
-                    return (
-                      <div key={step.key} className="flex items-center gap-3 text-sm">
-                        <div
-                          className={`flex h-6 w-6 items-center justify-center rounded-full ${
-                            isComplete
-                              ? "bg-emerald-500 text-white"
-                              : isCurrent
-                              ? "border-2 border-emerald-400 bg-emerald-50 text-emerald-600"
-                              : "border border-slate-300 text-slate-400"
-                          }`}
-                        >
-                          {isComplete ? (
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            <span className="text-xs">{index + 1}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={
-                              isComplete
-                                ? "text-slate-700"
-                                : isCurrent
-                                ? "text-slate-900 font-medium"
-                                : "text-slate-400"
-                            }
-                          >
-                            {step.label}
-                          </span>
-                          {isCurrent && (
-                            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
             )}
 
