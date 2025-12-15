@@ -19,31 +19,36 @@ type LogWithUser = {
   } | null;
 };
 
+const allowedTypes: SystemEventType[] = [
+  SystemEventType.CREATION_ABONNEMENT,
+  SystemEventType.MODIFICATION_ABONNEMENT,
+  SystemEventType.SUPPRESSION_ABONNEMENT,
+  SystemEventType.SUPPRESSION_DEFINITIVE_ABONNEMENT,
+  SystemEventType.RESTAURATION_ABONNEMENT
+];
+
 export default async function LogsPage() {
   let logs: LogWithUser[] = [];
   let loadError: string | null = null;
 
   try {
     logs = await prisma.systemEvent.findMany({
-      where: {
-        typeEvenement: {
-          in: [
-            SystemEventType.CREATION_ABONNEMENT,
-            SystemEventType.MODIFICATION_ABONNEMENT,
-            SystemEventType.SUPPRESSION_ABONNEMENT,
-            SystemEventType.SUPPRESSION_DEFINITIVE_ABONNEMENT,
-            SystemEventType.RESTAURATION_ABONNEMENT
-          ]
-        }
-      },
       include: {
-        user: true
+        user: {
+          select: {
+            nom: true,
+            email: true,
+            role: true
+          }
+        }
       },
       orderBy: {
         createdAt: 'desc'
       },
       take: 100
     });
+
+    logs = logs.filter((log) => allowedTypes.includes(log.typeEvenement));
   } catch (error: any) {
     console.error("[admin/logs] failed to load system events", error);
     loadError = error?.message ?? "Impossible de charger les événements.";
