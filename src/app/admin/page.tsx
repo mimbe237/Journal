@@ -126,7 +126,7 @@ export default async function AdminLandingPage() {
           {quickLinks.map((link) => (
             <Link
               key={link.href}
-              href={link.href}
+              href={link.href as any}
               className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:shadow"
             >
               <span>{link.label}</span>
