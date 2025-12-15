@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile } from "fs/promises";
-import path from "path";
 import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 import { prisma } from "@/lib/config/prisma";
+import { ensureFileStorageProvider } from "@/services/fileStorage";
 
 export async function POST(
   req: NextRequest,
@@ -24,16 +23,16 @@ export async function POST(
     const coverImage = formData.get("coverImage") as File;
     if (!coverImage) return NextResponse.json({ error: "Image requise" }, { status: 400 });
 
-    const storageRoot = process.env.PRIVATE_STORAGE_ROOT ?? path.join(process.cwd(), "storage");
-    const editionDir = path.join(storageRoot, "editions", editionId);
-    
     const coverBuffer = Buffer.from(await coverImage.arrayBuffer());
-    const ext = coverImage.name.split('.').pop() || 'jpg';
+    const ext = coverImage.name.split('.').pop()?.toLowerCase() || 'jpg';
     const coverFileName = `cover.${ext}`;
-    const coverFullPath = path.join(editionDir, coverFileName);
-    
-    await writeFile(coverFullPath, coverBuffer);
     const coverImagePath = `editions/${editionId}/${coverFileName}`;
+
+    const storage = ensureFileStorageProvider();
+    await storage.saveFile({
+      buffer: coverBuffer,
+      destinationPath: coverImagePath
+    });
 
     // Mettre à jour l'édition
     await prisma.edition.update({

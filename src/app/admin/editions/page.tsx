@@ -6,6 +6,7 @@ import { ButtonPrimary } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EditionType } from "@prisma/client";
 import { logClientError } from "@/lib/observability/logClientError";
+import { CheckCircleIcon, ExclamationTriangleIcon } from "@heroicons/react/24/solid";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 type UploadStep = "upload" | "conversion" | "database" | "complete";
@@ -249,7 +250,7 @@ export default function AdminEditionsPage() {
                   className="w-full rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600 file:rounded file:border-0 file:bg-emerald-600 file:px-3 file:py-1 file:text-white hover:border-emerald-500"
                   required
                 />
-                {file && <p className="mt-2 text-sm text-emerald-300">✓ {file.name}</p>}
+                {file && <p className="mt-2 text-sm text-emerald-600">✓ {file.name}</p>}
               </div>
             </div>
 
@@ -267,11 +268,11 @@ export default function AdminEditionsPage() {
                 />
                 {coverImage && (
                   <div className="mt-2">
-                    <p className="text-sm text-emerald-300 mb-2">✓ {coverImage.name}</p>
+                    <p className="mb-2 text-sm text-emerald-600">✓ {coverImage.name}</p>
                     <img 
                       src={URL.createObjectURL(coverImage)} 
                       alt="Aperçu" 
-                      className="h-32 w-auto rounded border border-slate-600"
+                      className="h-32 w-auto rounded border border-slate-200 shadow-sm"
                     />
                   </div>
                 )}
@@ -283,20 +284,43 @@ export default function AdminEditionsPage() {
 
             {message && (
               <div
-                className={`rounded-lg p-3 text-sm ${
+                className={`rounded-xl border p-4 shadow-sm ${
                   state === "success"
-                    ? "border border-emerald-500/30 bg-emerald-950/30 text-emerald-200"
-                    : "border border-red-500/30 bg-red-950/30 text-red-200"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    : "border-rose-200 bg-rose-50 text-rose-900"
                 }`}
               >
-                <div>{message}</div>
-                {state === "error" && lastErrorId && (
-                  <div className="mt-1 text-xs text-red-200/80">Ref erreur : {lastErrorId}</div>
-                )}
+                <div className="flex items-start gap-3">
+                  {state === "success" ? (
+                    <CheckCircleIcon className="h-6 w-6 flex-shrink-0 text-emerald-500" />
+                  ) : (
+                    <ExclamationTriangleIcon className="h-6 w-6 flex-shrink-0 text-rose-500" />
+                  )}
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">{message}</p>
+                    {state === "success" && editionId && (
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-emerald-700">
+                        <span>ID de l'édition :</span>
+                        <code className="rounded bg-emerald-100 px-2 py-1 font-mono text-sm text-emerald-800">
+                          {editionId}
+                        </code>
+                        <Link
+                          href="/admin/editions/list"
+                          className="font-medium text-emerald-700 underline-offset-4 hover:underline"
+                        >
+                          Voir la liste
+                        </Link>
+                      </div>
+                    )}
+                    {state === "error" && lastErrorId && (
+                      <p className="text-xs text-rose-600/80">Ref erreur : {lastErrorId}</p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
             {hint && state === "uploading" && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <div className="rounded-lg border border-amber-200 bg-amber-100 px-3 py-2 text-sm text-amber-900">
                 {hint}
               </div>
             )}
@@ -329,15 +353,6 @@ export default function AdminEditionsPage() {
             </ButtonPrimary>
           </form>
 
-          {editionId && state === "success" && (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/30 p-4 text-sm text-emerald-200">
-              <p>
-                Edition créée :
-                <code className="ml-2 rounded bg-slate-800 px-2 py-1">{editionId}</code>
-              </p>
-              <p className="mt-2">Elle est maintenant accessible aux utilisateurs avec un abonnement actif.</p>
-            </div>
-          )}
         </Card>
       </div>
     </div>

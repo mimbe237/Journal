@@ -1,6 +1,6 @@
-import fs from "fs";
-import path from "path";
 import { NextRequest, NextResponse } from "next/server";
+import path from "path";
+import { ensureFileStorageProvider } from "@/services/fileStorage";
 
 const mimeMap: Record<string, string> = {
   ".png": "image/png",
@@ -18,39 +18,62 @@ export async function GET(
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const { path: pathSegments } = await params;
-  const storageRoot = process.env.PRIVATE_STORAGE_ROOT ?? path.join(process.cwd(), "storage");
+  if (!Array.isArray(pathSegments) || pathSegments.length === 0) {
+    return NextResponse.json({ error: "Chemin invalide" }, { status: 400 });
+  }
+
   const requested = pathSegments.join("/");
-  const resolvedPath = path.resolve(storageRoot, requested);
+  const requestedExt = path.extname(requested).toLowerCase();
+  const candidatePaths: string[] = [requested];
 
-  // Sécurité : interdiction de sortir du dossier de stockage.
-  if (!resolvedPath.startsWith(path.resolve(storageRoot))) {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  // Fallback : si un PNG est demandé mais absent, essayer la version WebP
+  if (requestedExt === ".png") {
+    candidatePaths.push(requested.replace(/\.png$/i, ".webp"));
   }
 
-  let finalPath = resolvedPath;
-  let finalExt = path.extname(resolvedPath).toLowerCase();
+  const storage = ensureFileStorageProvider();
 
-  // Fallback : si un PNG est demandé mais absent, servir la version WebP si disponible
-  if (!fs.existsSync(finalPath) && finalExt === ".png") {
-    const webpPath = resolvedPath.replace(/\.png$/i, ".webp");
-    if (fs.existsSync(webpPath) && fs.statSync(webpPath).isFile()) {
-      finalPath = webpPath;
-      finalExt = ".webp";
+  for (const candidate of candidatePaths) {
+    try {
+      const stream = await storage.getFileStream({ path: candidate });
+      const ext = path.extname(candidate).toLowerCase() || requestedExt;
+      const contentType = mimeMap[ext] || "application/octet-stream";
+
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream as any as AsyncIterable<Buffer | Uint8Array | string>) {
+        if (typeof chunk === "string") {
+          chunks.push(Buffer.from(chunk));
+        } else {
+          chunks.push(Buffer.from(chunk));
+        }
+      }
+
+      const data = Buffer.concat(chunks);
+
+      return new NextResponse(data, {
+        status: 200,
+        headers: {
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=3600"
+        }
+      });
+    } catch (error: any) {
+      const message = (error?.message || "").toLowerCase();
+      const isNotFound =
+        error?.name === "NotFound" ||
+        error?.$metadata?.httpStatusCode === 404 ||
+        message.includes("no such file") ||
+        message.includes("not exist") ||
+        message.includes("enoent") ||
+        message.includes("not found");
+
+      if (!isNotFound) {
+        console.error("[files] error while streaming", candidate, error);
+        return NextResponse.json({ error: "Erreur interne" }, { status: 500 });
+      }
+      // Not found -> essayer le candidat suivant
     }
   }
 
-  if (!fs.existsSync(finalPath) || !fs.statSync(finalPath).isFile()) {
-    return NextResponse.json({ error: "Fichier introuvable" }, { status: 404 });
-  }
-
-  const data = await fs.promises.readFile(finalPath);
-  const contentType = mimeMap[finalExt] || "application/octet-stream";
-
-  return new NextResponse(data, {
-    status: 200,
-    headers: {
-      "Content-Type": contentType,
-      "Cache-Control": "public, max-age=3600"
-    }
-  });
+  return NextResponse.json({ error: "Fichier introuvable" }, { status: 404 });
 }
