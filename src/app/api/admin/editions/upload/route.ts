@@ -9,6 +9,7 @@ import { EditionType } from "@prisma/client";
 import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 import { convertPdfToImages, createEditionInDb } from "@/modules/editions/editionUploadService";
 import { fileStorageProvider } from "@/services/fileStorage";
+import { reportError } from "@/lib/observability/errorReporter";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,10 @@ export async function OPTIONS() {
 }
 
 export async function GET() {
+  return NextResponse.json({ status: "ready" }, { status: 200 });
+}
+
+export async function HEAD() {
   return NextResponse.json({ status: "ready" }, { status: 200 });
 }
 
@@ -143,6 +148,13 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error("Upload error:", error);
+    await reportError({
+      message: "Edition upload failed",
+      error,
+      context: {
+        fileKey: tempDir ? undefined : "download-not-started",
+      },
+    });
     return NextResponse.json({ error: error?.message ?? "Erreur upload" }, { status: 400 });
   } finally {
     // Nettoyage du dossier temporaire

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ButtonPrimary } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EditionType } from "@prisma/client";
+import { logClientError } from "@/lib/observability/logClientError";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 type UploadStep = "upload" | "conversion" | "database" | "complete";
@@ -31,6 +32,7 @@ export default function AdminEditionsPage() {
 
   const [journalTypes, setJournalTypes] = useState<JournalType[]>([]);
   const [selectedJournalTypeId, setSelectedJournalTypeId] = useState<string>("");
+  const [lastErrorId, setLastErrorId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/journal-types")
@@ -84,6 +86,7 @@ export default function AdminEditionsPage() {
     setMessage(null);
     setEditionId(null);
     setCurrentStep("upload");
+    setLastErrorId(null);
 
     try {
       // 1. Get Presigned URL for PDF
@@ -156,10 +159,20 @@ export default function AdminEditionsPage() {
       setTimeout(() => setCurrentStep(null), 2000);
     } catch (err: any) {
       console.error("Erreur lors de l'upload de l'édition", err);
+      const errorMessage = err?.message ?? "Erreur upload";
+      const errorId = crypto.randomUUID();
       setState("error");
       setCurrentStep(null);
-      setMessage(err?.message ?? "Erreur upload");
+      setMessage(errorMessage);
       setHint(null);
+      setLastErrorId(errorId);
+      logClientError("Edition upload failed", {
+        errorId,
+        errorMessage,
+        fileName: file?.name,
+        fileSize: file?.size,
+        currentStep,
+      });
     }
   }
 
@@ -276,7 +289,10 @@ export default function AdminEditionsPage() {
                     : "border border-red-500/30 bg-red-950/30 text-red-200"
                 }`}
               >
-                {message}
+                <div>{message}</div>
+                {state === "error" && lastErrorId && (
+                  <div className="mt-1 text-xs text-red-200/80">Ref erreur : {lastErrorId}</div>
+                )}
               </div>
             )}
             {hint && state === "uploading" && (
@@ -327,4 +343,3 @@ export default function AdminEditionsPage() {
     </div>
   );
 }
-
