@@ -96,7 +96,7 @@ export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfC
       viewport: viewport,
       canvasFactory: canvasFactory,
       canvas: canvasAndContext.canvas,
-    };
+    } as any;
 
     await page.render(renderContext).promise;
 
