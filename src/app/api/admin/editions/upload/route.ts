@@ -4,12 +4,6 @@ import { createWriteStream } from "fs";
 import path from "path";
 import os from "os";
 import { pipeline } from "stream/promises";
-import { EditionType } from "@prisma/client";
-
-import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
-import { convertPdfToImages, createEditionInDb } from "@/modules/editions/editionUploadService";
-import { fileStorageProvider } from "@/services/fileStorage";
-import { reportError } from "@/lib/observability/errorReporter";
 
 export const runtime = "nodejs";
 
@@ -29,6 +23,13 @@ export async function POST(req: NextRequest) {
   let tempDir: string | null = null;
 
   try {
+    // Lazy import heavy modules to avoid import-time crashes for GET/HEAD
+    const [{ getCurrentUserFromRequest }, { convertPdfToImages, createEditionInDb }, { fileStorageProvider }, { reportError }] = await Promise.all([
+      import("@/lib/auth/currentUser"),
+      import("@/modules/editions/editionUploadService"),
+      import("@/services/fileStorage"),
+      import("@/lib/observability/errorReporter"),
+    ]);
     console.log("[edition-upload] POST received");
     const user = await getCurrentUserFromRequest(req);
     if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -118,7 +119,7 @@ export async function POST(req: NextRequest) {
     const edition = await createEditionInDb({
       titre,
       datePublication,
-      type: type as EditionType,
+      type: type as any,
       nombrePages: pageCount,
       cheminInternePdf: `editions/${editionId}/source.pdf`,
       cheminImageUne: coverImagePath || `editions/${editionId}/images/page-1.webp`,
@@ -148,6 +149,7 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error("Upload error:", error);
+    const { reportError } = await import("@/lib/observability/errorReporter");
     await reportError({
       message: "Edition upload failed",
       error,
