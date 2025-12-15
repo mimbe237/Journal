@@ -11,6 +11,13 @@ export function Header() {
   const [loading, setLoading] = useState(true);
 
   const isStaff = user?.role === "SUPER_ADMIN" || user?.role === "FACTURATION" || user?.role === "SUPPORT";
+  const staffDashboardPath = user
+    ? user.role === "FACTURATION"
+      ? "/admin/facturation"
+      : user.role === "SUPPORT"
+        ? "/admin/support"
+        : "/admin"
+    : "/admin";
 
   useEffect(() => {
     async function checkAuth() {
@@ -37,14 +44,9 @@ export function Header() {
     const isAllowedPath = allowedPaths.some(path => pathname.startsWith(path));
 
     if (isStaff && !pathname.startsWith("/admin") && !isAllowedPath) {
-      const target = user.role === "FACTURATION"
-        ? "/admin/facturation"
-        : user.role === "SUPPORT"
-          ? "/admin/support"
-          : "/admin";
-      router.replace(target);
+      router.replace(staffDashboardPath);
     }
-  }, [user, pathname, router, isStaff]);
+  }, [user, pathname, router, isStaff, staffDashboardPath]);
 
   async function handleLogout() {
     try {
@@ -117,6 +119,18 @@ export function Header() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                   Mon Entreprise
+                </Link>
+              )}
+              {isStaff && !pathname?.startsWith("/admin") && (
+                <Link
+                  href={staffDashboardPath}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                    pathname === staffDashboardPath
+                      ? "bg-emerald-600 text-white"
+                      : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                  }`}
+                >
+                  Tableau de bord
                 </Link>
               )}
               <Link
