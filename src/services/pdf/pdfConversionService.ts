@@ -68,7 +68,7 @@ export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfC
   const canvasFactory = {
     create(width: number, height: number, contextType: string) {
       const canvas = createCanvas(width, height);
-      const context = canvas.getContext(contextType);
+      const context = canvas.getContext(contextType as any);
       return { canvas, context };
     },
     reset(ctx: any, width: number, height: number) {
