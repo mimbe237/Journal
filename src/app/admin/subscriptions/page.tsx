@@ -253,6 +253,7 @@ export default function AdminSubscriptionsPage() {
                       <div className="text-xs text-gray-500">
                         → {new Date(sub.dateFin).toLocaleDateString('fr-FR')}
                       </div>
+                    </td>
                     <td className="p-4 text-right">
                       <div className="flex justify-end gap-2">
                         {view === 'active' ? (
@@ -290,7 +291,6 @@ export default function AdminSubscriptionsPage() {
                           </>
                         )}
                       </div>
-                    </td>iv>
                       {sub.promoCode && (
                         <div className="text-xs text-green-600">
                           Code: {sub.promoCode.code}
