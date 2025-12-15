@@ -56,6 +56,9 @@ export async function convertPdfToImages(params: ConvertPdfParams): Promise<PdfC
   // Dynamically import pdfjs AFTER DOMMatrix polyfill is in place
   const pdfjsLib: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
+  // Disable worker to avoid "Cannot find module pdf.worker.mjs" in serverless/bundled environments
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+
   // Load PDF (omit cMapUrl/standardFontDataUrl to avoid path resolution issues in serverless bundles)
   const loadingTask = pdfjsLib.getDocument({ data });
 
