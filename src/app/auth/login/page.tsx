@@ -36,9 +36,13 @@ export default function LoginPage() {
         const message = json?.error || raw || "Connexion impossible";
         throw new Error(message);
       }
+      const role: string | undefined = json?.user?.role;
+      const redirect = getRedirectPathForRole(role);
       setSuccess("Connexion réussie");
-      // Redirect to dashboard after successful login
-      setTimeout(() => window.location.href = "/dashboard", 1000);
+      // Redirect to the appropriate dashboard after successful login
+      setTimeout(() => {
+        window.location.href = redirect;
+      }, 500);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -114,6 +118,21 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+function getRedirectPathForRole(role?: string) {
+  switch (role) {
+    case "SUPER_ADMIN":
+      return "/admin";
+    case "SUPPORT":
+      return "/admin/support";
+    case "FACTURATION":
+      return "/admin/facturation";
+    case "COMPTE_ENTREPRISE":
+      return "/enterprise/dashboard";
+    default:
+      return "/dashboard";
+  }
 }
 
 function Badge({ children }: { children: React.ReactNode }) {

@@ -10,10 +10,17 @@ import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 import { convertPdfToImages, createEditionInDb } from "@/modules/editions/editionUploadService";
 import { fileStorageProvider } from "@/services/fileStorage";
 
+export const runtime = "nodejs";
+
+export async function OPTIONS() {
+  return NextResponse.json({ ok: true }, { status: 200 });
+}
+
 export async function POST(req: NextRequest) {
   let tempDir: string | null = null;
 
   try {
+    console.log("[edition-upload] POST received");
     const user = await getCurrentUserFromRequest(req);
     if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     if (!['SUPER_ADMIN', 'SUPPORT'].includes(user.role)) {
