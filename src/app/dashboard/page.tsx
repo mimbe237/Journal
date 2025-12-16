@@ -69,8 +69,14 @@ export default function DashboardPage() {
     );
   }
 
-  const subscriptionStatus = subscription?.status || "AUCUN";
-  const subscriptionType = subscription?.type || "-";
+  const subscriptionStatus = subscription?.status;
+  const statusLabel = subscription ? subscriptionStatus || "Inconnu" : "Aucun abonnement";
+  const statusClass = subscriptionStatus === "ACTIF"
+    ? "bg-emerald-100 text-emerald-700"
+    : subscriptionStatus === "EXPIRE"
+      ? "bg-slate-100 text-slate-700"
+      : "bg-amber-50 text-amber-700";
+  const subscriptionType = subscription?.type || (subscription ? "-" : "Aucun");
   const endDate = subscription?.dateFin
     ? new Date(subscription.dateFin).toLocaleDateString("fr-FR")
     : "-";
@@ -118,14 +124,8 @@ export default function DashboardPage() {
                   </p>
                   <p>
                     <span className="font-medium">Statut:</span>{" "}
-                    <span
-                      className={`rounded px-2 py-1 text-xs font-medium ${
-                        subscriptionStatus === "ACTIF"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {subscriptionStatus}
+                    <span className={`rounded px-2 py-1 text-xs font-semibold ${statusClass}`}>
+                      {statusLabel}
                     </span>
                   </p>
                   <p>
