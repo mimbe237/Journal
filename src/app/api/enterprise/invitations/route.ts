@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { UserRole } from "@prisma/client";
+import { EnterpriseUserRole, UserRole } from "@prisma/client";
 import crypto from "crypto";
 
 import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
@@ -37,10 +37,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 });
     }
 
-    const body = await req.json();
-    const { email } = body ?? {};
+    const body = (await req.json()) as { email?: unknown };
+    const rawEmail = typeof body.email === "string" ? body.email.trim() : "";
+    const email = rawEmail.toLowerCase();
 
-    if (!email) {
+    if (!email || !email.includes("@")) {
       return NextResponse.json({ error: "Email requis" }, { status: 400 });
     }
 
@@ -72,8 +73,9 @@ export async function POST(req: NextRequest) {
 
     // Vérifier le domaine autorisé
     if (enterprise.domaineAutorise) {
-      const emailDomain = '@' + email.split('@')[1];
-      if (emailDomain !== enterprise.domaineAutorise) {
+      const [, domainPart] = email.split("@");
+      const emailDomain = domainPart ? `@${domainPart}` : "";
+      if (!emailDomain || emailDomain !== enterprise.domaineAutorise) {
         return NextResponse.json({ 
           error: `L'email doit appartenir au domaine ${enterprise.domaineAutorise}` 
         }, { status: 400 });
@@ -89,9 +91,10 @@ export async function POST(req: NextRequest) {
       data: {
         enterpriseAccountId: user.enterpriseAccountId,
         email,
-        role: 'UTILISATEUR_ENTREPRISE',
+        role: EnterpriseUserRole.UTILISATEUR,
         token,
         expireAt,
+        createdBy: user.id,
       }
     });
 
