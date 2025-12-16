@@ -28,11 +28,10 @@ export async function GET(req: NextRequest) {
     
     if (userWithRole?.enterpriseRole) {
       role = userWithRole.enterpriseRole;
-      isAdmin = [
-        EnterpriseUserRole.ADMIN_PRIMAIRE,
-        EnterpriseUserRole.ADMIN_SECONDAIRE,
-        EnterpriseUserRole.MANAGER
-      ].includes(role);
+      isAdmin =
+        role === EnterpriseUserRole.ADMIN_PRIMAIRE ||
+        role === EnterpriseUserRole.ADMIN_SECONDAIRE ||
+        role === EnterpriseUserRole.MANAGER;
     }
 
     const enterprise = await prisma.enterpriseAccount.findUnique({
