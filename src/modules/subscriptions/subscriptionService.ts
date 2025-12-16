@@ -65,6 +65,7 @@ export async function createSubscriptionForUser(params: {
   devise: string;
   source: SubscriptionSource;
   promoCodeId?: string;
+  paymentMethod?: string | null;
 }): Promise<Subscription> {
   await prismaRuntimeReady;
   assertDates(params.dateDebut, params.dateFin);
@@ -97,7 +98,8 @@ export async function createSubscriptionForUser(params: {
           subscriptionId: created.id,
           type: params.type,
           source: params.source,
-          promoCodeId: params.promoCodeId ?? null
+          promoCodeId: params.promoCodeId ?? null,
+          paymentMethod: params.paymentMethod ?? null,
         }
       }
     });
@@ -120,6 +122,7 @@ export async function createSubscriptionWithPromoForUser(params: {
   devise: string;
   source: SubscriptionSource;
   promoCode?: string;
+  paymentMethod?: string | null;
 }): Promise<Subscription> {
   await prismaRuntimeReady;
   if (!params.promoCode) {
@@ -130,7 +133,8 @@ export async function createSubscriptionWithPromoForUser(params: {
       dateFin: params.dateFin,
       montant: params.montantInitial,
       devise: params.devise,
-      source: params.source
+      source: params.source,
+      paymentMethod: params.paymentMethod ?? null,
     });
   }
 
@@ -196,6 +200,7 @@ export async function createSubscriptionWithPromoForEnterprise(params: {
   devise: string;
   source: SubscriptionSource;
   promoCode?: string;
+  paymentMethod?: string | null;
 }): Promise<Subscription> {
   await prismaRuntimeReady;
   if (!params.promoCode) {
@@ -206,7 +211,8 @@ export async function createSubscriptionWithPromoForEnterprise(params: {
       dateFin: params.dateFin,
       montant: params.montantInitial,
       devise: params.devise,
-      source: params.source
+      source: params.source,
+      paymentMethod: params.paymentMethod ?? null,
     });
   }
 
@@ -271,6 +277,7 @@ export async function createSubscriptionForEnterprise(params: {
   devise: string;
   source: SubscriptionSource;
   promoCodeId?: string;
+  paymentMethod?: string | null;
 }): Promise<Subscription> {
   await prismaRuntimeReady;
   assertDates(params.dateDebut, params.dateFin);
@@ -304,7 +311,8 @@ export async function createSubscriptionForEnterprise(params: {
           enterpriseAccountId: params.enterpriseAccountId,
           type: params.type,
           source: params.source,
-          promoCodeId: params.promoCodeId ?? null
+          promoCodeId: params.promoCodeId ?? null,
+          paymentMethod: params.paymentMethod ?? null,
         }
       }
     });

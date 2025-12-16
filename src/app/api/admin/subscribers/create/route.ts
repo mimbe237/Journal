@@ -28,6 +28,12 @@ function pickType(start: Date, end: Date): SubscriptionType {
   return diffDays >= 300 ? SubscriptionType.ANNUEL : SubscriptionType.MENSUEL;
 }
 
+function planToSubscriptionType(plan: string | null): SubscriptionType {
+  if (plan === "YEARLY") return SubscriptionType.ANNUEL;
+  if (plan === "SIX_MONTHS") return SubscriptionType.MENSUEL; // pas d'Enum 6 mois, on reste sur MENSUEL/ANNUEL
+  return SubscriptionType.MENSUEL;
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Garantit la présence des colonnes soft-delete (deletedAt/trashedUntil) sur subscriptions en prod
@@ -43,6 +49,11 @@ export async function POST(req: NextRequest) {
     const enterpriseName = form.get("enterpriseName")?.toString().trim() || null;
     const startDateStr = form.get("dateDebut")?.toString();
     const endDateStr = form.get("dateFin")?.toString();
+    const journalTypeId = form.get("journalTypeId")?.toString().trim() || null;
+    const plan = form.get("plan")?.toString().trim() || null; // MONTHLY | SIX_MONTHS | YEARLY | CUSTOM
+    const montantStr = form.get("montant")?.toString();
+    const deviseRaw = form.get("devise")?.toString();
+    const paymentMethod = form.get("paymentMethod")?.toString() || "CASH";
     const bulletin = form.get("bulletin") as File | null;
     const receipt = form.get("receipt") as File | null;
 
@@ -57,6 +68,23 @@ export async function POST(req: NextRequest) {
     }
     if (dateFin <= dateDebut) {
       return NextResponse.json({ error: "La date d'expiration doit être postérieure à la date de début." }, { status: 400 });
+    }
+    const devise = (deviseRaw || "XAF").toUpperCase().slice(0, 3) === "FCF" ? "XAF" : (deviseRaw || "XAF").toUpperCase().slice(0, 3);
+
+    let montant = montantStr ? Number(montantStr) : 0;
+    if (Number.isNaN(montant) || montant <= 0) {
+      // si non fourni, tenter de récupérer via journalType/plan
+      if (journalTypeId) {
+        const jt = await prisma.journalType.findUnique({ where: { id: journalTypeId } });
+        if (jt) {
+          if (plan === "SIX_MONTHS") montant = Number(jt.sixMonthPrice);
+          else if (plan === "YEARLY") montant = Number(jt.yearlyPrice);
+          else montant = Number(jt.monthlyPrice);
+        }
+      }
+      if (Number.isNaN(montant) || montant <= 0) {
+        return NextResponse.json({ error: "Tarif introuvable pour la formule sélectionnée" }, { status: 400 });
+      }
     }
 
     let finalEnterpriseId = enterpriseId;
@@ -91,9 +119,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const subscriptionType = pickType(dateDebut, dateFin);
-    const montant = 0;
-    const devise = "XOF";
+    const subscriptionType = plan ? planToSubscriptionType(plan) : pickType(dateDebut, dateFin);
 
     if (isEnterprise && finalEnterpriseId) {
       await createSubscriptionForEnterprise({
@@ -103,7 +129,8 @@ export async function POST(req: NextRequest) {
         dateFin,
         montant,
         devise,
-        source: SubscriptionSource.OFFLINE
+        source: SubscriptionSource.OFFLINE,
+        paymentMethod
       });
     } else {
       await createSubscriptionForUser({
@@ -113,7 +140,8 @@ export async function POST(req: NextRequest) {
         dateFin,
         montant,
         devise,
-        source: SubscriptionSource.OFFLINE
+        source: SubscriptionSource.OFFLINE,
+        paymentMethod
       });
     }
 

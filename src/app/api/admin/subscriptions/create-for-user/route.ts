@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
       montant,
       devise,
       source,
-      promoCodeId
+      promoCodeId,
+      paymentMethod: null
     });
 
     return NextResponse.json({ subscription }, { status: 201 });

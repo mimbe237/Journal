@@ -381,7 +381,8 @@ function SettingsPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed right-6 top-20 w-72 max-h-[80vh] overflow-auto bg-white dark:bg-gray-800 rounded-lg shadow-2xl z-[200] border border-gray-200 dark:border-gray-700">
+    <div className="fixed inset-0 z-[999] pointer-events-none">
+      <div className="absolute right-6 top-20 w-72 max-h-[80vh] overflow-auto bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 pointer-events-auto">
       <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
         <span className="font-medium text-gray-900 dark:text-white">Paramètres</span>
         <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
@@ -453,6 +454,7 @@ function SettingsPanel({
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
