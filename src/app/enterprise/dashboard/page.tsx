@@ -7,6 +7,33 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/States';
 
+interface EnterpriseStats {
+  totalLicenses: number;
+  usedLicenses: number;
+  pendingInvites: number;
+  availableLicenses: number;
+  activeUsers: number;
+  suspendedUsers: number;
+}
+
+interface EnterpriseUser {
+  id: string;
+  nom: string;
+  email: string;
+  role?: string;
+  enterpriseRole?: string;
+  enterpriseStatus?: string;
+  dateAssignmentEnterprise?: string;
+  dernierLoginAt?: string;
+}
+
+interface Invitation {
+  id: string;
+  email: string;
+  createdAt: string;
+  expireAt: string;
+}
+
 interface EnterpriseData {
   enterprise: {
     id: string;
@@ -16,26 +43,52 @@ interface EnterpriseData {
     niveauSla: string;
     actif: boolean;
   };
-  users: Array<{
+  users: EnterpriseUser[];
+  pendingInvitations: Invitation[] | number;
+  subscriptions: Array<{
     id: string;
-    nom: string;
-    email: string;
-    role: string;
-    dernierLoginAt?: string;
-  }>;
-  pendingInvitations: number;
-  subscription?: {
     type: string;
     statut: string;
+    dateDebut: string;
     dateFin: string;
-  };
+    journalType?: { id: string; nom: string; code: string };
+  }>;
+  stats?: EnterpriseStats;
+  currentUserRole?: string;
+  isAdmin: boolean;
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN_PRIMAIRE: 'Admin Primaire',
+  ADMIN_SECONDAIRE: 'Admin Secondaire',
+  MANAGER: 'Manager',
+  UTILISATEUR: 'Utilisateur',
+  SUSPENDU: 'Suspendu',
+  COMPTE_ENTREPRISE: 'Administrateur'
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  ADMIN_PRIMAIRE: 'bg-purple-100 text-purple-800',
+  ADMIN_SECONDAIRE: 'bg-indigo-100 text-indigo-800',
+  MANAGER: 'bg-blue-100 text-blue-800',
+  UTILISATEUR: 'bg-green-100 text-green-800',
+  SUSPENDU: 'bg-red-100 text-red-800',
+  COMPTE_ENTREPRISE: 'bg-purple-100 text-purple-800'
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  ACTIF: 'text-green-600',
+  SUSPENDU: 'text-red-600',
+  INVITE: 'text-amber-600',
+  SUPPRIME: 'text-gray-400'
+};
 
 export default function EnterpriseDashboardPage() {
   const [data, setData] = useState<EnterpriseData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -61,18 +114,65 @@ export default function EnterpriseDashboardPage() {
     }
   };
 
-  const handleRemoveUser = async (userId: string) => {
-    if (!confirm('Voulez-vous vraiment retirer cet utilisateur de l\'entreprise ?')) return;
+  const handleSuspendUser = async (userId: string) => {
+    if (!confirm('Voulez-vous vraiment suspendre cet utilisateur ? Il perdra son accès aux éditions.')) return;
 
+    setActionLoading(userId);
     try {
-      const res = await fetch(`/api/enterprise/users/${userId}`, {
+      const res = await fetch(`/api/enterprise/users/${userId}/suspend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'Suspendu par un administrateur' }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Erreur lors de la suspension');
+      }
+      fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la suspension');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReactivateUser = async (userId: string) => {
+    setActionLoading(userId);
+    try {
+      const res = await fetch(`/api/enterprise/users/${userId}/reactivate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'UTILISATEUR' }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Erreur lors de la réactivation');
+      }
+      fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la réactivation');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId: string) => {
+    if (!confirm('Voulez-vous vraiment annuler cette invitation ?')) return;
+
+    setActionLoading(invitationId);
+    try {
+      const res = await fetch(`/api/enterprise/invitations/${invitationId}`, {
         method: 'DELETE',
       });
 
-      if (!res.ok) throw new Error('Erreur lors de la suppression');
+      if (!res.ok) throw new Error('Erreur lors de l\'annulation');
       fetchData();
     } catch (err) {
-      alert('Erreur lors de la suppression de l\'utilisateur');
+      alert('Erreur lors de l\'annulation de l\'invitation');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -80,24 +180,38 @@ export default function EnterpriseDashboardPage() {
   if (error) return <ErrorState message={error} />;
   if (!data) return <EmptyState title="Aucune donnée" message="Impossible de charger les données" />;
 
-  const licensesUsed = data.users.length + data.pendingInvitations;
-  const licensesRemaining = data.enterprise.nombreUtilisateursInclus - licensesUsed;
+  // Calculer les stats depuis l'API ou les données locales
+  const pendingCount = Array.isArray(data.pendingInvitations) 
+    ? data.pendingInvitations.length 
+    : (data.pendingInvitations || 0);
+  
+  const stats = data.stats || {
+    totalLicenses: data.enterprise.nombreUtilisateursInclus,
+    usedLicenses: data.users.length,
+    pendingInvites: pendingCount,
+    availableLicenses: data.enterprise.nombreUtilisateursInclus - data.users.length - pendingCount,
+    activeUsers: data.users.filter(u => u.enterpriseStatus !== 'SUSPENDU').length,
+    suspendedUsers: data.users.filter(u => u.enterpriseStatus === 'SUSPENDU').length
+  };
+
+  const canManageUsers = data.isAdmin;
+  const activeSubscription = data.subscriptions?.find(s => s.statut === 'ACTIF');
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
         <PageHeader 
           title={`Tableau de bord - ${data.enterprise.nom}`}
-          description="Gérez les utilisateurs de votre entreprise"
+          description={data.currentUserRole ? `Vous êtes ${ROLE_LABELS[data.currentUserRole] || data.currentUserRole}` : "Gérez les utilisateurs de votre entreprise"}
         />
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Card className="p-6 bg-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Utilisateurs actifs</p>
-                <p className="text-3xl font-bold text-gray-900">{data.users.length}</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.activeUsers}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -111,8 +225,8 @@ export default function EnterpriseDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Licences disponibles</p>
-                <p className="text-3xl font-bold text-gray-900">{licensesRemaining}</p>
-                <p className="text-xs text-gray-400">sur {data.enterprise.nombreUtilisateursInclus}</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.availableLicenses}</p>
+                <p className="text-xs text-gray-400">sur {stats.totalLicenses}</p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -126,7 +240,7 @@ export default function EnterpriseDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Invitations en attente</p>
-                <p className="text-3xl font-bold text-gray-900">{data.pendingInvitations}</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.pendingInvites}</p>
               </div>
               <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -139,12 +253,12 @@ export default function EnterpriseDashboardPage() {
           <Card className="p-6 bg-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Niveau SLA</p>
-                <p className="text-xl font-bold text-gray-900 capitalize">{data.enterprise.niveauSla || 'Standard'}</p>
+                <p className="text-sm text-gray-500">Utilisateurs suspendus</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.suspendedUsers}</p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                 </svg>
               </div>
             </div>
@@ -152,17 +266,20 @@ export default function EnterpriseDashboardPage() {
         </div>
 
         {/* Subscription Status */}
-        {data.subscription && (
+        {activeSubscription && (
           <Card className="p-6 mb-8 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
             <div className="flex justify-between items-center">
               <div>
-                <h3 className="text-lg font-medium">Votre abonnement</h3>
-                <p className="text-blue-100 capitalize">{data.subscription.type}</p>
+                <h3 className="text-lg font-medium">Votre abonnement actif</h3>
+                <p className="text-blue-100 capitalize">
+                  {activeSubscription.type} 
+                  {activeSubscription.journalType && ` - ${activeSubscription.journalType.nom}`}
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-blue-100">Expire le</p>
                 <p className="text-xl font-bold">
-                  {new Date(data.subscription.dateFin).toLocaleDateString('fr-FR')}
+                  {new Date(activeSubscription.dateFin).toLocaleDateString('fr-FR')}
                 </p>
               </div>
             </div>
@@ -170,79 +287,148 @@ export default function EnterpriseDashboardPage() {
         )}
 
         {/* Users Management */}
-        <div className="mb-6 flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-900">Utilisateurs de l'entreprise</h2>
-          <Button 
-            onClick={() => setShowInviteModal(true)}
-            disabled={licensesRemaining <= 0}
-          >
-            + Inviter un utilisateur
-          </Button>
-        </div>
+        {canManageUsers && (
+          <>
+            <div className="mb-6 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Utilisateurs de l'entreprise</h2>
+              <Button 
+                onClick={() => setShowInviteModal(true)}
+                disabled={stats.availableLicenses <= 0}
+              >
+                + Inviter un utilisateur
+              </Button>
+            </div>
 
-        {licensesRemaining <= 0 && (
-          <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-amber-800">
-              Toutes vos licences sont utilisées. Contactez l'administrateur pour augmenter le nombre de licences.
-            </p>
-          </div>
+            {stats.availableLicenses <= 0 && (
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-amber-800">
+                  Toutes vos licences sont utilisées. Contactez l'administrateur pour augmenter le nombre de licences.
+                </p>
+              </div>
+            )}
+
+            {/* Pending Invitations */}
+            {Array.isArray(data.pendingInvitations) && data.pendingInvitations.length > 0 && (
+              <Card className="mb-6 overflow-hidden">
+                <div className="p-4 bg-amber-50 border-b border-amber-100">
+                  <h3 className="font-medium text-amber-800">Invitations en attente</h3>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {data.pendingInvitations.map((inv) => (
+                    <div key={inv.id} className="p-4 flex justify-between items-center">
+                      <div>
+                        <p className="font-medium text-gray-900">{inv.email}</p>
+                        <p className="text-sm text-gray-500">
+                          Expire le {new Date(inv.expireAt).toLocaleDateString('fr-FR')}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleCancelInvitation(inv.id)}
+                        disabled={actionLoading === inv.id}
+                        className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
+                      >
+                        {actionLoading === inv.id ? '...' : 'Annuler'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            <Card className="overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left p-4 font-medium text-gray-700">Utilisateur</th>
+                    <th className="text-left p-4 font-medium text-gray-700">Rôle</th>
+                    <th className="text-left p-4 font-medium text-gray-700">Statut</th>
+                    <th className="text-left p-4 font-medium text-gray-700">Dernière connexion</th>
+                    <th className="text-right p-4 font-medium text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {data.users.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-gray-500">
+                        Aucun utilisateur. Invitez des membres de votre équipe.
+                      </td>
+                    </tr>
+                  ) : (
+                    data.users.map((user) => {
+                      const userRole = user.enterpriseRole || user.role || 'UTILISATEUR';
+                      const userStatus = user.enterpriseStatus || 'ACTIF';
+                      const isAdminPrimaire = userRole === 'ADMIN_PRIMAIRE';
+                      const isSuspended = userStatus === 'SUSPENDU' || userRole === 'SUSPENDU';
+                      
+                      return (
+                        <tr key={user.id} className="hover:bg-gray-50">
+                          <td className="p-4">
+                            <div className="font-medium text-gray-900">{user.nom}</div>
+                            <div className="text-sm text-gray-500">{user.email}</div>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              ROLE_COLORS[userRole] || 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {ROLE_LABELS[userRole] || userRole}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <span className={STATUS_COLORS[userStatus] || 'text-gray-600'}>
+                              {userStatus === 'ACTIF' ? '● Actif' : 
+                               userStatus === 'SUSPENDU' ? '● Suspendu' : 
+                               userStatus}
+                            </span>
+                          </td>
+                          <td className="p-4 text-gray-500">
+                            {user.dernierLoginAt 
+                              ? new Date(user.dernierLoginAt).toLocaleString('fr-FR')
+                              : 'Jamais'
+                            }
+                          </td>
+                          <td className="p-4 text-right space-x-2">
+                            {!isAdminPrimaire && (
+                              <>
+                                {isSuspended ? (
+                                  <button
+                                    onClick={() => handleReactivateUser(user.id)}
+                                    disabled={actionLoading === user.id}
+                                    className="text-green-600 hover:text-green-800 text-sm font-medium disabled:opacity-50"
+                                  >
+                                    {actionLoading === user.id ? '...' : 'Réactiver'}
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleSuspendUser(user.id)}
+                                    disabled={actionLoading === user.id}
+                                    className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
+                                  >
+                                    {actionLoading === user.id ? '...' : 'Suspendre'}
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </Card>
+          </>
         )}
 
-        <Card className="overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="text-left p-4 font-medium text-gray-700">Utilisateur</th>
-                <th className="text-left p-4 font-medium text-gray-700">Rôle</th>
-                <th className="text-left p-4 font-medium text-gray-700">Dernière connexion</th>
-                <th className="text-right p-4 font-medium text-gray-700">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {data.users.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="p-8 text-center text-gray-500">
-                    Aucun utilisateur. Invitez des membres de votre équipe.
-                  </td>
-                </tr>
-              ) : (
-                data.users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="p-4">
-                      <div className="font-medium text-gray-900">{user.nom}</div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        user.role === 'COMPTE_ENTREPRISE' 
-                          ? 'bg-purple-100 text-purple-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {user.role === 'COMPTE_ENTREPRISE' ? 'Administrateur' : 'Utilisateur'}
-                      </span>
-                    </td>
-                    <td className="p-4 text-gray-500">
-                      {user.dernierLoginAt 
-                        ? new Date(user.dernierLoginAt).toLocaleString('fr-FR')
-                        : 'Jamais'
-                      }
-                    </td>
-                    <td className="p-4 text-right">
-                      {user.role !== 'COMPTE_ENTREPRISE' && (
-                        <button
-                          onClick={() => handleRemoveUser(user.id)}
-                          className="text-red-600 hover:text-red-800 text-sm font-medium"
-                        >
-                          Retirer
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </Card>
+        {/* Non-admin view */}
+        {!canManageUsers && (
+          <Card className="p-6 mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Bienvenue</h2>
+            <p className="text-gray-600">
+              Vous faites partie de l'entreprise <strong>{data.enterprise.nom}</strong>.
+              Accédez aux éditions disponibles via le menu.
+            </p>
+          </Card>
+        )}
 
         {/* Quick Actions */}
         <div className="mt-8 grid grid-cols-3 gap-4">
@@ -272,7 +458,8 @@ export default function EnterpriseDashboardPage() {
       {/* Invite Modal */}
       {showInviteModal && (
         <InviteUserModal
-          licensesRemaining={licensesRemaining}
+          availableLicenses={stats.availableLicenses}
+          currentUserRole={data.currentUserRole}
           onClose={() => setShowInviteModal(false)}
           onInvited={() => {
             setShowInviteModal(false);
@@ -285,22 +472,30 @@ export default function EnterpriseDashboardPage() {
 }
 
 function InviteUserModal({ 
-  licensesRemaining,
+  availableLicenses,
+  currentUserRole,
   onClose, 
   onInvited 
 }: { 
-  licensesRemaining: number;
+  availableLicenses: number;
+  currentUserRole?: string;
   onClose: () => void;
   onInvited: () => void;
 }) {
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState('UTILISATEUR');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Rôles disponibles selon le rôle de l'utilisateur actuel
+  const availableRoles = currentUserRole === 'ADMIN_PRIMAIRE'
+    ? ['UTILISATEUR', 'MANAGER', 'ADMIN_SECONDAIRE']
+    : ['UTILISATEUR', 'MANAGER'];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (licensesRemaining <= 0) {
+    if (availableLicenses <= 0) {
       setError('Plus de licences disponibles');
       return;
     }
@@ -309,10 +504,10 @@ function InviteUserModal({
     setError(null);
 
     try {
-      const res = await fetch('/api/enterprise/invitations', {
+      const res = await fetch('/api/enterprise/users/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, role }),
       });
 
       if (!res.ok) {
@@ -354,16 +549,37 @@ function InviteUserModal({
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
               placeholder="collaborateur@email.com"
             />
-            <p className="text-sm text-gray-500 mt-1">
-              Un email d'invitation sera envoyé à cette adresse
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Rôle
+            </label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              {availableRoles.map((r) => (
+                <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {role === 'ADMIN_SECONDAIRE' && 'Peut gérer les utilisateurs et les rôles'}
+              {role === 'MANAGER' && 'Peut inviter et gérer les utilisateurs'}
+              {role === 'UTILISATEUR' && 'Accès en lecture aux éditions'}
             </p>
           </div>
+
+          <p className="text-sm text-gray-500">
+            Un email d'invitation sera envoyé. L'invitation expire après 7 jours.
+          </p>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button type="button" variant="secondary" onClick={onClose}>
               Annuler
             </Button>
-            <Button type="submit" disabled={loading || licensesRemaining <= 0}>
+            <Button type="submit" disabled={loading || availableLicenses <= 0}>
               {loading ? 'Envoi...' : 'Envoyer l\'invitation'}
             </Button>
           </div>

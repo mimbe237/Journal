@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { UserRole } from "@prisma/client";
 
 import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 import { prisma } from "@/lib/config/prisma";
+
+// Local enum copy for compatibility (until migration is applied in production)
+const EnterpriseUserRoleValues = {
+  ADMIN_PRIMAIRE: "ADMIN_PRIMAIRE",
+  ADMIN_SECONDAIRE: "ADMIN_SECONDAIRE", 
+  MANAGER: "MANAGER",
+  UTILISATEUR: "UTILISATEUR",
+  SUSPENDU: "SUSPENDU"
+} as const;
+
+type EnterpriseUserRoleType = typeof EnterpriseUserRoleValues[keyof typeof EnterpriseUserRoleValues];
 
 // GET dashboard data for enterprise admin
 export async function GET(req: NextRequest) {
@@ -13,12 +23,32 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
-    if (user.role !== UserRole.COMPTE_ENTREPRISE) {
-      return NextResponse.json({ error: "Accès réservé aux administrateurs d'entreprise" }, { status: 403 });
-    }
-
     if (!user.enterpriseAccountId) {
       return NextResponse.json({ error: "Aucun compte entreprise associé" }, { status: 400 });
+    }
+
+    // Vérifier les droits d'admin - avec fallback si les champs n'existent pas
+    let role: EnterpriseUserRoleType | undefined;
+    let isAdmin = false;
+    
+    try {
+      // Try to get enterprise role from user
+      const userWithRole = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { enterpriseRole: true }
+      });
+      
+      if (userWithRole?.enterpriseRole) {
+        role = userWithRole.enterpriseRole as EnterpriseUserRoleType;
+        isAdmin = [
+          EnterpriseUserRoleValues.ADMIN_PRIMAIRE,
+          EnterpriseUserRoleValues.ADMIN_SECONDAIRE,
+          EnterpriseUserRoleValues.MANAGER
+        ].includes(role);
+      }
+    } catch {
+      // Si les champs n'existent pas encore, continuer sans admin
+      isAdmin = false;
     }
 
     const enterprise = await prisma.enterpriseAccount.findUnique({
@@ -37,46 +67,80 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Entreprise non trouvée" }, { status: 404 });
     }
 
-    const users = await prisma.user.findMany({
-      where: { enterpriseAccountId: user.enterpriseAccountId },
+    // Récupérer les utilisateurs (seulement pour les admins)
+    let users: any[] = [];
+    if (isAdmin) {
+      users = await prisma.user.findMany({
+        where: { enterpriseAccountId: user.enterpriseAccountId },
+        select: {
+          id: true,
+          nom: true,
+          email: true,
+          role: true,
+          dernierLoginAt: true,
+        },
+        orderBy: { nom: 'asc' }
+      });
+    }
+
+    // Récupérer les invitations en attente (seulement pour les admins)
+    let pendingInvitations: any[] = [];
+    if (isAdmin) {
+      pendingInvitations = await prisma.enterpriseInvitation.findMany({
+        where: {
+          enterpriseAccountId: user.enterpriseAccountId,
+          acceptedAt: null,
+          expireAt: { gt: new Date() }
+        },
+        select: {
+          id: true,
+          email: true,
+          createdAt: true,
+          expireAt: true,
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    }
+
+    // Récupérer les abonnements
+    const subscriptions = await prisma.subscription.findMany({
+      where: {
+        enterpriseAccountId: user.enterpriseAccountId,
+        deletedAt: null,
+      },
       select: {
         id: true,
-        nom: true,
-        email: true,
-        role: true,
-        dernierLoginAt: true,
-      },
-      orderBy: { nom: 'asc' }
-    });
-
-    const pendingInvitations = await prisma.enterpriseInvitation.count({
-      where: {
-        enterpriseAccountId: user.enterpriseAccountId,
-        acceptedAt: null,
-        expireAt: { gt: new Date() }
-      }
-    });
-
-    const subscription = await prisma.subscription.findFirst({
-      where: {
-        enterpriseAccountId: user.enterpriseAccountId,
-        statut: 'ACTIF',
-      },
-      select: {
         type: true,
         statut: true,
+        dateDebut: true,
         dateFin: true,
+        journalType: {
+          select: { id: true, nom: true, code: true }
+        }
       },
-      orderBy: { dateFin: 'desc' }
+      orderBy: { dateFin: 'desc' },
+      take: 10
     });
+
+    // Calculer des stats simples
+    const stats = {
+      totalUsers: users.length,
+      totalLicenses: enterprise.nombreUtilisateursInclus ?? 0,
+      pendingInvitations: pendingInvitations.length,
+      activeSubscriptions: subscriptions.filter(s => s.statut === 'ACTIF').length
+    };
 
     return NextResponse.json({
       enterprise,
       users,
       pendingInvitations,
-      subscription,
+      subscriptions,
+      stats,
+      currentUserRole: role ?? null,
+      isAdmin,
     });
   } catch (error: any) {
+    console.error("Erreur GET /api/enterprise/dashboard:", error);
     return NextResponse.json({ error: error?.message ?? "Erreur serveur" }, { status: 500 });
   }
 }

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 
 import { requireUserWithRoles } from "@/lib/auth/authorization";
-import { createEnterpriseAccount } from "@/modules/enterprises/enterpriseService";
 import { prisma } from "@/lib/config/prisma";
+import { setupEnterpriseAdmin } from "@/modules/enterprises/enterpriseAdminService";
+import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 
 // GET liste paginée des comptes entreprises
 export async function GET(req: NextRequest) {
@@ -34,6 +35,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT]);
+    const currentUser = await getCurrentUserFromRequest(req);
+    
     const body = await req.json();
     const { 
       nom, 
@@ -42,9 +45,16 @@ export async function POST(req: NextRequest) {
       nombreUtilisateursInclus,
       niveauSla,
       adresseFacturation,
-      numeroSiret 
+      numeroSiret,
+      adminPrimaireEmail,
+      sendAdminInvitation
     } = body ?? {};
 
+    if (!adminPrimaireEmail) {
+      return NextResponse.json({ error: "Email de l'admin primaire requis" }, { status: 400 });
+    }
+
+    // Créer le compte entreprise
     const enterprise = await prisma.enterpriseAccount.create({
       data: {
         nom,
@@ -54,11 +64,26 @@ export async function POST(req: NextRequest) {
         niveauSla: niveauSla || 'standard',
         adresseFacturation,
         numeroSiret,
+        adminPrimaireEmail: adminPrimaireEmail.toLowerCase(),
       }
     });
 
-    return NextResponse.json({ enterprise }, { status: 201 });
+    // Envoyer l'invitation à l'admin primaire si demandé
+    let invitationResult = null;
+    if (sendAdminInvitation !== false) {
+      invitationResult = await setupEnterpriseAdmin(
+        enterprise.id,
+        adminPrimaireEmail,
+        currentUser?.id || 'system'
+      );
+    }
+
+    return NextResponse.json({ 
+      enterprise,
+      adminInvitation: invitationResult
+    }, { status: 201 });
   } catch (error: any) {
+    console.error("Erreur création entreprise:", error);
     return NextResponse.json({ error: error?.message ?? "Erreur lors de la création" }, { status: 400 });
   }
 }

@@ -78,6 +78,10 @@ enum SystemEventType {
   MODIFICATION_COMPTE_ENTREPRISE
   AJOUT_UTILISATEUR_ENTREPRISE
   SUPPRESSION_UTILISATEUR_ENTREPRISE
+  SUSPENSION_UTILISATEUR_ENTREPRISE
+  CHANGEMENT_ROLE_ENTREPRISE
+  INVITATION_ENTREPRISE_ENVOYEE
+  INVITATION_ENTREPRISE_ACCEPTEE
   CREATION_CODE_PROMO
   MODIFICATION_CODE_PROMO
   UTILISATION_CODE_PROMO
@@ -92,6 +96,23 @@ enum SystemEventType {
   SUPPRESSION_DEFINITIVE_ABONNEMENT
   RESTAURATION_ABONNEMENT
   AUTRE
+}
+
+/// Rôles des utilisateurs au sein d'une entreprise.
+enum EnterpriseUserRole {
+  ADMIN_PRIMAIRE
+  ADMIN_SECONDAIRE
+  MANAGER
+  UTILISATEUR
+  SUSPENDU
+}
+
+/// Statut d'un utilisateur au sein d'une entreprise.
+enum EnterpriseUserStatus {
+  INVITE
+  ACTIF
+  SUSPENDU
+  SUPPRIME
 }
 
 /// Statut des soumissions manuelles d'abonnement.
@@ -133,11 +154,22 @@ model User {
   trashedUntil      DateTime?
   enterpriseAccountId String?
 
+  // Champs entreprise (si rattaché à une entreprise)
+  enterpriseRole         EnterpriseUserRole?
+  enterpriseStatus       EnterpriseUserStatus?
+  dateAssignmentEnterprise DateTime?
+  assignedById           String?
+  suspendedReason        String?
+  suspendedAt            DateTime?
+
   enterpriseAccount EnterpriseAccount?  @relation(fields: [enterpriseAccountId], references: [id])
+  adminOfEnterprise EnterpriseAccount?  @relation("AdminPrimaire")
   subscriptions     Subscription[]
   systemEvents      SystemEvent[]
   readingSessions   ReadingSession[]
   paymentTransactions PaymentTransaction[]
+  enterpriseAuditLogs EnterpriseAuditLog[] @relation("AuditPerformedBy")
+  enterpriseAuditLogsTarget EnterpriseAuditLog[] @relation("AuditTargetUser")
 
   @@map("users")
 }
@@ -150,6 +182,14 @@ model EnterpriseAccount {
   contactTelephone       String?
   nombreUtilisateursInclus Int
   dateCreation           DateTime       @default(now())
+  
+  // Admin Primaire (acheteur)
+  adminPrimaireId        String?        @unique
+  adminPrimaireEmail     String?        // Email invité si pas encore accepté
+  
+  // Compteurs de licences
+  nombreUtilisateursActifs  Int         @default(0)
+  nombreUtilisateursInvites Int         @default(0)
   
   // Informations de facturation
   adresseFacturation     String?
@@ -171,31 +211,62 @@ model EnterpriseAccount {
   // Statut
   actif                  Boolean        @default(true)
   notes                  String?        // Notes internes admin
+  
+  // Audit
+  createdBy              String?        // Admin SUPER_ADMIN qui a créé
 
+  adminPrimaire          User?          @relation("AdminPrimaire", fields: [adminPrimaireId], references: [id])
   users                  User[]
   subscriptions          Subscription[]
   invitations            EnterpriseInvitation[]
   submissions            ManualSubscriptionSubmission[]
+  auditLogs              EnterpriseAuditLog[]
 
   @@map("enterprise_accounts")
 }
 
 /// Invitation pour rejoindre un compte entreprise.
 model EnterpriseInvitation {
-  id                   String         @id @default(cuid())
+  id                   String              @id @default(cuid())
   enterpriseAccountId  String
   email                String
-  role                 String         @default("UTILISATEUR_ENTREPRISE") // COMPTE_ENTREPRISE ou UTILISATEUR_ENTREPRISE
-  token                String         @unique
+  role                 EnterpriseUserRole  @default(UTILISATEUR)
+  token                String              @unique
   expireAt             DateTime
   acceptedAt           DateTime?
-  createdAt            DateTime       @default(now())
+  acceptedByUserId     String?
+  createdAt            DateTime            @default(now())
+  createdBy            String              // Admin qui a envoyé l'invite
 
   enterpriseAccount    EnterpriseAccount @relation(fields: [enterpriseAccountId], references: [id], onDelete: Cascade)
 
+  @@unique([enterpriseAccountId, email])
   @@index([token])
   @@index([enterpriseAccountId])
   @@map("enterprise_invitations")
+}
+
+/// Logs d'audit pour les actions entreprise.
+model EnterpriseAuditLog {
+  id                   String              @id @default(cuid())
+  enterpriseAccountId  String
+  action               String              // "INVITE_SENT", "USER_ADDED", "ROLE_CHANGED", etc.
+  targetUserId         String?
+  changedFields        Json?               // {role: "UTILISATEUR" → "ADMIN_SECONDAIRE"}
+  reason               String?
+  performedBy          String
+  performedAt          DateTime            @default(now())
+  ipAddress            String?
+  userAgent            String?
+
+  enterpriseAccount    EnterpriseAccount   @relation(fields: [enterpriseAccountId], references: [id], onDelete: Cascade)
+  performer            User                @relation("AuditPerformedBy", fields: [performedBy], references: [id])
+  targetUser           User?               @relation("AuditTargetUser", fields: [targetUserId], references: [id])
+
+  @@index([enterpriseAccountId])
+  @@index([performedBy])
+  @@index([targetUserId])
+  @@map("enterprise_audit_logs")
 }
 
 /// Abonnement individuel ou entreprise, relié à un utilisateur OU à un compte entreprise.

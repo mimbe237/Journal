@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/config/prisma";
-import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 
 // GET valider un token d'invitation
 export async function GET(req: NextRequest) {
@@ -43,6 +42,7 @@ export async function GET(req: NextRequest) {
       invitation: {
         enterpriseName: invitation.enterpriseAccount.nom,
         email: invitation.email,
+        role: invitation.role,
         expireAt: invitation.expireAt,
       },
       needsRegistration: !existingUser,
