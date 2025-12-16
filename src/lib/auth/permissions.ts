@@ -333,7 +333,7 @@ export function canManageRole(managerRole: UserRole, targetRole: UserRole): bool
 export const ADMIN_ROUTES: Record<string, UserRole[]> = {
   "/admin/facturation": [UserRole.FACTURATION, UserRole.SUPER_ADMIN],
   "/admin/facturation/dashboard": [UserRole.FACTURATION, UserRole.SUPER_ADMIN],
-  "/admin/facturation/soumissions": [UserRole.FACTURATION, UserRole.SUPER_ADMIN],
+  "/admin/facturation/soumissions": [UserRole.FACTURATION, UserRole.SUPPORT, UserRole.SUPER_ADMIN],
   "/admin/facturation/rapports": [UserRole.FACTURATION, UserRole.SUPER_ADMIN],
   "/admin/facturation/prix": [UserRole.FACTURATION, UserRole.SUPER_ADMIN],
 

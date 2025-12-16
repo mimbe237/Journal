@@ -16,6 +16,10 @@ interface JournalType {
   name: string;
   frequency: EditionType;
   unitPrice: number;
+  monthlyPrice?: number;
+  sixMonthPrice?: number;
+  yearlyPrice?: number;
+  titleTemplate?: string | null;
 }
 
 export default function AdminEditionsPage() {
@@ -34,6 +38,19 @@ export default function AdminEditionsPage() {
   const [journalTypes, setJournalTypes] = useState<JournalType[]>([]);
   const [selectedJournalTypeId, setSelectedJournalTypeId] = useState<string>("");
   const [lastErrorId, setLastErrorId] = useState<string | null>(null);
+  const selectedJournal = journalTypes.find((j) => j.id === selectedJournalTypeId);
+
+  const renderTitle = (template: string | null | undefined, publicationDate: string, journalName: string, frequency?: EditionType) => {
+    if (!template) return titre || "";
+    const d = new Date(publicationDate);
+    const dateShort = d.toLocaleDateString("fr-FR");
+    const dateLong = d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+    return template
+      .replace(/{{journal}}/g, journalName)
+      .replace(/{{date_long}}/g, dateLong)
+      .replace(/{{date}}/g, dateShort)
+      .replace(/{{frequency}}/g, frequency ? String(frequency) : "");
+  };
 
   useEffect(() => {
     fetch("/api/admin/journal-types")
@@ -42,18 +59,22 @@ export default function AdminEditionsPage() {
         setJournalTypes(data);
         if (data.length > 0) {
           setSelectedJournalTypeId(data[0].id);
+          setTitre(renderTitle(data[0].titleTemplate, datePublication, data[0].name, data[0].frequency));
+          setType(data[0].frequency);
+          setPrix(data[0].unitPrice?.toString() ?? "");
         }
       })
       .catch((err) => console.error("Failed to fetch journal types", err));
   }, []);
 
   useEffect(() => {
-    const jt = journalTypes.find(j => j.id === selectedJournalTypeId);
-    if (jt) {
-      setType(jt.frequency);
-      setPrix(jt.unitPrice.toString());
+    if (selectedJournal) {
+      setType(selectedJournal.frequency);
+      setPrix(selectedJournal.unitPrice?.toString() ?? "");
+      setTitre(renderTitle(selectedJournal.titleTemplate, datePublication, selectedJournal.name, selectedJournal.frequency));
     }
-  }, [selectedJournalTypeId, journalTypes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedJournalTypeId, datePublication]);
 
   const steps = [
     { key: "upload" as UploadStep, label: "Téléchargement du PDF" },
@@ -221,11 +242,12 @@ export default function AdminEditionsPage() {
               <input
                 type="text"
                 value={titre}
-                onChange={(e) => setTitre(e.target.value)}
+                readOnly
                 placeholder="ex: Journal du 12 décembre"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                className="w-full rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
                 required
               />
+              <p className="mt-1 text-xs text-slate-500">Titre généré automatiquement selon le modèle du type sélectionné.</p>
             </div>
 
             {/* Date de publication */}

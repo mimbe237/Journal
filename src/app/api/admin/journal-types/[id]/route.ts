@@ -72,6 +72,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (body.monthlyPrice !== undefined) input.monthlyPrice = Number(body.monthlyPrice);
     if (body.sixMonthPrice !== undefined) input.sixMonthPrice = Number(body.sixMonthPrice);
     if (body.yearlyPrice !== undefined) input.yearlyPrice = Number(body.yearlyPrice);
+    if (body.titleTemplate !== undefined) input.titleTemplate = body.titleTemplate;
     if (body.isActive !== undefined) input.isActive = body.isActive;
     
     const journalType = await updateJournalType(id, input);

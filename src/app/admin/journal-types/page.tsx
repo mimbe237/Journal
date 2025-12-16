@@ -18,6 +18,7 @@ interface JournalType {
   sixMonthPrice: number;
   yearlyPrice: number;
   isActive: boolean;
+  titleTemplate: string | null;
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -40,6 +41,7 @@ const emptyForm = {
   monthlyPrice: 0,
   sixMonthPrice: 0,
   yearlyPrice: 0,
+  titleTemplate: "Edition du {{date_long}}",
   isActive: true
 };
 
@@ -85,6 +87,7 @@ export default function JournalTypesPage() {
       monthlyPrice: jt.monthlyPrice,
       sixMonthPrice: jt.sixMonthPrice,
       yearlyPrice: jt.yearlyPrice,
+      titleTemplate: jt.titleTemplate || "",
       isActive: jt.isActive
     });
     setShowModal(true);
@@ -351,6 +354,23 @@ export default function JournalTypesPage() {
                     required
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Modèle de titre *
+                </label>
+                <input
+                  type="text"
+                  value={form.titleTemplate}
+                  onChange={(e) => setForm({ ...form, titleTemplate: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="{{journal}} - Édition du {{date_long}}"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Tokens : {{journal}}, {{date}}, {{date_long}}, {{frequency}}
+                </p>
               </div>
 
               <div className="flex items-center">

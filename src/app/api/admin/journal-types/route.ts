@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Validation basique
-    const requiredFields = ["name", "frequency", "unitPrice", "monthlyPrice", "sixMonthPrice", "yearlyPrice"];
+    const requiredFields = ["name", "frequency", "unitPrice", "monthlyPrice", "sixMonthPrice", "yearlyPrice", "titleTemplate"];
     for (const field of requiredFields) {
       if (body[field] === undefined || body[field] === null) {
         return NextResponse.json(
@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
       monthlyPrice: Number(body.monthlyPrice),
       sixMonthPrice: Number(body.sixMonthPrice),
       yearlyPrice: Number(body.yearlyPrice),
+      titleTemplate: body.titleTemplate,
       isActive: body.isActive ?? true
     };
     

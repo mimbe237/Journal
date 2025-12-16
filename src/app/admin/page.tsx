@@ -97,6 +97,7 @@ export default async function AdminLandingPage() {
     );
   } else if (isSupport) {
     quickLinks.push(
+      { href: "/admin/facturation/soumissions", label: "Soumissions" },
       { href: "/admin/users", label: "Utilisateurs" },
       { href: "/admin/editions/list", label: "Gérer les éditions" },
       { href: "/admin/enterprises", label: "Entreprises" }

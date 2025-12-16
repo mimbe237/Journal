@@ -131,6 +131,7 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
         title: "Support",
         items: [
           { href: "/admin/support", label: "Tableau de bord", icon: Icons.Dashboard },
+          { href: "/admin/facturation/soumissions", label: "Soumissions", icon: Icons.Facturation },
           { href: "/admin/users", label: "Utilisateurs", icon: Icons.Users },
           { href: "/admin/logs", label: "Journal d'activités", icon: Icons.Logs },
         ]

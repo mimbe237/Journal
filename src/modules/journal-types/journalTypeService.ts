@@ -14,6 +14,7 @@ export interface JournalTypeInput {
   monthlyPrice: number;
   sixMonthPrice: number;
   yearlyPrice: number;
+  titleTemplate?: string | null;
   isActive?: boolean;
 }
 
@@ -26,6 +27,7 @@ export interface JournalTypeWithPricing {
   sixMonthPrice: number;
   yearlyPrice: number;
   isActive: boolean;
+  titleTemplate: string | null;
   createdAt: Date;
   updatedAt: Date;
   _count?: {
@@ -52,7 +54,8 @@ export async function listJournalTypes(includeInactive = false): Promise<Journal
     unitPrice: Number(jt.unitPrice),
     monthlyPrice: Number(jt.monthlyPrice),
     sixMonthPrice: Number(jt.sixMonthPrice),
-    yearlyPrice: Number(jt.yearlyPrice)
+    yearlyPrice: Number(jt.yearlyPrice),
+    titleTemplate: jt.titleTemplate ?? null
   }));
 }
 
@@ -84,7 +87,8 @@ export async function getJournalTypeById(id: string): Promise<JournalTypeWithPri
     unitPrice: Number(journalType.unitPrice),
     monthlyPrice: Number(journalType.monthlyPrice),
     sixMonthPrice: Number(journalType.sixMonthPrice),
-    yearlyPrice: Number(journalType.yearlyPrice)
+    yearlyPrice: Number(journalType.yearlyPrice),
+    titleTemplate: journalType.titleTemplate ?? null
   };
 }
 
@@ -100,6 +104,7 @@ export async function createJournalType(input: JournalTypeInput): Promise<Journa
       monthlyPrice: new Prisma.Decimal(input.monthlyPrice),
       sixMonthPrice: new Prisma.Decimal(input.sixMonthPrice),
       yearlyPrice: new Prisma.Decimal(input.yearlyPrice),
+      titleTemplate: input.titleTemplate ?? null,
       isActive: input.isActive ?? true
     },
     include: {
@@ -114,7 +119,8 @@ export async function createJournalType(input: JournalTypeInput): Promise<Journa
     unitPrice: Number(journalType.unitPrice),
     monthlyPrice: Number(journalType.monthlyPrice),
     sixMonthPrice: Number(journalType.sixMonthPrice),
-    yearlyPrice: Number(journalType.yearlyPrice)
+    yearlyPrice: Number(journalType.yearlyPrice),
+    titleTemplate: journalType.titleTemplate ?? null
   };
 }
 
@@ -130,6 +136,7 @@ export async function updateJournalType(id: string, input: Partial<JournalTypeIn
   if (input.monthlyPrice !== undefined) data.monthlyPrice = new Prisma.Decimal(input.monthlyPrice);
   if (input.sixMonthPrice !== undefined) data.sixMonthPrice = new Prisma.Decimal(input.sixMonthPrice);
   if (input.yearlyPrice !== undefined) data.yearlyPrice = new Prisma.Decimal(input.yearlyPrice);
+  if (input.titleTemplate !== undefined) data.titleTemplate = input.titleTemplate;
   if (input.isActive !== undefined) data.isActive = input.isActive;
 
   const journalType = await prisma.journalType.update({
@@ -147,7 +154,8 @@ export async function updateJournalType(id: string, input: Partial<JournalTypeIn
     unitPrice: Number(journalType.unitPrice),
     monthlyPrice: Number(journalType.monthlyPrice),
     sixMonthPrice: Number(journalType.sixMonthPrice),
-    yearlyPrice: Number(journalType.yearlyPrice)
+    yearlyPrice: Number(journalType.yearlyPrice),
+    titleTemplate: journalType.titleTemplate ?? null
   };
 }
 

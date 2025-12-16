@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/Card";
 import { getCurrentUser } from "@/lib/auth/currentUser";
 import { UserRole, SubscriptionStatus } from "@prisma/client";
 import Link from "next/link";
-import { AddSubscriberModal } from "../AddSubscriberModal";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -34,33 +33,26 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
   const statusFilter = parseParam(params, "status") as "all" | SubscriptionStatus | "";
 
   let users: any[] = [];
-  let enterprisesOptions: { id: string; nom: string }[] = [];
 
   try {
-    [users, enterprisesOptions] = await Promise.all([
-      prisma.user.findMany({
-        where: {
-          role: UserRole.ABONNE,
-          enterpriseAccountId: null
-        },
-        orderBy: { dateCreation: "desc" },
-        select: {
-          id: true,
-          nom: true,
-          email: true,
-          dateCreation: true,
-          subscriptions: {
-            take: 1,
-            orderBy: { dateFin: "desc" },
-            select: { statut: true, dateDebut: true, dateFin: true }
-          }
+    users = await prisma.user.findMany({
+      where: {
+        role: UserRole.ABONNE,
+        enterpriseAccountId: null
+      },
+      orderBy: { dateCreation: "desc" },
+      select: {
+        id: true,
+        nom: true,
+        email: true,
+        dateCreation: true,
+        subscriptions: {
+          take: 1,
+          orderBy: { dateFin: "desc" },
+          select: { statut: true, dateDebut: true, dateFin: true }
         }
-      }),
-      prisma.enterpriseAccount.findMany({
-        orderBy: { nom: "asc" },
-        select: { id: true, nom: true }
-      })
-    ]);
+      }
+    });
   } catch (err: any) {
     return (
       <div className="p-8 text-red-700">
@@ -114,7 +106,12 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
             <h1 className="text-3xl font-bold text-slate-900">Abonnés individuels</h1>
             <p className="text-sm text-slate-600">Abonnements non liés à une entreprise.</p>
           </div>
-          <AddSubscriberModal enterprises={enterprisesOptions} />
+          <Link
+            href="/admin/subscribers/new"
+            className="inline-flex items-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-400"
+          >
+            + Nouvel abonné
+          </Link>
         </div>
 
         <Card className="p-4">

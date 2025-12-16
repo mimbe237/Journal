@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     // On attend désormais une clé de fichier (uploadé via presigned URL)
     const fileKey = formData.get("fileKey") as string;
     const coverImage = formData.get("coverImage") as File | null;
-    const titre = formData.get("titre") as string;
+    let titre = formData.get("titre") as string;
     const type = (formData.get("type") as string) || "QUOTIDIEN";
     const datePublicationStr = formData.get("datePublication") as string;
     const prixRaw = formData.get("prix") as string | null;
@@ -49,7 +49,27 @@ export async function POST(req: NextRequest) {
     const journalTypeId = formData.get("journalTypeId") as string | null;
 
     if (!fileKey) return NextResponse.json({ error: "Fichier PDF requis (fileKey manquant)" }, { status: 400 });
-    if (!titre) return NextResponse.json({ error: "Titre requis" }, { status: 400 });
+    // Génération auto du titre si template défini pour le journal type
+    const renderTitle = (template: string | null | undefined, publicationDate: string, journalName: string, frequency?: string) => {
+      if (!template) return titre;
+      const d = new Date(publicationDate);
+      const dateShort = d.toLocaleDateString("fr-FR");
+      const dateLong = d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+      return template
+        .replace(/{{journal}}/g, journalName)
+        .replace(/{{date_long}}/g, dateLong)
+        .replace(/{{date}}/g, dateShort)
+        .replace(/{{frequency}}/g, frequency ?? "");
+    };
+
+    if (journalTypeId) {
+      const jt = await (await import("@/modules/journal-types/journalTypeService")).getJournalTypeById(journalTypeId);
+      if (jt?.titleTemplate) {
+        titre = renderTitle(jt.titleTemplate, datePublicationStr || new Date().toISOString(), jt.name, jt.frequency) || titre;
+      }
+    }
+
+    if (!titre) return NextResponse.json({ error: "Titre requis (modèle non défini sur le type ?)" }, { status: 400 });
 
     const editionId = require("crypto").randomUUID();
     
