@@ -17,23 +17,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { email, role } = body;
+    const body = (await req.json()) as { email?: unknown; role?: unknown };
+    const rawEmail = typeof body.email === "string" ? body.email.trim() : "";
+    const email = rawEmail.toLowerCase();
+    const rawRole = typeof body.role === "string" ? body.role : undefined;
 
-    if (!email) {
+    if (!email || !email.includes("@")) {
       return NextResponse.json({ error: "Email requis" }, { status: 400 });
     }
 
     // Valider le rôle (default: UTILISATEUR)
-    const validRole: EnterpriseUserRole = 
-      role && Object.values(EnterpriseUserRole).includes(role) 
-        ? role 
+    const validRole: EnterpriseUserRole =
+      rawRole && Object.values(EnterpriseUserRole).includes(rawRole as EnterpriseUserRole)
+        ? (rawRole as EnterpriseUserRole)
         : EnterpriseUserRole.UTILISATEUR;
 
     // Vérifier si l'email n'est pas déjà utilisé dans cette entreprise
     const existingUser = await prisma.user.findFirst({
       where: {
-        email: email.toLowerCase(),
+        email,
         enterpriseAccountId: user.enterpriseAccountId
       }
     });
@@ -63,10 +65,11 @@ export async function POST(req: NextRequest) {
     const invitation = await prisma.enterpriseInvitation.create({
       data: {
         enterpriseAccountId: user.enterpriseAccountId,
-        email: email.toLowerCase(),
+        email,
         role: validRole,
         token,
-        expireAt
+        expireAt,
+        createdBy: user.id
       }
     });
 
