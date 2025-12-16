@@ -76,16 +76,17 @@ function StatCard({
 }
 
 function RateBar({ label, rate, color }: { label: string; rate: number; color: string }) {
+  const safeRate = rate || 0;
   return (
     <div className="mb-3">
       <div className="flex justify-between text-sm mb-1">
         <span className="text-gray-600">{label}</span>
-        <span className="font-medium">{rate.toFixed(1)}%</span>
+        <span className="font-medium">{safeRate.toFixed(1)}%</span>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2">
         <div 
           className={`${color} h-2 rounded-full transition-all duration-500`}
-          style={{ width: `${Math.min(rate, 100)}%` }}
+          style={{ width: `${Math.min(safeRate, 100)}%` }}
         />
       </div>
     </div>
@@ -179,21 +180,21 @@ export default function EmailDashboardPage() {
             />
             <StatCard 
               label="Taux de délivrance" 
-              value={stats.deliveryRate.toFixed(1)} 
+              value={(stats.deliveryRate || 0).toFixed(1)} 
               suffix="%"
-              color={stats.deliveryRate >= 95 ? 'text-green-600' : 'text-orange-600'}
+              color={(stats.deliveryRate || 0) >= 95 ? 'text-green-600' : 'text-orange-600'}
             />
             <StatCard 
               label="Taux d'ouverture" 
-              value={stats.openRate.toFixed(1)} 
+              value={(stats.openRate || 0).toFixed(1)} 
               suffix="%"
-              color={stats.openRate >= 20 ? 'text-green-600' : 'text-gray-600'}
+              color={(stats.openRate || 0) >= 20 ? 'text-green-600' : 'text-gray-600'}
             />
             <StatCard 
               label="Taux de rebond" 
-              value={stats.bounceRate.toFixed(1)} 
+              value={(stats.bounceRate || 0).toFixed(1)} 
               suffix="%"
-              color={stats.bounceRate <= 2 ? 'text-green-600' : 'text-red-600'}
+              color={(stats.bounceRate || 0) <= 2 ? 'text-green-600' : 'text-red-600'}
             />
           </div>
 
