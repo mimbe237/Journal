@@ -79,9 +79,12 @@ export function replaceTokens(text: string, values: TokenValues): string {
 export async function mjmlToHtml(mjmlContent: string): Promise<string> {
   try {
     // Dynamic import pour éviter erreur si mjml n'est pas installé
-    // @ts-expect-error - mjml n'est pas installé par défaut
-    const mjml = await import("mjml");
-    const result = mjml.default(mjmlContent, { validationLevel: "soft" });
+    const moduleName = "mjml";
+    const mjmlModule = await import(moduleName).catch(() => null);
+    if (!mjmlModule || typeof mjmlModule.default !== "function") {
+      return mjmlContent;
+    }
+    const result = mjmlModule.default(mjmlContent, { validationLevel: "soft" });
     return result.html;
   } catch {
     // MJML non installé ou erreur, on retourne tel quel (assume HTML)

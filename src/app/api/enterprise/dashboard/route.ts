@@ -96,10 +96,7 @@ export async function GET(req: NextRequest) {
         type: true,
         statut: true,
         dateDebut: true,
-        dateFin: true,
-        journalType: {
-          select: { id: true, nom: true, code: true }
-        }
+        dateFin: true
       },
       orderBy: { dateFin: 'desc' },
       take: 10
