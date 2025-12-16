@@ -1,4 +1,3 @@
-import { prisma, prismaRuntimeReady } from "@/lib/config/prisma";
 import { getCurrentUser } from "@/lib/auth/currentUser";
 import { UserRole } from "@prisma/client";
 import NewSubscriberForm from "./NewSubscriberForm";
@@ -10,13 +9,6 @@ export default async function NewSubscriberPage() {
   if (!currentUser || !allowedRoles.includes(currentUser.role as UserRole)) {
     return <div className="p-8 text-slate-700">Accès refusé</div>;
   }
-
-  await prismaRuntimeReady;
-
-  const enterprises = await prisma.enterpriseAccount.findMany({
-    orderBy: { nom: "asc" },
-    select: { id: true, nom: true }
-  });
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -31,7 +23,7 @@ export default async function NewSubscriberPage() {
             ← Retour à la liste
           </Link>
         </div>
-        <NewSubscriberForm enterprises={enterprises} />
+        <NewSubscriberForm />
       </div>
     </div>
   );

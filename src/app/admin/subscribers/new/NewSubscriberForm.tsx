@@ -4,13 +4,10 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { COUNTRIES } from "@/lib/countries";
 
-export type EnterpriseOption = { id: string; nom: string };
-
-export default function NewSubscriberForm({ enterprises }: { enterprises: EnterpriseOption[] }) {
+export default function NewSubscriberForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [useNewEnterprise, setUseNewEnterprise] = useState(false);
 
   const sortedCountries = useMemo(() => [...COUNTRIES].sort((a, b) => a.localeCompare(b)), []);
 
@@ -19,12 +16,22 @@ export default function NewSubscriberForm({ enterprises }: { enterprises: Enterp
     setLoading(true);
     setError(null);
 
-    const formData = new FormData(e.currentTarget);
-    if (useNewEnterprise) {
-      formData.delete("enterpriseId");
-    } else {
-      formData.delete("enterpriseName");
+    const formEl = e.currentTarget;
+    const bulletin = formEl.querySelector<HTMLInputElement>('input[name="bulletin"]')?.files?.[0] || null;
+    const receipt = formEl.querySelector<HTMLInputElement>('input[name="receipt"]')?.files?.[0] || null;
+    const maxSize = 5 * 1024 * 1024;
+    if (bulletin && bulletin.size > maxSize) {
+      setError(`Le bulletin dépasse 5 Mo (${(bulletin.size / (1024 * 1024)).toFixed(1)} Mo).`);
+      setLoading(false);
+      return;
     }
+    if (receipt && receipt.size > maxSize) {
+      setError(`Le reçu dépasse 5 Mo (${(receipt.size / (1024 * 1024)).toFixed(1)} Mo).`);
+      setLoading(false);
+      return;
+    }
+
+    const formData = new FormData(e.currentTarget);
 
     try {
       const res = await fetch("/api/admin/subscribers/create", {
@@ -33,7 +40,7 @@ export default function NewSubscriberForm({ enterprises }: { enterprises: Enterp
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(json?.error || "Erreur lors de la création");
+        throw new Error(json?.error || res.statusText || "Erreur lors de la création");
       }
       router.push("/admin/subscribers?success=1");
     } catch (err: any) {
@@ -91,48 +98,6 @@ export default function NewSubscriberForm({ enterprises }: { enterprises: Enterp
                 ))}
               </select>
             </div>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-800">Informations professionnelles</h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Entreprise (optionnel)</label>
-              <select
-                name="enterpriseId"
-                disabled={useNewEnterprise}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 disabled:bg-slate-100"
-              >
-                <option value="">Aucune (individuel)</option>
-                {enterprises.map((ent) => (
-                  <option key={ent.id} value={ent.id}>
-                    {ent.nom}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-end gap-2">
-              <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={useNewEnterprise}
-                  onChange={(e) => setUseNewEnterprise(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300"
-                />
-                Ajouter une nouvelle entreprise
-              </label>
-            </div>
-            {useNewEnterprise && (
-              <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium text-slate-700">Nom de la nouvelle entreprise</label>
-                <input
-                  name="enterpriseName"
-                  required
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-            )}
           </div>
         </div>
 

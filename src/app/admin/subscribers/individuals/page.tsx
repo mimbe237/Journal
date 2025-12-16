@@ -33,30 +33,41 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
   const q = parseParam(params, "q").toLowerCase().trim();
   const statusFilter = parseParam(params, "status") as "all" | SubscriptionStatus | "";
 
-  const [users, enterprisesOptions] = await Promise.all([
-    prisma.user.findMany({
-      where: {
-        role: UserRole.ABONNE,
-        enterpriseAccountId: null
-      },
-      orderBy: { dateCreation: "desc" },
-      select: {
-        id: true,
-        nom: true,
-        email: true,
-        dateCreation: true,
-        subscriptions: {
-          take: 1,
-          orderBy: { dateFin: "desc" },
-          select: { statut: true, dateDebut: true, dateFin: true }
+  let users: any[] = [];
+  let enterprisesOptions: { id: string; nom: string }[] = [];
+
+  try {
+    [users, enterprisesOptions] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          role: UserRole.ABONNE,
+          enterpriseAccountId: null
+        },
+        orderBy: { dateCreation: "desc" },
+        select: {
+          id: true,
+          nom: true,
+          email: true,
+          dateCreation: true,
+          subscriptions: {
+            take: 1,
+            orderBy: { dateFin: "desc" },
+            select: { statut: true, dateDebut: true, dateFin: true }
+          }
         }
-      }
-    }),
-    prisma.enterpriseAccount.findMany({
-      orderBy: { nom: "asc" },
-      select: { id: true, nom: true }
-    })
-  ]);
+      }),
+      prisma.enterpriseAccount.findMany({
+        orderBy: { nom: "asc" },
+        select: { id: true, nom: true }
+      })
+    ]);
+  } catch (err: any) {
+    return (
+      <div className="p-8 text-red-700">
+        Impossible de charger les abonnés individuels. Consultez les logs serveur. {err?.message || ""}
+      </div>
+    );
+  }
 
   const rows: Row[] = users.map((u) => ({
     id: u.id,

@@ -10,11 +10,15 @@ import { createSubscriptionForEnterprise, createSubscriptionForUser } from "@/mo
 import { fileStorageProvider } from "@/services/fileStorage";
 
 const ALLOWED_ROLES = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 Mo
 
 export const runtime = "nodejs";
 
 async function bufferFromFile(f: File | null): Promise<{ buffer: Buffer; filename: string } | null> {
   if (!f) return null;
+  if (f.size > MAX_FILE_SIZE) {
+    throw new Error(`Fichier trop volumineux (${(f.size / (1024 * 1024)).toFixed(1)} Mo). Max 5 Mo : ${f.name}`);
+  }
   const arrayBuffer = await f.arrayBuffer();
   return { buffer: Buffer.from(arrayBuffer), filename: f.name || "upload" };
 }
