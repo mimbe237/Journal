@@ -369,7 +369,7 @@ export default function JournalTypesPage() {
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Tokens : {{journal}}, {{date}}, {{date_long}}, {{frequency}}
+                  Tokens : {'{{journal}}'}, {'{{date}}'}, {'{{date_long}}'}, {'{{frequency}}'}
                 </p>
               </div>
 
