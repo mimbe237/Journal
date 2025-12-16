@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/config/prisma";
-import { UserRole } from "@prisma/client";
+import { UserRole, EnterpriseUserStatus } from "@prisma/client";
 import bcrypt from "bcrypt";
 
 export async function POST(req: NextRequest) {
@@ -58,22 +58,12 @@ export async function POST(req: NextRequest) {
         where: { id: existingUser.id },
         data: {
           enterpriseAccountId: invitation.enterpriseAccountId,
-          role: UserRole.UTILISATEUR_ENTREPRISE
+          role: UserRole.UTILISATEUR_ENTREPRISE,
+          enterpriseRole: invitation.role,
+          enterpriseStatus: EnterpriseUserStatus.ACTIF,
+          dateAssignmentEnterprise: new Date()
         }
       });
-
-      // Mettre à jour les champs enterprise si disponibles
-      try {
-        await prisma.$executeRaw`
-          UPDATE users SET 
-            "enterpriseRole" = ${invitation.role}::"EnterpriseUserRole",
-            "enterpriseStatus" = 'ACTIF'::"EnterpriseUserStatus",
-            "dateAssignmentEnterprise" = NOW()
-          WHERE id = ${existingUser.id}
-        `;
-      } catch {
-        // Champs non disponibles
-      }
 
       await prisma.enterpriseInvitation.update({
         where: { id: invitation.id },
@@ -96,22 +86,12 @@ export async function POST(req: NextRequest) {
         email: invitation.email,
         motDePasseHash: hashedPassword,
         role: UserRole.UTILISATEUR_ENTREPRISE,
-        enterpriseAccountId: invitation.enterpriseAccountId
+        enterpriseAccountId: invitation.enterpriseAccountId,
+        enterpriseRole: invitation.role,
+        enterpriseStatus: EnterpriseUserStatus.ACTIF,
+        dateAssignmentEnterprise: new Date()
       }
     });
-
-    // Mettre à jour les champs enterprise si disponibles
-    try {
-      await prisma.$executeRaw`
-        UPDATE users SET 
-          "enterpriseRole" = ${invitation.role}::"EnterpriseUserRole",
-          "enterpriseStatus" = 'ACTIF'::"EnterpriseUserStatus",
-          "dateAssignmentEnterprise" = NOW()
-        WHERE id = ${newUser.id}
-      `;
-    } catch {
-      // Champs non disponibles
-    }
 
     await prisma.enterpriseInvitation.update({
       where: { id: invitation.id },

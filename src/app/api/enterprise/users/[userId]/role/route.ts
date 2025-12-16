@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 import { prisma } from "@/lib/config/prisma";
+import { EnterpriseUserRole } from "@prisma/client";
 
 export async function PUT(
   req: NextRequest,
@@ -37,12 +38,11 @@ export async function PUT(
       return NextResponse.json({ error: "Utilisateur non trouvé dans cette entreprise" }, { status: 404 });
     }
 
-    // Utiliser $executeRaw pour éviter les problèmes de types
-    try {
-      await prisma.$executeRaw`UPDATE users SET "enterpriseRole" = ${role}::"EnterpriseUserRole" WHERE id = ${userId}`;
-    } catch {
-      return NextResponse.json({ error: "Fonctionnalité non disponible - migration requise" }, { status: 503 });
-    }
+    // Mise à jour standard Prisma
+    await prisma.user.update({
+      where: { id: userId },
+      data: { enterpriseRole: role as EnterpriseUserRole }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

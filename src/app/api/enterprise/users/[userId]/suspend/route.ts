@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 import { prisma } from "@/lib/config/prisma";
+import { EnterpriseUserStatus, EnterpriseUserRole } from "@prisma/client";
 
 export async function POST(
   req: NextRequest,
@@ -33,19 +34,16 @@ export async function POST(
       return NextResponse.json({ error: "Utilisateur non trouvé" }, { status: 404 });
     }
 
-    // Utiliser $executeRaw pour éviter les problèmes de types
-    try {
-      await prisma.$executeRaw`
-        UPDATE users 
-        SET "enterpriseStatus" = 'SUSPENDU'::"EnterpriseUserStatus",
-            "enterpriseRole" = 'SUSPENDU'::"EnterpriseUserRole",
-            "suspendedReason" = ${reason || 'Suspendu par un administrateur'},
-            "suspendedAt" = NOW()
-        WHERE id = ${userId}
-      `;
-    } catch {
-      return NextResponse.json({ error: "Fonctionnalité non disponible - migration requise" }, { status: 503 });
-    }
+    // Mise à jour standard Prisma
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        enterpriseStatus: EnterpriseUserStatus.SUSPENDU,
+        enterpriseRole: EnterpriseUserRole.SUSPENDU,
+        suspendedReason: reason || 'Suspendu par un administrateur',
+        suspendedAt: new Date()
+      }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

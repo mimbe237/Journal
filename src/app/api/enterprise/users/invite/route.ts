@@ -8,16 +8,7 @@ import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 import { prisma } from "@/lib/config/prisma";
 import { randomBytes } from "crypto";
 import { emailProvider } from "@/services/email";
-
-const EnterpriseUserRole = {
-  ADMIN_PRIMAIRE: "ADMIN_PRIMAIRE",
-  ADMIN_SECONDAIRE: "ADMIN_SECONDAIRE",
-  MANAGER: "MANAGER",
-  UTILISATEUR: "UTILISATEUR",
-  SUSPENDU: "SUSPENDU"
-} as const;
-
-type EnterpriseUserRoleType = typeof EnterpriseUserRole[keyof typeof EnterpriseUserRole];
+import { EnterpriseUserRole } from "@prisma/client";
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Valider le rôle (default: UTILISATEUR)
-    const validRole: EnterpriseUserRoleType = 
+    const validRole: EnterpriseUserRole = 
       role && Object.values(EnterpriseUserRole).includes(role) 
         ? role 
         : EnterpriseUserRole.UTILISATEUR;

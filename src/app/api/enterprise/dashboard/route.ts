@@ -2,17 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 import { prisma } from "@/lib/config/prisma";
-
-// Local enum copy for compatibility (until migration is applied in production)
-const EnterpriseUserRoleValues = {
-  ADMIN_PRIMAIRE: "ADMIN_PRIMAIRE",
-  ADMIN_SECONDAIRE: "ADMIN_SECONDAIRE", 
-  MANAGER: "MANAGER",
-  UTILISATEUR: "UTILISATEUR",
-  SUSPENDU: "SUSPENDU"
-} as const;
-
-type EnterpriseUserRoleType = typeof EnterpriseUserRoleValues[keyof typeof EnterpriseUserRoleValues];
+import { EnterpriseUserRole } from "@prisma/client";
 
 // GET dashboard data for enterprise admin
 export async function GET(req: NextRequest) {
@@ -27,28 +17,22 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Aucun compte entreprise associé" }, { status: 400 });
     }
 
-    // Vérifier les droits d'admin - avec fallback si les champs n'existent pas
-    let role: EnterpriseUserRoleType | undefined;
+    // Vérifier les droits d'admin
     let isAdmin = false;
+    let role: EnterpriseUserRole | null = null;
     
-    try {
-      // Try to get enterprise role from user
-      const userWithRole = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { enterpriseRole: true }
-      });
-      
-      if (userWithRole?.enterpriseRole) {
-        role = userWithRole.enterpriseRole as EnterpriseUserRoleType;
-        isAdmin = [
-          EnterpriseUserRoleValues.ADMIN_PRIMAIRE,
-          EnterpriseUserRoleValues.ADMIN_SECONDAIRE,
-          EnterpriseUserRoleValues.MANAGER
-        ].includes(role);
-      }
-    } catch {
-      // Si les champs n'existent pas encore, continuer sans admin
-      isAdmin = false;
+    const userWithRole = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { enterpriseRole: true }
+    });
+    
+    if (userWithRole?.enterpriseRole) {
+      role = userWithRole.enterpriseRole;
+      isAdmin = [
+        EnterpriseUserRole.ADMIN_PRIMAIRE,
+        EnterpriseUserRole.ADMIN_SECONDAIRE,
+        EnterpriseUserRole.MANAGER
+      ].includes(role);
     }
 
     const enterprise = await prisma.enterpriseAccount.findUnique({
