@@ -2,41 +2,42 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { LoadingState, ErrorState, EmptyState } from '@/components/ui/States';
+import { LoadingState, ErrorState } from '@/components/ui/States';
+import { Input, Label } from '@/components/ui/FormControls';
 
 interface EnterpriseAccount {
   id: string;
   nom: string;
   contactEmail: string;
-  const [loading, setLoading] = useState(false);
+  contactTelephone?: string;
+  nombreUtilisateursInclus: number;
+  niveauSla?: string;
+  dateCreation: string;
+  _count?: {
+    users: number;
+  };
+}
+
+export default function EnterprisesPage() {
+  const [enterprises, setEnterprises] = useState<EnterpriseAccount[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sendInvitation, setSendInvitation] = useState(true);
+  
+  // Modals state
+  const [selectedEnterprise, setSelectedEnterprise] = useState<EnterpriseAccount | null>(null);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [showLicencesModal, setShowLicencesModal] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
+  const fetchEnterprises = async () => {
     try {
-      const res = await fetch('/api/admin/enterprises', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          sendAdminInvitation: sendInvitation
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Erreur lors de la création');
-      }
-
-      onCreated();
+      setLoading(true);
+      const res = await fetch('/api/admin/enterprises?take=100');
+      if (!res.ok) throw new Error('Erreur de chargement');
+      const data = await res.json();
+      setEnterprises(data.enterprises || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -44,164 +45,137 @@ interface EnterpriseAccount {
     }
   };
 
+  useEffect(() => {
+    fetchEnterprises();
+  }, []);
+
+  if (loading) return <LoadingState message="Chargement des entreprises..." />;
+  if (error) return <ErrorState message={error} />;
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
-        <div className="p-6 border-b">
-          <h2 className="text-xl font-semibold">Nouvelle Entreprise</h2>
-        </div>
+    <div className="mx-auto max-w-7xl p-6 space-y-6">
+      <PageHeader
+        title="Comptes Entreprise"
+        description="Gérez les clients B2B, leurs licences et leurs utilisateurs."
+        actions={
+          <Link
+            href="/admin/enterprises/new"
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500"
+          >
+            + Nouvelle entreprise
+          </Link>
+        }
+      />
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
+      <Card className="overflow-hidden">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 text-slate-500">
+            <tr>
+              <th className="px-4 py-3 font-medium">Entreprise</th>
+              <th className="px-4 py-3 font-medium">Contact</th>
+              <th className="px-4 py-3 font-medium">Licences</th>
+              <th className="px-4 py-3 font-medium">SLA</th>
+              <th className="px-4 py-3 font-medium text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {enterprises.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="p-8 text-center text-slate-500">
+                  Aucune entreprise trouvée.
+                </td>
+              </tr>
+            ) : (
+              enterprises.map((ent) => (
+                <tr key={ent.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3">
+                    <Link href={`/admin/enterprises/${ent.id}`} className="font-medium text-slate-900 hover:text-emerald-600 hover:underline">
+                      {ent.nom}
+                    </Link>
+                    <div className="text-xs text-slate-500">
+                      Créé le {new Date(ent.dateCreation).toLocaleDateString('fr-FR')}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-slate-900">{ent.contactEmail}</div>
+                    <div className="text-xs text-slate-500">{ent.contactTelephone || '-'}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{ent._count?.users || 0}</span>
+                      <span className="text-slate-400">/</span>
+                      <span className="text-slate-600">{ent.nombreUtilisateursInclus}</span>
+                      <button
+                        onClick={() => {
+                          setSelectedEnterprise(ent);
+                          setShowLicencesModal(true);
+                        }}
+                        className="ml-2 text-xs text-emerald-600 hover:text-emerald-800"
+                      >
+                        (Modifier)
+                      </button>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 capitalize">
+                      {ent.niveauSla || 'Standard'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedEnterprise(ent);
+                          setShowBulkModal(true);
+                        }}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                      >
+                        + Utilisateurs
+                      </button>
+                      <Link
+                        href={`/admin/enterprises/${ent.id}`}
+                        className="text-xs font-medium text-slate-600 hover:text-slate-900"
+                      >
+                        Gérer
+                      </Link>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </Card>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nom de l'entreprise *
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.nom}
-              onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="ACME Corporation"
-            />
-          </div>
+      {showBulkModal && selectedEnterprise && (
+        <BulkUsersModal
+          enterprise={selectedEnterprise}
+          onClose={() => {
+            setShowBulkModal(false);
+            setSelectedEnterprise(null);
+          }}
+          onCreated={() => {
+            setShowBulkModal(false);
+            setSelectedEnterprise(null);
+            fetchEnterprises();
+          }}
+        />
+      )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email de contact *
-              </label>
-              <input
-                type="email"
-                required
-                value={formData.contactEmail}
-                onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="contact@entreprise.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Téléphone
-              </label>
-              <input
-                type="tel"
-                value={formData.contactTelephone}
-                onChange={(e) => setFormData({ ...formData, contactTelephone: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="+237 6XX XXX XXX"
-              />
-            </div>
-          </div>
-
-          {/* Admin Primaire Section */}
-          <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
-            <h3 className="text-sm font-semibold text-purple-800 mb-3">
-              👤 Administrateur Primaire
-            </h3>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email de l'admin primaire *
-              </label>
-              <input
-                type="email"
-                required
-                value={formData.adminPrimaireEmail}
-                onChange={(e) => setFormData({ ...formData, adminPrimaireEmail: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                placeholder="admin@entreprise.com"
-              />
-              <p className="text-xs text-purple-600 mt-1">
-                Cette personne recevra une invitation et pourra gérer les utilisateurs de l'entreprise.
-              </p>
-            </div>
-            <div className="mt-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={sendInvitation}
-                  onChange={(e) => setSendInvitation(e.target.checked)}
-                  className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                />
-                <span className="text-sm text-gray-700">
-                  Envoyer l'invitation par email maintenant
-                </span>
-              </label>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nombre de licences *
-              </label>
-              <input
-                type="number"
-                required
-                min="1"
-                value={formData.nombreUtilisateursInclus}
-                onChange={(e) => setFormData({ ...formData, nombreUtilisateursInclus: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Niveau SLA
-              </label>
-              <select
-                value={formData.niveauSla}
-                onChange={(e) => setFormData({ ...formData, niveauSla: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="standard">Standard</option>
-                <option value="premium">Premium</option>
-                <option value="enterprise">Enterprise</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Numéro SIRET / Registre de commerce
-            </label>
-            <input
-              type="text"
-              value={formData.numeroSiret}
-              onChange={(e) => setFormData({ ...formData, numeroSiret: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="123 456 789 00012"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Adresse de facturation
-            </label>
-            <textarea
-              value={formData.adresseFacturation}
-              onChange={(e) => setFormData({ ...formData, adresseFacturation: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              rows={2}
-              placeholder="123 Rue Example, 75000 Paris"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="button" variant="secondary" onClick={onClose}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Création...' : 'Créer l\'entreprise'}
-            </Button>
-          </div>
-        </form>
-      </div>
+      {showLicencesModal && selectedEnterprise && (
+        <LicencesModal
+          enterprise={selectedEnterprise}
+          onClose={() => {
+            setShowLicencesModal(false);
+            setSelectedEnterprise(null);
+          }}
+          onUpdated={() => {
+            setShowLicencesModal(false);
+            setSelectedEnterprise(null);
+            fetchEnterprises();
+          }}
+        />
+      )}
     </div>
   );
 }
