@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { UserRole } from "@prisma/client";
+import { EnterpriseUserRole, UserRole } from "@prisma/client";
 import crypto from "crypto";
 
 import { requireUserWithRoles } from "@/lib/auth/authorization";
@@ -26,11 +26,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT]);
-    const body = await req.json();
-    const { email, role = 'UTILISATEUR_ENTREPRISE' } = body ?? {};
+    const currentUser = await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT]);
+    const body = (await req.json()) as { email?: unknown; role?: unknown };
+    const rawEmail = typeof body.email === "string" ? body.email.trim() : "";
+    const normalizedEmail = rawEmail.toLowerCase();
+    const rawRole = body.role;
+    const role = Object.values(EnterpriseUserRole).includes(rawRole as EnterpriseUserRole)
+      ? (rawRole as EnterpriseUserRole)
+      : EnterpriseUserRole.UTILISATEUR;
 
-    if (!email) {
+    if (!normalizedEmail || !normalizedEmail.includes("@")) {
       return NextResponse.json({ error: "Email requis" }, { status: 400 });
     }
 
@@ -55,14 +60,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // Vérifier que l'email n'est pas déjà invité
-    const existingInvitation = enterprise.invitations.find(i => i.email === email);
+    const existingInvitation = enterprise.invitations.find(i => i.email === normalizedEmail);
     if (existingInvitation) {
       return NextResponse.json({ error: "Cet email a déjà une invitation en attente" }, { status: 400 });
     }
 
     // Vérifier que l'utilisateur n'est pas déjà dans l'entreprise
     const existingUser = await prisma.user.findFirst({
-      where: { email, enterpriseAccountId: id }
+      where: { email: normalizedEmail, enterpriseAccountId: id }
     });
     if (existingUser) {
       return NextResponse.json({ error: "Cet utilisateur fait déjà partie de l'entreprise" }, { status: 400 });
@@ -70,8 +75,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Vérifier le domaine autorisé
     if (enterprise.domaineAutorise) {
-      const emailDomain = '@' + email.split('@')[1];
-      if (emailDomain !== enterprise.domaineAutorise) {
+      const [, domainPart] = normalizedEmail.split("@");
+      const emailDomain = domainPart ? `@${domainPart}` : "";
+      if (!emailDomain || emailDomain !== enterprise.domaineAutorise) {
         return NextResponse.json({ 
           error: `L'email doit appartenir au domaine ${enterprise.domaineAutorise}` 
         }, { status: 400 });
@@ -86,10 +92,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const invitation = await prisma.enterpriseInvitation.create({
       data: {
         enterpriseAccountId: id,
-        email,
+        email: normalizedEmail,
         role,
         token,
         expireAt,
+        createdBy: currentUser.id,
       }
     });
 
