@@ -9,6 +9,7 @@ export function Header() {
   const router = useRouter();
   const [user, setUser] = useState<{ nom: string; email: string; role: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isStaff = user?.role === "SUPER_ADMIN" || user?.role === "FACTURATION" || user?.role === "SUPPORT";
   const staffDashboardPath = user
@@ -48,6 +49,11 @@ export function Header() {
     }
   }, [user, pathname, router, isStaff, staffDashboardPath]);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   async function handleLogout() {
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -63,13 +69,33 @@ export function Header() {
   if (isAuthPage) return null;
 
   return (
-    <header className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-8">
-        <Link href="/" className="text-xl font-bold text-slate-900">
+    <header className="border-b border-slate-200 bg-white sticky top-0 z-50">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:py-4 md:px-8">
+        <Link href="/" className="text-lg md:text-xl font-bold text-slate-900">
           Journal Numérique
         </Link>
 
-        <nav className="flex items-center gap-6">
+        {/* Mobile menu button */}
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden inline-flex items-center justify-center rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          aria-expanded={mobileMenuOpen}
+        >
+          <span className="sr-only">Ouvrir le menu</span>
+          {mobileMenuOpen ? (
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
+        </button>
+
+        {/* Desktop navigation */}
+        <nav className="hidden md:flex items-center gap-6">
           {!loading && user ? (
             <>
               {!isStaff && (
@@ -171,6 +197,111 @@ export function Header() {
           )}
         </nav>
       </div>
+
+      {/* Mobile navigation drawer */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-slate-200 bg-white">
+          <div className="space-y-1 px-4 py-4">
+            {!loading && user ? (
+              <>
+                <div className="pb-3 mb-3 border-b border-slate-100">
+                  <p className="text-sm font-medium text-slate-900">{user.nom}</p>
+                  <p className="text-xs text-slate-500">{user.email}</p>
+                </div>
+                {!isStaff && (
+                  <>
+                    <Link
+                      href="/dashboard"
+                      className={`block rounded-md px-3 py-2 text-base font-medium ${
+                        pathname === "/dashboard"
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      Tableau de bord
+                    </Link>
+                    <Link
+                      href="/editions"
+                      className={`block rounded-md px-3 py-2 text-base font-medium ${
+                        pathname?.startsWith("/editions")
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      Éditions
+                    </Link>
+                    <Link
+                      href="/subscriptions"
+                      className={`block rounded-md px-3 py-2 text-base font-medium ${
+                        pathname?.startsWith("/subscriptions")
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      Abonnements
+                    </Link>
+                  </>
+                )}
+                {user.role === "COMPTE_ENTREPRISE" && (
+                  <Link
+                    href="/enterprise/dashboard"
+                    className={`block rounded-md px-3 py-2 text-base font-medium ${
+                      pathname?.startsWith("/enterprise")
+                        ? "bg-purple-50 text-purple-600"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    Mon Entreprise
+                  </Link>
+                )}
+                {isStaff && (
+                  <Link
+                    href={staffDashboardPath}
+                    className={`block rounded-md px-3 py-2 text-base font-medium ${
+                      pathname?.startsWith("/admin")
+                        ? "bg-emerald-50 text-emerald-600"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    Administration
+                  </Link>
+                )}
+                <Link
+                  href="/profile"
+                  className={`block rounded-md px-3 py-2 text-base font-medium ${
+                    pathname?.startsWith("/profile")
+                      ? "bg-slate-100 text-slate-900"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Mon Profil
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="mt-3 w-full rounded-md bg-slate-100 px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-200"
+                >
+                  Déconnexion
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/auth/login"
+                  className="block rounded-md px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Connexion
+                </Link>
+                <Link
+                  href="/auth/register"
+                  className="block rounded-md bg-emerald-600 px-3 py-2 text-center text-base font-medium text-white hover:bg-emerald-700"
+                >
+                  S'inscrire
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }

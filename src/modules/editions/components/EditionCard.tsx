@@ -54,7 +54,7 @@ export function EditionCard({ id, titre, datePublication, type, nombrePages, che
       : null;
 
   return (
-    <Card className="mx-auto flex h-full max-w-sm flex-col gap-3 overflow-hidden transition hover:-translate-y-0.5 hover:shadow-md">
+    <Card className="flex h-full w-full flex-col gap-3 overflow-hidden transition hover:-translate-y-0.5 hover:shadow-md">
       {/* Image de Une */}
       <div className="relative aspect-[2/3] overflow-hidden rounded-b-none bg-slate-100">
         {cheminImageUne ? (
@@ -86,17 +86,17 @@ export function EditionCard({ id, titre, datePublication, type, nombrePages, che
       <div className="mt-auto pt-3">
         <Link href={primaryCta.href}>
           <ButtonPrimary
-            className={`w-full justify-center ${primaryCta.style === "secondary" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+            className={`w-full justify-center min-h-[44px] text-base ${primaryCta.style === "secondary" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
           >
             {primaryCta.label}
           </ButtonPrimary>
         </Link>
         {(detail || secondaryCta || coverageLabel) && (
-          <div className="mt-2 space-y-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          <div className="mt-2 space-y-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm sm:text-xs text-slate-600">
             {detail && <div>{detail}</div>}
             {coverageLabel && <div className="text-slate-500">{coverageLabel}</div>}
             {secondaryCta && (
-              <Link href={secondaryCta.href} className="text-emerald-700 hover:text-emerald-900 font-semibold">
+              <Link href={secondaryCta.href} className="text-emerald-700 hover:text-emerald-900 font-semibold inline-block min-h-[44px] py-2">
                 {secondaryCta.label}
               </Link>
             )}

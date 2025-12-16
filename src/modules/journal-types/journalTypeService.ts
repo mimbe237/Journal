@@ -49,13 +49,15 @@ export async function listJournalTypes(includeInactive = false): Promise<Journal
     orderBy: { name: "asc" }
   });
 
+  const defaultTemplate = "Edition du {{date_long}}";
+
   return journalTypes.map(jt => ({
     ...jt,
     unitPrice: Number(jt.unitPrice),
     monthlyPrice: Number(jt.monthlyPrice),
     sixMonthPrice: Number(jt.sixMonthPrice),
     yearlyPrice: Number(jt.yearlyPrice),
-    titleTemplate: jt.titleTemplate ?? null
+    titleTemplate: jt.titleTemplate ?? defaultTemplate
   }));
 }
 
@@ -81,6 +83,7 @@ export async function getJournalTypeById(id: string): Promise<JournalTypeWithPri
   });
 
   if (!journalType) return null;
+  const defaultTemplate = "Edition du {{date_long}}";
 
   return {
     ...journalType,
@@ -88,7 +91,7 @@ export async function getJournalTypeById(id: string): Promise<JournalTypeWithPri
     monthlyPrice: Number(journalType.monthlyPrice),
     sixMonthPrice: Number(journalType.sixMonthPrice),
     yearlyPrice: Number(journalType.yearlyPrice),
-    titleTemplate: journalType.titleTemplate ?? null
+    titleTemplate: journalType.titleTemplate ?? defaultTemplate
   };
 }
 
@@ -96,6 +99,7 @@ export async function getJournalTypeById(id: string): Promise<JournalTypeWithPri
  * Crée un nouveau type de journal.
  */
 export async function createJournalType(input: JournalTypeInput): Promise<JournalTypeWithPricing> {
+  const defaultTemplate = "Edition du {{date_long}}";
   const journalType = await prisma.journalType.create({
     data: {
       name: input.name,
@@ -104,7 +108,7 @@ export async function createJournalType(input: JournalTypeInput): Promise<Journa
       monthlyPrice: new Prisma.Decimal(input.monthlyPrice),
       sixMonthPrice: new Prisma.Decimal(input.sixMonthPrice),
       yearlyPrice: new Prisma.Decimal(input.yearlyPrice),
-      titleTemplate: input.titleTemplate ?? null,
+      titleTemplate: input.titleTemplate ?? defaultTemplate,
       isActive: input.isActive ?? true
     },
     include: {
@@ -120,7 +124,7 @@ export async function createJournalType(input: JournalTypeInput): Promise<Journa
     monthlyPrice: Number(journalType.monthlyPrice),
     sixMonthPrice: Number(journalType.sixMonthPrice),
     yearlyPrice: Number(journalType.yearlyPrice),
-    titleTemplate: journalType.titleTemplate ?? null
+    titleTemplate: journalType.titleTemplate ?? defaultTemplate
   };
 }
 
@@ -129,6 +133,7 @@ export async function createJournalType(input: JournalTypeInput): Promise<Journa
  */
 export async function updateJournalType(id: string, input: Partial<JournalTypeInput>): Promise<JournalTypeWithPricing> {
   const data: Prisma.JournalTypeUpdateInput = {};
+  const defaultTemplate = "Edition du {{date_long}}";
 
   if (input.name !== undefined) data.name = input.name;
   if (input.frequency !== undefined) data.frequency = input.frequency;
@@ -155,7 +160,7 @@ export async function updateJournalType(id: string, input: Partial<JournalTypeIn
     monthlyPrice: Number(journalType.monthlyPrice),
     sixMonthPrice: Number(journalType.sixMonthPrice),
     yearlyPrice: Number(journalType.yearlyPrice),
-    titleTemplate: journalType.titleTemplate ?? null
+    titleTemplate: journalType.titleTemplate ?? defaultTemplate
   };
 }
 

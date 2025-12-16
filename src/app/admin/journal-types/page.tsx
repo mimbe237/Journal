@@ -99,15 +99,15 @@ export default function JournalTypesPage() {
     setError(null);
 
     try {
-      const url = editingId 
-        ? "/api/admin/journal-types/" + editingId
-        : "/api/admin/journal-types";
-      
-      const res = await fetch(url, {
-        method: editingId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
-      });
+    const url = editingId 
+      ? "/api/admin/journal-types/" + editingId
+      : "/api/admin/journal-types";
+    
+    const res = await fetch(url, {
+      method: editingId ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form)
+    });
 
       if (!res.ok) {
         const data = await res.json();

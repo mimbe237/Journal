@@ -54,8 +54,14 @@ export default function AdminEditionsPage() {
 
   useEffect(() => {
     fetch("/api/admin/journal-types")
-      .then((res) => res.json())
-      .then((data) => {
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(data)) {
+          console.error("Failed to fetch journal types", data);
+          setMessage("Impossible de charger les types de journaux (HTTP " + res.status + ")");
+          setJournalTypes([]);
+          return;
+        }
         setJournalTypes(data);
         if (data.length > 0) {
           setSelectedJournalTypeId(data[0].id);
@@ -64,15 +70,17 @@ export default function AdminEditionsPage() {
           setPrix(data[0].unitPrice?.toString() ?? "");
         }
       })
-      .catch((err) => console.error("Failed to fetch journal types", err));
+      .catch((err) => {
+        console.error("Failed to fetch journal types", err);
+        setMessage("Impossible de charger les types de journaux.");
+      });
   }, []);
 
   useEffect(() => {
-    if (selectedJournal) {
-      setType(selectedJournal.frequency);
-      setPrix(selectedJournal.unitPrice?.toString() ?? "");
-      setTitre(renderTitle(selectedJournal.titleTemplate, datePublication, selectedJournal.name, selectedJournal.frequency));
-    }
+    if (!selectedJournal) return;
+    setType(selectedJournal.frequency);
+    setPrix(selectedJournal.unitPrice?.toString() ?? "");
+    setTitre(renderTitle(selectedJournal.titleTemplate, datePublication, selectedJournal.name, selectedJournal.frequency));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedJournalTypeId, datePublication]);
 

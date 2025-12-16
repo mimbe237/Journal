@@ -66,24 +66,24 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-10 md:px-8">
+      <div className="mx-auto flex max-w-4xl flex-col gap-4 sm:gap-6 px-4 py-6 sm:py-10 md:px-8">
         <PageHeader
           title="Mon profil"
           subtitle="Gérez vos informations de compte et vos accès."
-          actions={
-            <div className="flex gap-2">
-              <Link href="/dashboard">
-                <ButtonSecondary>Retour dashboard</ButtonSecondary>
-              </Link>
-              {!["SUPER_ADMIN", "FACTURATION", "SUPPORT"].includes(user?.role ?? "") ? (
-                <Link href="/subscriptions">
-                  <ButtonSecondary>Mon abonnement</ButtonSecondary>
-                </Link>
-              ) : null}
-              <ButtonPrimary onClick={handleLogout}>Se déconnecter</ButtonPrimary>
-            </div>
-          }
         />
+
+        {/* Actions - stacked on mobile, row on desktop */}
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+          <Link href="/dashboard" className="w-full sm:w-auto">
+            <ButtonSecondary className="w-full sm:w-auto min-h-[44px]">Retour dashboard</ButtonSecondary>
+          </Link>
+          {!["SUPER_ADMIN", "FACTURATION", "SUPPORT"].includes(user?.role ?? "") ? (
+            <Link href="/subscriptions" className="w-full sm:w-auto">
+              <ButtonSecondary className="w-full sm:w-auto min-h-[44px]">Mon abonnement</ButtonSecondary>
+            </Link>
+          ) : null}
+          <ButtonPrimary onClick={handleLogout} className="w-full sm:w-auto min-h-[44px]">Se déconnecter</ButtonPrimary>
+        </div>
 
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         {logoutDone ? <p className="text-sm text-emerald-600">Déconnexion réussie.</p> : null}
@@ -94,7 +94,7 @@ export default function ProfilePage() {
             <p className="text-sm text-slate-600">Données liées à votre compte.</p>
           </div>
 
-          <div className="grid gap-3 text-sm md:grid-cols-2">
+          <div className="grid gap-3 text-sm grid-cols-1 sm:grid-cols-2">
             <InfoRow label="Nom" value={user?.nom} />
             <InfoRow label="Email" value={user?.email} />
             <InfoRow label="Rôle" value={user?.role} />

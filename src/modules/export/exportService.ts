@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/config/prisma";
+import { buildSubscriptionWhere, SubscriptionFilterInput } from "./subscriptionFilters";
 
 // Helper CSV simple (séparateur ; compatible Excel FR).
 function csvEscape(value: any): string {
@@ -46,8 +47,11 @@ export async function exportSubscribersCsv(): Promise<string> {
 }
 
 // Abonnements (B2C + B2B)
-export async function exportSubscriptionsCsv(): Promise<string> {
+export async function exportSubscriptionsCsv(filters?: SubscriptionFilterInput): Promise<string> {
+  const where = buildSubscriptionWhere(filters || {});
+
   const subs = await prisma.subscription.findMany({
+    where,
     include: { user: true, enterpriseAccount: true, promoCode: true },
     orderBy: { dateFin: "desc" }
   });

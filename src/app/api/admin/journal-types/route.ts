@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Validation basique
-    const requiredFields = ["name", "frequency", "unitPrice", "monthlyPrice", "sixMonthPrice", "yearlyPrice", "titleTemplate"];
+    const requiredFields = ["name", "frequency", "unitPrice", "monthlyPrice", "sixMonthPrice", "yearlyPrice"];
     for (const field of requiredFields) {
       if (body[field] === undefined || body[field] === null) {
         return NextResponse.json(

@@ -44,10 +44,24 @@ const ZOOM_MAX = 3;
 const ZOOM_STEP = 0.25;
 const PRELOAD_PAGES = 3;
 const AVG_SECONDS_PER_PAGE = 45;
+const MOBILE_BREAKPOINT = 640; // Tailwind sm breakpoint
 
 // ============================================================================
 // HOOKS
 // ============================================================================
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  return isMobile;
+}
 
 function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((prev: T) => T)) => void] {
   const [storedValue, setStoredValue] = useState<T>(initialValue);
@@ -381,19 +395,26 @@ function SettingsPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[999] pointer-events-none">
-      <div className="absolute right-6 top-20 w-72 max-h-[80vh] overflow-auto bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 pointer-events-auto">
-      <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-        <span className="font-medium text-gray-900 dark:text-white">Paramètres</span>
-        <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-      <div className="p-4 space-y-4">
-        {/* Theme */}
-        <div>
+    <>
+      {/* Backdrop to close on click outside */}
+      <div 
+        className="fixed inset-0 z-[9998] bg-black/20" 
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      {/* Settings panel */}
+      <div className="fixed right-4 top-16 sm:right-6 sm:top-20 w-[calc(100vw-2rem)] sm:w-72 max-h-[80vh] overflow-auto bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 z-[9999]">
+        <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+          <span className="font-medium text-gray-900 dark:text-white">Paramètres</span>
+          <button onClick={onClose} className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded -mr-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="p-4 space-y-4">
+          {/* Theme */}
+          <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Thème</label>
           <div className="flex gap-2">
             {[
@@ -455,7 +476,7 @@ function SettingsPanel({
         </div>
       </div>
     </div>
-    </div>
+    </>
   );
 }
 
@@ -465,25 +486,29 @@ function ControlButton({
   title, 
   children, 
   active = false,
-  disabled = false 
+  disabled = false,
+  hideOnMobile = false
 }: { 
   onClick: () => void; 
   title: string; 
   children: React.ReactNode;
   active?: boolean;
   disabled?: boolean;
+  hideOnMobile?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`p-2 rounded-lg transition-all ${
+      className={`p-2 sm:p-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded-lg transition-all ${
+        hideOnMobile ? "hidden sm:flex" : ""
+      } ${
         disabled 
           ? "opacity-40 cursor-not-allowed"
           : active
             ? "bg-blue-500 text-white"
-            : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+            : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 active:bg-gray-200 dark:active:bg-gray-600"
       }`}
     >
       {children}
@@ -507,6 +532,9 @@ function PageSkeleton() {
 // ============================================================================
 
 export function EditionReader({ editionId }: EditionReaderProps) {
+  // Mobile detection
+  const isMobile = useIsMobile();
+
   // Edition data
   const [edition, setEdition] = useState<Edition | null>(null);
   const [editionLoading, setEditionLoading] = useState(true);
@@ -530,6 +558,9 @@ export function EditionReader({ editionId }: EditionReaderProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
+
+  // Effective view mode - force single on mobile for better UX
+  const effectiveViewMode = isMobile ? "single" : viewMode;
 
   // Bookmarks
   const [bookmarks, setBookmarks] = useLocalStorage<Bookmark[]>(`bookmarks-${editionId}`, []);
@@ -615,7 +646,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
         case " ":
           e.preventDefault();
           if (currentPage < totalPages) {
-            if (viewMode === "flip") {
+            if (effectiveViewMode === "flip") {
               setFlipDirection("next");
               setIsFlipping(true);
               setTimeout(() => {
@@ -631,7 +662,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
         case "ArrowLeft":
           e.preventDefault();
           if (currentPage > 1) {
-            if (viewMode === "flip") {
+            if (effectiveViewMode === "flip") {
               setFlipDirection("prev");
               setIsFlipping(true);
               setTimeout(() => {
@@ -746,7 +777,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
 
   const goToNextPage = useCallback(() => {
     if (currentPage < totalPages && !isFlipping) {
-      if (viewMode === "flip") {
+      if (effectiveViewMode === "flip") {
         setFlipDirection("next");
         setIsFlipping(true);
         setTimeout(() => {
@@ -762,7 +793,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
 
   const goToPrevPage = useCallback(() => {
     if (currentPage > 1 && !isFlipping) {
-      if (viewMode === "flip") {
+      if (effectiveViewMode === "flip") {
         setFlipDirection("prev");
         setIsFlipping(true);
         setTimeout(() => {
@@ -950,7 +981,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
 
       {/* Top Controls */}
       <div
-        className={`flex items-center justify-between px-4 py-2 border-b transition-all duration-300 ${
+        className={`flex items-center justify-between px-2 sm:px-4 py-2 border-b transition-all duration-300 ${
           theme === "dark" 
             ? "bg-gray-800/90 border-gray-700" 
             : theme === "sepia"
@@ -961,36 +992,36 @@ export function EditionReader({ editionId }: EditionReaderProps) {
         }`}
       >
         {/* Left controls */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 sm:gap-1">
           <ControlButton onClick={() => setShowThumbnails((v) => !v)} title="Miniatures (T)" active={showThumbnails}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
             </svg>
           </ControlButton>
           
-          <ControlButton onClick={() => setShowGoToPage(true)} title="Aller à la page (G)">
+          <ControlButton onClick={() => setShowGoToPage(true)} title="Aller à la page (G)" hideOnMobile>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
           </ControlButton>
 
-          <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1" />
+          <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-0.5 sm:mx-1 hidden sm:block" />
 
-          <ControlButton onClick={handleZoomOut} title="Zoom -" disabled={zoom <= ZOOM_MIN}>
+          <ControlButton onClick={handleZoomOut} title="Zoom -" disabled={zoom <= ZOOM_MIN} hideOnMobile>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
             </svg>
           </ControlButton>
           
-          <span className="text-sm font-medium min-w-[3rem] text-center">{Math.round(zoom * 100)}%</span>
+          <span className="text-sm font-medium min-w-[3rem] text-center hidden sm:block">{Math.round(zoom * 100)}%</span>
           
-          <ControlButton onClick={handleZoomIn} title="Zoom +" disabled={zoom >= ZOOM_MAX}>
+          <ControlButton onClick={handleZoomIn} title="Zoom +" disabled={zoom >= ZOOM_MAX} hideOnMobile>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
             </svg>
           </ControlButton>
 
-          <ControlButton onClick={() => setRotation((r) => (r + 90) % 360)} title="Rotation (R)">
+          <ControlButton onClick={() => setRotation((r) => (r + 90) % 360)} title="Rotation (R)" hideOnMobile>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
@@ -998,23 +1029,27 @@ export function EditionReader({ editionId }: EditionReaderProps) {
         </div>
 
         {/* Center - Page info */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-3">
           <button 
             onClick={goToPrevPage} 
             disabled={currentPage <= 1 || isFlipping}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded disabled:opacity-40"
+            className="p-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 sm:p-1 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 rounded disabled:opacity-40 active:bg-gray-300 dark:active:bg-gray-600"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <span className="text-sm font-medium">
-            Page {currentPage} / {totalPages}
-          </span>
+          <button 
+            onClick={() => setShowGoToPage(true)}
+            className="text-sm font-medium whitespace-nowrap"
+          >
+            <span className="sm:hidden">{currentPage}/{totalPages}</span>
+            <span className="hidden sm:inline">Page {currentPage} / {totalPages}</span>
+          </button>
           <button 
             onClick={goToNextPage} 
             disabled={currentPage >= totalPages || isFlipping}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded disabled:opacity-40"
+            className="p-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 sm:p-1 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 rounded disabled:opacity-40 active:bg-gray-300 dark:active:bg-gray-600"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1023,14 +1058,14 @@ export function EditionReader({ editionId }: EditionReaderProps) {
         </div>
 
         {/* Right controls */}
-        <div className="flex items-center gap-1 relative">
+        <div className="flex items-center gap-0.5 sm:gap-1 relative">
           <ControlButton onClick={toggleBookmark} title="Marque-page (B)" active={isCurrentPageBookmarked}>
             <svg className="w-5 h-5" fill={isCurrentPageBookmarked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>
           </ControlButton>
 
-          <ControlButton onClick={() => setShowBookmarks((v) => !v)} title="Voir marque-pages" active={showBookmarks}>
+          <ControlButton onClick={() => setShowBookmarks((v) => !v)} title="Voir marque-pages" active={showBookmarks} hideOnMobile>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
@@ -1044,15 +1079,15 @@ export function EditionReader({ editionId }: EditionReaderProps) {
             onClose={() => setShowBookmarks(false)}
           />
 
-          <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1" />
+          <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-0.5 sm:mx-1 hidden sm:block" />
 
-          <ControlButton onClick={handleSharePage} title="Partager page">
+          <ControlButton onClick={handleSharePage} title="Partager page" hideOnMobile>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
             </svg>
           </ControlButton>
 
-          <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1" />
+          <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-0.5 sm:mx-1 hidden sm:block" />
 
           <ControlButton onClick={toggleFullscreen} title="Plein écran (F)">
             {isFullscreen ? (
@@ -1090,7 +1125,21 @@ export function EditionReader({ editionId }: EditionReaderProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto flex items-center justify-center p-4">
+      <div className="flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 relative">
+        {/* Mobile side tap zones */}
+        <button
+          onClick={goToPrevPage}
+          disabled={currentPage <= 1 || isFlipping}
+          className="absolute left-0 top-0 bottom-0 w-1/4 z-10 sm:hidden disabled:opacity-0"
+          aria-label="Page précédente"
+        />
+        <button
+          onClick={goToNextPage}
+          disabled={currentPage >= totalPages || isFlipping}
+          className="absolute right-0 top-0 bottom-0 w-1/4 z-10 sm:hidden disabled:opacity-0"
+          aria-label="Page suivante"
+        />
+        
         <div
           className="relative transition-transform duration-300 ease-out"
           style={{
@@ -1100,7 +1149,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
         >
           {fetchState === "loading" && <PageSkeleton />}
           
-          {viewMode === "flip" ? (
+          {effectiveViewMode === "flip" ? (
             /* Mode feuilletage - Book-like flip animation */
             <div className="flip-book-container perspective-1500">
               <div className="relative flex">
@@ -1195,7 +1244,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
               {/* Reliure centrale */}
               <div className="absolute left-1/2 top-0 bottom-0 w-2 -translate-x-1/2 bg-gradient-to-r from-gray-400 via-gray-300 to-gray-400 dark:from-gray-600 dark:via-gray-500 dark:to-gray-600 shadow-inner" />
             </div>
-          ) : viewMode === "single" ? (
+          ) : effectiveViewMode === "single" ? (
             <img
               ref={imageRef}
               src={getImageUrl(editionId, currentPage)}
@@ -1245,7 +1294,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
 
       {/* Bottom info bar */}
       <div
-        className={`flex items-center justify-between px-4 py-2 text-xs border-t transition-all duration-300 ${
+        className={`flex flex-col sm:flex-row items-center justify-between px-2 sm:px-4 py-2 text-xs border-t transition-all duration-300 ${
           theme === "dark"
             ? "bg-gray-800/90 border-gray-700 text-gray-400"
             : theme === "sepia"
@@ -1255,17 +1304,20 @@ export function EditionReader({ editionId }: EditionReaderProps) {
           showControls || !isFullscreen ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
         }`}
       >
-        <div className="flex items-center gap-4">
-          <span>⏱ Temps restant: ~{formatTime(remainingTime)}</span>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <span>⏱ ~{formatTime(remainingTime)}</span>
           {progress?.totalReadingTime ? (
-            <span>📖 Lu: {formatTime(progress.totalReadingTime * 60)}</span>
+            <span>📖 {formatTime(progress.totalReadingTime * 60)}</span>
           ) : null}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="hidden sm:flex items-center gap-4">
           <span>← → Naviguer</span>
           <span>+/- Zoom</span>
           <span>F Plein écran</span>
           <span>B Marque-page</span>
+        </div>
+        <div className="flex sm:hidden items-center gap-3 mt-1 text-[10px]">
+          <span>Swipe pour naviguer</span>
         </div>
       </div>
 

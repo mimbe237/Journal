@@ -110,13 +110,35 @@ export default function EmailDashboardPage() {
 
         if (statsRes.ok) {
           setStats(await statsRes.json());
+        } else {
+          setStats({
+            total: 0,
+            byStatus: {},
+            deliveryRate: 0,
+            openRate: 0,
+            clickRate: 0,
+            bounceRate: 0,
+            byTemplate: [],
+          });
         }
         if (sendsRes.ok) {
           const data = await sendsRes.json();
-          setRecentSends(data.sends);
+          setRecentSends(data.sends || []);
+        } else {
+          setRecentSends([]);
         }
       } catch (error) {
         console.error('Error fetching email dashboard:', error);
+        setStats({
+          total: 0,
+          byStatus: {},
+          deliveryRate: 0,
+          openRate: 0,
+          clickRate: 0,
+          bounceRate: 0,
+          byTemplate: [],
+        });
+        setRecentSends([]);
       } finally {
         setLoading(false);
       }

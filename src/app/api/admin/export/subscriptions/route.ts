@@ -19,3 +19,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error?.message ?? "Erreur export abonnements" }, { status: 400 });
   }
 }
+
+export async function POST(req: NextRequest) {
+  try {
+    await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT]);
+    const filters = await req.json().catch(() => ({}));
+    const csv = await exportSubscriptionsCsv(filters);
+    return new NextResponse(csv, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="subscriptions.csv"'
+      }
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message ?? "Erreur export abonnements" }, { status: 400 });
+  }
+}
