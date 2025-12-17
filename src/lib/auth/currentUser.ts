@@ -8,17 +8,22 @@ import { verifyJwt } from "@/modules/auth/authService";
 
 // Retourne l'utilisateur courant à partir du JWT présent dans les cookies. Null si absent/invalide.
 export async function getCurrentUserFromRequest(req: NextRequest | NextApiRequest) {
-  const token = getJwtFromRequest(req);
-  if (!token) return null;
+  try {
+    const token = getJwtFromRequest(req);
+    if (!token) return null;
 
-  const payload = verifyJwt(token);
-  if (!payload) return null;
+    const payload = verifyJwt(token);
+    if (!payload) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id: payload.userId }
-  });
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId }
+    });
 
-  return user;
+    return user;
+  } catch (error) {
+    console.error("[getCurrentUserFromRequest] Critical error:", error);
+    return null;
+  }
 }
 
 // Helper pour Server Components
