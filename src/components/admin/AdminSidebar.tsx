@@ -219,6 +219,7 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
           { href: "/admin/subscribers/individuals", label: "Abonnés individuels", icon: Icons.Individual },
           { href: "/admin/enterprises", label: "Comptes entreprise", icon: Icons.Enterprise },
           { href: "/admin/subscriptions", label: "Abonnements", icon: Icons.Subscriptions },
+          { href: "/admin/subscriptions/manual", label: "Validation Abonnements", icon: Icons.Facturation },
         ]
       },
       {
