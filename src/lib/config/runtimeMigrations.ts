@@ -12,6 +12,30 @@ async function applyRuntimeMigrations(prisma: PrismaClient) {
     console.error("[runtime-migrations] failed to ensure subscription soft-delete columns", error);
   }
 
+  try {
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "journal_types" ADD COLUMN IF NOT EXISTS "titleTemplate" VARCHAR(255);'
+    );
+
+    const [legacyColumn] = await prisma.$queryRaw<{ exists: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'journal_types'
+          AND column_name = 'title_template'
+      ) AS "exists"
+    `;
+
+    if (legacyColumn?.exists) {
+      await prisma.$executeRawUnsafe(
+        'UPDATE "journal_types" SET "titleTemplate" = COALESCE("titleTemplate", "title_template");'
+      );
+    }
+  } catch (error) {
+    console.error("[runtime-migrations] failed to ensure journal_types titleTemplate column", error);
+  }
+
   // Ajoute les valeurs d'énumération manquantes pour SystemEventType (idempotent).
   try {
     await prisma.$executeRawUnsafe(
