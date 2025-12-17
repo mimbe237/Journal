@@ -276,21 +276,8 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
           isActive ? "bg-emerald-50 text-emerald-600" : "text-slate-600 hover:bg-slate-100"
         }`}
       >
-        )
-      };
-    }
-    if (userRole === "COMMERCIAL") {
-      return {
-        title: "Commercial",
-        subtitle: "Espace Commercial",
-        icon: (
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-        )
-      };
-    }
-    if (userRole === "SUPPORT") {
+        <span className="text-base">{item.icon}</span>
+        <span>{item.label}</span>
       </Link>
     );
   };
@@ -303,6 +290,17 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
         icon: (
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        )
+      };
+    }
+    if (userRole === "COMMERCIAL") {
+      return {
+        title: "Commercial",
+        subtitle: "Espace Commercial",
+        icon: (
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
         )
       };

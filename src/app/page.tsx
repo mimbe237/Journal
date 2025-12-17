@@ -242,16 +242,16 @@ export default async function HomePage() {
             </Link>
           </div>
         </div>
+      </section>
+
       <footer className="bg-slate-900 px-4 py-10 text-center text-slate-400">
-        <div className="mx-auto max-w-6xl flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 md:flex-row">
           <p>&copy; 2025 Journal Numérique. Tous droits réservés.</p>
           <div className="flex gap-6 text-sm">
-            <Link href="/faq" className="hover:text-white transition">FAQ</Link>
-            <Link href="/terms" className="hover:text-white transition">CGU</Link>
-            <Link href="/privacy" className="hover:text-white transition">Confidentialité</Link>
+            <Link href="/faq" className="transition hover:text-white">FAQ</Link>
+            <Link href="/terms" className="transition hover:text-white">CGU</Link>
+            <Link href="/privacy" className="transition hover:text-white">Confidentialité</Link>
           </div>
-        </div>
-      </footer>opy; 2025 Journal Numérique. Tous droits réservés.</p>
         </div>
       </footer>
     </div>
