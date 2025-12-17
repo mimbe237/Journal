@@ -27,6 +27,16 @@ interface RecentSend {
   template: { slug: string; nom: string } | null;
 }
 
+const EMPTY_STATS: EmailStats = {
+  total: 0,
+  byStatus: {},
+  deliveryRate: 0,
+  openRate: 0,
+  clickRate: 0,
+  bounceRate: 0,
+  byTemplate: [],
+};
+
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-500',
   SENT: 'bg-blue-500',
@@ -93,6 +103,66 @@ function RateBar({ label, rate, color }: { label: string; rate: number; color: s
   );
 }
 
+function normalizeStats(payload: unknown): EmailStats {
+  const raw = (payload as { stats?: Record<string, unknown> } | null)?.stats ?? payload ?? {};
+  const toNumber = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) ? value : Number(value) || 0;
+  const hasOwn = (key: string) => Object.prototype.hasOwnProperty.call(raw, key);
+
+  const total = toNumber((raw as Record<string, unknown>).total);
+  const sent = toNumber((raw as Record<string, unknown>).sent);
+  const deliveredTotal = toNumber((raw as Record<string, unknown>).delivered);
+  const opened = toNumber((raw as Record<string, unknown>).opened);
+  const clicked = toNumber((raw as Record<string, unknown>).clicked);
+  const bounced = toNumber((raw as Record<string, unknown>).bounced);
+  const failed = toNumber((raw as Record<string, unknown>).failed);
+  const complained = toNumber((raw as Record<string, unknown>).complained);
+  const pending = toNumber((raw as Record<string, unknown>).pending);
+  const deliveredStatusCount = Math.max(deliveredTotal - opened - clicked, 0);
+
+  const fallbackByStatus = {
+    PENDING: pending,
+    SENT: sent,
+    DELIVERED: deliveredStatusCount,
+    OPENED: opened,
+    CLICKED: clicked,
+    BOUNCED: bounced,
+    FAILED: failed,
+    COMPLAINED: complained,
+  };
+
+  const rawByStatus =
+    typeof (raw as Record<string, unknown>).byStatus === 'object' &&
+    (raw as Record<string, unknown>).byStatus !== null
+      ? ((raw as Record<string, unknown>).byStatus as Record<string, number>)
+      : null;
+
+  const deliveryRate = toNumber((raw as Record<string, unknown>).deliveryRate);
+  const openRate = toNumber((raw as Record<string, unknown>).openRate);
+  const clickRate = toNumber((raw as Record<string, unknown>).clickRate);
+  const bounceRate = toNumber((raw as Record<string, unknown>).bounceRate);
+
+  const computedDeliveryRate = total > 0 ? (deliveredTotal / total) * 100 : 0;
+  const computedOpenRate = deliveredTotal > 0 ? ((opened + clicked) / deliveredTotal) * 100 : 0;
+  const computedClickRate = opened + clicked > 0 ? (clicked / (opened + clicked)) * 100 : 0;
+  const computedBounceRate = total > 0 ? (bounced / total) * 100 : 0;
+
+  const byTemplate = Array.isArray((raw as Record<string, unknown>).byTemplate)
+    ? ((raw as Record<string, unknown>).byTemplate as EmailStats['byTemplate'])
+    : [];
+
+  return {
+    ...EMPTY_STATS,
+    total,
+    byStatus: rawByStatus ? { ...fallbackByStatus, ...rawByStatus } : fallbackByStatus,
+    deliveryRate: hasOwn('deliveryRate') ? deliveryRate : computedDeliveryRate,
+    openRate: hasOwn('openRate') ? openRate : computedOpenRate,
+    clickRate: hasOwn('clickRate') ? clickRate : computedClickRate,
+    bounceRate: hasOwn('bounceRate') ? bounceRate : computedBounceRate,
+    byTemplate,
+  };
+}
+
 export default function EmailDashboardPage() {
   const [stats, setStats] = useState<EmailStats | null>(null);
   const [recentSends, setRecentSends] = useState<RecentSend[]>([]);
@@ -109,17 +179,10 @@ export default function EmailDashboardPage() {
         ]);
 
         if (statsRes.ok) {
-          setStats(await statsRes.json());
+          const data = await statsRes.json();
+          setStats(normalizeStats(data));
         } else {
-          setStats({
-            total: 0,
-            byStatus: {},
-            deliveryRate: 0,
-            openRate: 0,
-            clickRate: 0,
-            bounceRate: 0,
-            byTemplate: [],
-          });
+          setStats(EMPTY_STATS);
         }
         if (sendsRes.ok) {
           const data = await sendsRes.json();
@@ -129,15 +192,7 @@ export default function EmailDashboardPage() {
         }
       } catch (error) {
         console.error('Error fetching email dashboard:', error);
-        setStats({
-          total: 0,
-          byStatus: {},
-          deliveryRate: 0,
-          openRate: 0,
-          clickRate: 0,
-          bounceRate: 0,
-          byTemplate: [],
-        });
+        setStats(EMPTY_STATS);
         setRecentSends([]);
       } finally {
         setLoading(false);
@@ -269,7 +324,7 @@ export default function EmailDashboardPage() {
                       <div className="w-24 bg-gray-200 rounded-full h-2">
                         <div 
                           className="bg-blue-500 h-2 rounded-full"
-                          style={{ width: `${(item.count / stats.total) * 100}%` }}
+                          style={{ width: `${stats.total > 0 ? (item.count / stats.total) * 100 : 0}%` }}
                         />
                       </div>
                       <span className="text-sm font-medium w-12 text-right">{item.count}</span>

@@ -74,9 +74,26 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
+import { sendTemplatedEmail } from '@/modules/emails';
+
+// ...
+
         try {
-          // TODO: Intégrer avec le service d'email quand disponible
-          // await sendSubscriptionExpiryEmail({ ... });
+          // Envoi de l'email via le service de templates
+          const templateSlug = daysBefore === 7 ? 'subscription-expiring-7days' : 'subscription-expiring-1day';
+          
+          await sendTemplatedEmail({
+            templateSlug,
+            to: subscription.user.email,
+            toName: subscription.user.nom,
+            userId: subscription.user.id,
+            values: {
+              userName: subscription.user.nom,
+              daysRemaining: daysBefore.toString(),
+              expiryDate: subscription.dateFin.toLocaleDateString('fr-FR'),
+              renewLink: `${process.env.NEXT_PUBLIC_APP_URL}/subscriptions`
+            }
+          });
           
           results.emailsSent++;
 

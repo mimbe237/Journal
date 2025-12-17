@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/Button";
 import { LoadingState } from "@/components/ui/States";
+import { SubscriptionActions } from "@/components/subscriptions/SubscriptionActions";
 
 type User = {
   id: string;
@@ -132,15 +133,9 @@ export default function DashboardPage() {
                     <span className="font-medium">Date de fin:</span> {endDate}
                   </p>
                 </div>
-                {subscription ? (
-                  <Link href="/subscriptions">
-                    <ButtonSecondary className="w-fit">Gérer l'abonnement</ButtonSecondary>
-                  </Link>
-                ) : (
-                  <Link href="/subscriptions/new">
-                    <ButtonPrimary className="w-fit">S'abonner maintenant</ButtonPrimary>
-                  </Link>
-                )}
+                <div className="pt-2">
+                  <SubscriptionActions hasActiveSubscription={!!subscription && subscription.status === 'ACTIF'} />
+                </div>
               </>
             )}
           </Card>

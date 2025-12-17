@@ -21,6 +21,7 @@ enum UserRole {
   FACTURATION
   SUPPORT
   SUPER_ADMIN
+  COMMERCIAL
 }
 
 /// Types d'abonnement disponibles.
@@ -174,6 +175,10 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   readingProgress   ReadingProgress[]
   notificationPreferences NotificationPreferences?
+
+  // Relations pour les soumissions manuelles
+  submittedManualSubscriptions ManualSubscriptionSubmission[] @relation("SubmittedBy")
+  validatedManualSubscriptions ManualSubscriptionSubmission[] @relation("ValidatedBy")
 
   @@map("users")
 }
@@ -415,10 +420,13 @@ model ManualSubscriptionSubmission {
   
   // Métadonnées
   soumisA           DateTime            @default(now())
+  soumisParId       String?             // ID de l'utilisateur (Staff) qui a soumis
   validePar         String?             // ID de l'utilisateur FACTURATION ou SUPPORT
   valideA           DateTime?           // Timestamp de validation/rejet
   
   // Relations
+  submitter         User?               @relation("SubmittedBy", fields: [soumisParId], references: [id])
+  validator         User?               @relation("ValidatedBy", fields: [validePar], references: [id])
   justificatifs     DocumentJustificatif[]
   subscriptions     Subscription[]      // Peut créer 1+ abonnements (renouvellements, etc.)
   

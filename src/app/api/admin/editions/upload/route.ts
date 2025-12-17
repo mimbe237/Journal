@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       import("@/services/fileStorage"),
       import("@/lib/observability/errorReporter"),
     ]);
-    console.log("[edition-upload] POST received");
+    // console.log("[edition-upload] POST received");
     const user = await getCurrentUserFromRequest(req);
     if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     if (!['SUPER_ADMIN', 'SUPPORT'].includes(user.role)) {
@@ -82,12 +82,12 @@ export async function POST(req: NextRequest) {
     await mkdir(imagesDir, { recursive: true });
 
     // 1. Télécharger le PDF depuis le stockage (R2/S3) vers le dossier temporaire
-    console.log(`Downloading PDF from ${fileKey} to ${localPdfPath}...`);
+    // console.log(`Downloading PDF from ${fileKey} to ${localPdfPath}...`);
     const fileStream = await fileStorageProvider.getFileStream({ path: fileKey });
     await pipeline(fileStream, createWriteStream(localPdfPath));
 
     // 2. Convertir le PDF en images
-    console.log("Converting PDF to images...");
+    // console.log("Converting PDF to images...");
     let pageCount = 0;
     try {
       pageCount = await convertPdfToImages(localPdfPath, imagesDir);
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Uploader les images générées vers le stockage
-    console.log(`Uploading ${pageCount} images to storage...`);
+    // console.log(`Uploading ${pageCount} images to storage...`);
     const imageFiles = await readdir(imagesDir);
     for (const file of imageFiles) {
       if (!file.endsWith('.webp')) continue;

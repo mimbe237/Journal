@@ -1,5 +1,22 @@
 import Link from "next/link";
 import { LatestEditionShowcase } from "@/components/LatestEditionShowcase";
+import { TestimonialsSection } from "@/components/TestimonialsSection";
+import { prisma } from "@/lib/config/prisma";
+
+// Fetch stats dynamically (cached for 1 hour)
+async function getStats() {
+  const [editionCount, userCount] = await Promise.all([
+    prisma.edition.count(),
+    prisma.user.count()
+  ]);
+  
+  return [
+    { label: "Éditions publiées", value: `${editionCount}+` },
+    { label: "Lecteurs inscrits", value: `${userCount}+` },
+    { label: "Taux de rétention", value: "92%" }, // Hardcoded for now (complex metric)
+    { label: "Disponibilité", value: "99.9%" }
+  ];
+}
 
 type Feature = {
   icon: string;
@@ -16,12 +33,12 @@ type Plan = {
   badge?: string;
 };
 
-const stats = [
-  { label: "Éditions publiées", value: "250+" },
-  { label: "Lecteurs actifs", value: "12 000" },
-  { label: "Taux de rétention", value: "92%" },
-  { label: "Disponibilité", value: "99.9%" }
-];
+// const stats = [
+//   { label: "Éditions publiées", value: "250+" },
+//   { label: "Lecteurs actifs", value: "12 000" },
+//   { label: "Taux de rétention", value: "92%" },
+//   { label: "Disponibilité", value: "99.9%" }
+// ];
 
 const features: Feature[] = [
   {
@@ -83,7 +100,9 @@ const plans: Plan[] = [
   }
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const stats = await getStats();
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <section className="relative overflow-hidden pb-24 pt-16 md:pt-24">
@@ -194,6 +213,8 @@ export default function HomePage() {
         </div>
       </section>
 
+      <TestimonialsSection />
+
       <section className="py-20">
         <div className="mx-auto max-w-4xl px-4 text-center md:px-8">
           <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-2 text-xs font-semibold text-emerald-700">
@@ -221,11 +242,16 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
-      </section>
-
       <footer className="bg-slate-900 px-4 py-10 text-center text-slate-400">
-        <div className="mx-auto max-w-6xl">
+        <div className="mx-auto max-w-6xl flex flex-col md:flex-row justify-between items-center gap-4">
           <p>&copy; 2025 Journal Numérique. Tous droits réservés.</p>
+          <div className="flex gap-6 text-sm">
+            <Link href="/faq" className="hover:text-white transition">FAQ</Link>
+            <Link href="/terms" className="hover:text-white transition">CGU</Link>
+            <Link href="/privacy" className="hover:text-white transition">Confidentialité</Link>
+          </div>
+        </div>
+      </footer>opy; 2025 Journal Numérique. Tous droits réservés.</p>
         </div>
       </footer>
     </div>

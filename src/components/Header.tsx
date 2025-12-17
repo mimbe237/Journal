@@ -130,6 +130,16 @@ export function Header() {
                   >
                     Abonnements
                   </Link>
+                  <Link
+                    href="/faq"
+                    className={`text-sm font-medium ${
+                      pathname === "/faq"
+                        ? "text-emerald-600"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    FAQ
+                  </Link>
                 </>
               )}
               {user.role === "COMPTE_ENTREPRISE" && (
@@ -181,6 +191,12 @@ export function Header() {
             </>
           ) : (
             <>
+              <Link
+                href="/faq"
+                className="text-sm font-medium text-slate-600 hover:text-slate-900"
+              >
+                FAQ
+              </Link>
               <Link
                 href="/auth/login"
                 className="text-sm font-medium text-slate-600 hover:text-slate-900"
@@ -240,6 +256,16 @@ export function Header() {
                     >
                       Abonnements
                     </Link>
+                    <Link
+                      href="/faq"
+                      className={`block rounded-md px-3 py-2 text-base font-medium ${
+                        pathname === "/faq"
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      FAQ
+                    </Link>
                   </>
                 )}
                 {user.role === "COMPTE_ENTREPRISE" && (
@@ -285,6 +311,12 @@ export function Header() {
               </>
             ) : (
               <>
+                <Link
+                  href="/faq"
+                  className="block rounded-md px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  FAQ
+                </Link>
                 <Link
                   href="/auth/login"
                   className="block rounded-md px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-50"

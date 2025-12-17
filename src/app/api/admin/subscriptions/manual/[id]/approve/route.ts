@@ -12,7 +12,6 @@ export async function POST(
   try {
     const { id } = await params;
     const currentUser = await requireUserWithRoles(req, undefined, [
-      UserRole.FACTURATION, 
       UserRole.SUPPORT, 
       UserRole.SUPER_ADMIN
     ]);
