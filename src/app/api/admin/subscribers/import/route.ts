@@ -137,3 +137,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error?.message ?? "Erreur import" }, { status: 400 });
   }
 }
+
+// Configuration pour les imports volumineux (5 Mo de JSON)
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '5mb',
+    },
+  },
+};

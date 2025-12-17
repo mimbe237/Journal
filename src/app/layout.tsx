@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Header } from "@/components/Header";
+import { ToastProvider } from "@/lib/hooks/useToast";
+import { Toaster } from "@/components/ui/Toaster";
 
 export const metadata: Metadata = {
   title: "Journal numérique",
@@ -19,8 +21,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr">
       <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
-        <Header />
-        {children}
+        <ToastProvider>
+          <Header />
+          {children}
+          <Toaster />
+        </ToastProvider>
       </body>
     </html>
   );

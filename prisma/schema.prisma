@@ -170,6 +170,10 @@ model User {
   paymentTransactions PaymentTransaction[]
   enterpriseAuditLogs EnterpriseAuditLog[] @relation("AuditPerformedBy")
   enterpriseAuditLogsTarget EnterpriseAuditLog[] @relation("AuditTargetUser")
+  passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  readingProgress   ReadingProgress[]
+  notificationPreferences NotificationPreferences?
 
   @@map("users")
 }
@@ -316,6 +320,7 @@ model Edition {
   journalType       JournalType?      @relation(fields: [journalTypeId], references: [id])
 
   readingSessions   ReadingSession[]
+  readingProgress   ReadingProgress[]
 
   @@map("editions")
 }
@@ -645,4 +650,74 @@ model EmailEvent {
   @@index([sendId, occurredAt])
   @@index([type, occurredAt])
   @@map("email_events")
+}
+
+// ===== PHASE 1 & 2 : Nouveaux modèles UX =====
+
+/// Token de réinitialisation de mot de passe.
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+/// Token de vérification d'email.
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+/// Progression de lecture d'une édition par un utilisateur.
+model ReadingProgress {
+  id         String   @id @default(cuid())
+  userId     String
+  editionId  String
+  pageNumber Int
+  totalPages Int
+  percentage Float    @default(0)
+  lastReadAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  edition    Edition  @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, editionId])
+  @@index([userId, lastReadAt])
+  @@map("reading_progress")
+}
+
+/// Préférences de notification utilisateur.
+model NotificationPreferences {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  newEditions         Boolean  @default(true)
+  expirationAlerts    Boolean  @default(true)
+  newsletter          Boolean  @default(false)
+  summaryFrequency    String   @default("weekly") // "daily" | "weekly" | "never"
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
 }

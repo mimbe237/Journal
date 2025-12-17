@@ -127,7 +127,3 @@ ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_enterpriseAccountId_fk
 
 ALTER TABLE "manual_subscriptions" DROP CONSTRAINT IF EXISTS "manual_subscriptions_entrepriseId_fkey";
 ALTER TABLE "manual_subscriptions" ADD CONSTRAINT "manual_subscriptions_entrepriseId_fkey" FOREIGN KEY ("entrepriseId") REFERENCES "enterprise_accounts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- 6. Record Migration (Safe Insert with execution_time)
-INSERT INTO "_prisma_migrations" ("id", "checksum", "finished_at", "migration_name", "logs", "rolled_back_at", "started_at", "execution_time")
-VALUES (gen_random_uuid(), 'manual', NOW(), '20251216120000_add_enterprise_admin_system', NULL, NULL, NOW(), 0);

@@ -185,3 +185,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error?.message ?? "Erreur création abonné" }, { status: 400 });
   }
 }
+
+// Configuration pour permettre les uploads de fichiers plus volumineux (10 Mo)
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};

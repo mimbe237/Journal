@@ -1107,15 +1107,6 @@ export function EditionReader({ editionId }: EditionReaderProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </ControlButton>
-
-          <SettingsPanel
-            theme={theme}
-            setTheme={setTheme}
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            isOpen={showSettings}
-            onClose={() => setShowSettings(false)}
-          />
         </div>
       </div>
 
@@ -1395,6 +1386,16 @@ export function EditionReader({ editionId }: EditionReaderProps) {
           user-select: none;
         }
       `}</style>
+
+      {/* Settings Panel - Rendered outside stacking context for proper z-index */}
+      <SettingsPanel
+        theme={theme}
+        setTheme={setTheme}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+      />
     </div>
   );
 }

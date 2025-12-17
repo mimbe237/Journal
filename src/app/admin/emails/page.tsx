@@ -234,7 +234,7 @@ export default function EmailDashboardPage() {
             <div className="bg-white rounded-lg shadow p-4">
               <h2 className="font-semibold text-gray-900 mb-4">Répartition par statut</h2>
               <div className="space-y-2">
-                {Object.entries(stats.byStatus).map(([status, count]) => (
+                {Object.entries(stats.byStatus || {}).map(([status, count]) => (
                   <div key={status} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`w-3 h-3 rounded-full ${STATUS_COLORS[status] || 'bg-gray-400'}`} />
