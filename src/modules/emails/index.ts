@@ -1,4 +1,5 @@
-export { renderTemplate, renderTemplateBySlug, replaceTokens, AVAILABLE_TOKENS, getSampleTokenValues } from "./templateRenderer";
+export { renderTemplate, renderTemplateBySlug, replaceTokens } from "./templateRenderer";
+export { AVAILABLE_TOKENS, getSampleTokenValues } from "./tokens";
 export { sendTemplatedEmail, sendTestEmail, triggerEmailAutomation, getEmailStats } from "./emailService";
-export type { TokenValues } from "./templateRenderer";
+export type { TokenValues } from "./tokens";
 export type { SendEmailParams } from "./emailService";

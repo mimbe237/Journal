@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { AVAILABLE_TOKENS } from "@/modules/emails/templateRenderer";
+import { AVAILABLE_TOKENS } from "@/modules/emails/tokens";
 
 type Template = {
   id: string;

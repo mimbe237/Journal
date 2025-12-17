@@ -196,11 +196,3 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Configuration pour permettre les uploads volumineux (50 Mo pour les PDFs)
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-  },
-};

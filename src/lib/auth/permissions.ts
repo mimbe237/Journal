@@ -132,6 +132,16 @@ const PERMISSIONS: RolePermissions = {
     "export:support_data",
   ]),
 
+  // -------- COMMERCIAL --------
+  COMMERCIAL: new Set([
+    "access:admin_panel",
+    "read:subscribers",
+    "create:manual_subscribers",
+    "read:subscriptions",
+    "read:enterprises",
+    "read:promo_codes",
+  ]),
+
   // -------- SUPER_ADMIN --------
   SUPER_ADMIN: new Set([
     // TOUT - Super admin a accès à tout

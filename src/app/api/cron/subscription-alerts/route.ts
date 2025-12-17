@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/config/prisma';
 import { SubscriptionStatus, SystemEventType } from '@prisma/client';
+import { sendTemplatedEmail } from '@/modules/emails';
 
 /**
  * GET /api/cron/subscription-alerts
@@ -73,10 +74,6 @@ export async function GET(request: NextRequest) {
         if (!subscription.user) {
           continue;
         }
-
-import { sendTemplatedEmail } from '@/modules/emails';
-
-// ...
 
         try {
           // Envoi de l'email via le service de templates

@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/config/prisma";
 import { emailProvider } from "@/services/email";
 import { EmailSendStatus, EmailTriggerType, Prisma } from "@prisma/client";
-import { renderTemplate, TokenValues, getSampleTokenValues } from "./templateRenderer";
+import { renderTemplate } from "./templateRenderer";
+import { TokenValues, getSampleTokenValues } from "./tokens";
 
 export type SendEmailParams = {
   templateSlug?: string;
