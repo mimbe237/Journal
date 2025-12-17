@@ -76,6 +76,7 @@ export function CreateUserButton() {
                 >
                   <option value="SUPPORT">Support</option>
                   <option value="FACTURATION">Facturation</option>
+                  <option value="COMMERCIAL">Commercial</option>
                   <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
                 <p className="text-xs text-slate-500 mt-1">Réservé aux comptes Staff.</p>

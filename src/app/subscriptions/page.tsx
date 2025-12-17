@@ -111,6 +111,11 @@ export default function SubscriptionsPage() {
         })
       });
 
+      if (res.status === 401) {
+        window.location.href = "/auth/login?redirect=/subscriptions";
+        return;
+      }
+
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Erreur checkout");
 

@@ -41,7 +41,7 @@ export function Header() {
     if (!user || !pathname) return;
     
     // Allow staff to access specific public/user pages
-    const allowedPaths = ["/editions", "/dashboard", "/profile"];
+    const allowedPaths = ["/editions", "/dashboard", "/profile", "/subscriptions", "/faq"];
     const isAllowedPath = allowedPaths.some(path => pathname.startsWith(path));
 
     if (isStaff && !pathname.startsWith("/admin") && !isAllowedPath) {

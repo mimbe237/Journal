@@ -37,7 +37,12 @@ export default function LoginPage() {
         throw new Error(message);
       }
       const role: string | undefined = json?.user?.role;
-      const redirect = getRedirectPathForRole(role);
+      
+      // Check for redirect query param
+      const params = new URLSearchParams(window.location.search);
+      const redirectParam = params.get("redirect");
+      
+      const redirect = redirectParam || getRedirectPathForRole(role);
       setSuccess("Connexion réussie");
       // Redirect to the appropriate dashboard after successful login
       setTimeout(() => {

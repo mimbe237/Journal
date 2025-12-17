@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/Button";
@@ -16,6 +17,7 @@ type User = {
 };
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +28,10 @@ export default function ProfilePage() {
       try {
         const res = await fetch("/api/auth/me", { cache: "no-store", credentials: "include" });
         if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            router.push("/auth/login");
+            return;
+          }
           const body = await res.json().catch(() => ({}));
           throw new Error(body.error || "Impossible de charger le profil");
         }
@@ -38,7 +44,7 @@ export default function ProfilePage() {
       }
     }
     loadProfile();
-  }, []);
+  }, [router]);
 
   async function handleLogout() {
     setError(null);

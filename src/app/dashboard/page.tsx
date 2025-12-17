@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { ButtonPrimary, ButtonSecondary } from "@/components/ui/Button";
@@ -24,6 +25,7 @@ type Subscription = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,23 +34,28 @@ export default function DashboardPage() {
     async function loadData() {
       try {
         const userRes = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
-        if (userRes.ok) {
-          const userData = await userRes.json();
-          setUser(userData.user);
+        
+        if (!userRes.ok) {
+          // Si non authentifié, redirection vers login
+          router.push("/auth/login");
+          return;
+        }
 
-          const isStaff = ["SUPER_ADMIN", "FACTURATION", "SUPPORT"].includes(userData.user?.role);
-          if (!isStaff) {
-            const subRes = await fetch("/api/subscriptions/active", {
-              credentials: "include",
-              cache: "no-store"
-            });
-            if (subRes.ok) {
-              const subData = await subRes.json();
-              setSubscription(subData.subscription);
-            }
-          } else {
-            setSubscription(null);
+        const userData = await userRes.json();
+        setUser(userData.user);
+
+        const isStaff = ["SUPER_ADMIN", "FACTURATION", "SUPPORT"].includes(userData.user?.role);
+        if (!isStaff) {
+          const subRes = await fetch("/api/subscriptions/active", {
+            credentials: "include",
+            cache: "no-store"
+          });
+          if (subRes.ok) {
+            const subData = await subRes.json();
+            setSubscription(subData.subscription);
           }
+        } else {
+          setSubscription(null);
         }
       } catch (err) {
         console.error("Failed to load dashboard data", err);
@@ -58,7 +65,7 @@ export default function DashboardPage() {
     }
 
     loadData();
-  }, []);
+  }, [router]);
 
   if (loading) {
     return (

@@ -8,7 +8,7 @@ import { UserRole } from "@prisma/client";
 import { CreateUserButton } from "./CreateUserButton";
 import { EditUserModal } from "./EditUserModal";
 
-const staffRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
+const staffRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION, UserRole.COMMERCIAL];
 type SearchParams = Record<string, string | string[] | undefined>;
 
 export default async function AdminUsersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
