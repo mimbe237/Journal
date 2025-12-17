@@ -12,6 +12,7 @@ export async function createEdition(params: {
   nombrePages?: number | null;
   prix?: number | null;
   devise?: string | null;
+  journalTypeId?: string | null;
 }): Promise<Edition> {
   if (!params.titre?.trim()) throw new Error("Titre requis");
   if (!params.cheminInternePdf?.trim()) throw new Error("cheminInternePdf requis");
@@ -27,9 +28,11 @@ export async function createEdition(params: {
         cheminInternePdf: params.cheminInternePdf,
         nombrePages: params.nombrePages ?? null,
         prix: params.prix ?? null,
-        devise: params.devise ?? null
+        devise: params.devise ?? null,
+        journalTypeId: params.journalTypeId ?? null
       }
     });
+
 
     await tx.systemEvent.create({
       data: {

@@ -49,27 +49,22 @@ export async function POST(req: NextRequest) {
     const journalTypeId = formData.get("journalTypeId") as string | null;
 
     if (!fileKey) return NextResponse.json({ error: "Fichier PDF requis (fileKey manquant)" }, { status: 400 });
-    // Génération auto du titre si template défini pour le journal type
-    const renderTitle = (template: string | null | undefined, publicationDate: string, journalName: string, frequency?: string) => {
-      if (!template) return titre;
-      const d = new Date(publicationDate);
-      const dateShort = d.toLocaleDateString("fr-FR");
-      const dateLong = d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-      return template
-        .replace(/{{journal}}/g, journalName)
-        .replace(/{{date_long}}/g, dateLong)
-        .replace(/{{date}}/g, dateShort)
-        .replace(/{{frequency}}/g, frequency ?? "");
-    };
 
-    if (journalTypeId) {
-      const jt = await (await import("@/modules/journal-types/journalTypeService")).getJournalTypeById(journalTypeId);
-      if (jt?.titleTemplate) {
-        titre = renderTitle(jt.titleTemplate, datePublicationStr || new Date().toISOString(), jt.name, jt.frequency) || titre;
+    // Génération automatique du titre si manquant et journalTypeId présent
+    if (!titre && journalTypeId) {
+      const { getJournalTypeById } = await import("@/modules/journal-types/journalTypeService");
+      const { generateEditionTitle } = await import("@/modules/journal-types/titleGenerator");
+      const journalType = await getJournalTypeById(journalTypeId);
+      if (journalType) {
+        const datePublication = datePublicationStr ? new Date(datePublicationStr) : new Date();
+        // Conversion du type JournalTypeWithPricing vers JournalType (compatible pour le générateur)
+        // Le générateur attend { name, frequency, titleTemplate } qui sont présents
+        titre = generateEditionTitle(journalType as any, datePublication);
       }
     }
 
-    if (!titre) return NextResponse.json({ error: "Titre requis (modèle non défini sur le type ?)" }, { status: 400 });
+    if (!titre) return NextResponse.json({ error: "Titre requis" }, { status: 400 });
+
 
     const editionId = require("crypto").randomUUID();
     

@@ -27,29 +27,35 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
     return (Array.isArray(raw) ? raw[0] : raw ?? "").toLowerCase().trim();
   })();
 
-  const users = await prisma.user.findMany({
-    where: {
-      role: { in: roleFilter && staffRoles.includes(roleFilter as UserRole) ? [roleFilter as UserRole] : staffRoles },
-      AND: q
-        ? [
-            {
-              OR: [
-                { nom: { contains: q, mode: "insensitive" } },
-                { email: { contains: q, mode: "insensitive" } }
-              ]
-            }
-          ]
-        : undefined
-    },
-    orderBy: { dateCreation: "desc" },
-    select: {
-      id: true,
-      nom: true,
-      email: true,
-      role: true,
-      dateCreation: true
-    }
-  });
+  let users = [];
+  try {
+    users = await prisma.user.findMany({
+      where: {
+        role: { in: roleFilter && staffRoles.includes(roleFilter as UserRole) ? [roleFilter as UserRole] : staffRoles },
+        AND: q
+          ? [
+              {
+                OR: [
+                  { nom: { contains: q, mode: "insensitive" } },
+                  { email: { contains: q, mode: "insensitive" } }
+                ]
+              }
+            ]
+          : undefined
+      },
+      orderBy: { dateCreation: "desc" },
+      select: {
+        id: true,
+        nom: true,
+        email: true,
+        role: true,
+        dateCreation: true
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    return <div className="p-8 text-red-600">Erreur lors du chargement des utilisateurs.</div>;
+  }
 
   const allRoles = staffRoles;
 

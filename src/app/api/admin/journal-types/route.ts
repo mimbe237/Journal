@@ -32,11 +32,12 @@ export async function GET(request: NextRequest) {
     }
     console.error("Erreur lors de la récupération des types de journaux:", error);
     return NextResponse.json(
-      { error: "Erreur lors de la récupération des types de journaux" },
+      { error: error instanceof Error ? error.message : "Erreur lors de la récupération des types de journaux" },
       { status: 500 }
     );
   }
 }
+
 
 export async function POST(request: NextRequest) {
   try {

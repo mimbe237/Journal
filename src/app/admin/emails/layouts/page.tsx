@@ -37,7 +37,8 @@ export default function EmailLayoutsPage() {
     try {
       const res = await fetch('/api/admin/emails/layouts');
       if (res.ok) {
-        setLayouts(await res.json());
+        const data = await res.json();
+        setLayouts(Array.isArray(data.layouts) ? data.layouts : []);
       }
     } catch (err) {
       console.error('Error fetching layouts:', err);

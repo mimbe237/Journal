@@ -3,7 +3,7 @@
  * Gère le CRUD et les grilles tarifaires.
  */
 
-import { prisma } from "@/lib/config/prisma";
+import { prisma, prismaRuntimeReady } from "@/lib/config/prisma";
 import { JournalFrequency, Prisma } from "@prisma/client";
 
 // Types pour les entrées/sorties
@@ -39,6 +39,7 @@ export interface JournalTypeWithPricing {
  * Récupère tous les types de journaux.
  */
 export async function listJournalTypes(includeInactive = false): Promise<JournalTypeWithPricing[]> {
+  await prismaRuntimeReady;
   const journalTypes = await prisma.journalType.findMany({
     where: includeInactive ? {} : { isActive: true },
     include: {
@@ -73,6 +74,7 @@ export async function getActiveJournalTypesWithPricing(): Promise<JournalTypeWit
  * Récupère un type de journal par son ID.
  */
 export async function getJournalTypeById(id: string): Promise<JournalTypeWithPricing | null> {
+  await prismaRuntimeReady;
   const journalType = await prisma.journalType.findUnique({
     where: { id },
     include: {
@@ -99,6 +101,7 @@ export async function getJournalTypeById(id: string): Promise<JournalTypeWithPri
  * Crée un nouveau type de journal.
  */
 export async function createJournalType(input: JournalTypeInput): Promise<JournalTypeWithPricing> {
+  await prismaRuntimeReady;
   const defaultTemplate = "Edition du {{date_long}}";
   const journalType = await prisma.journalType.create({
     data: {
@@ -132,6 +135,7 @@ export async function createJournalType(input: JournalTypeInput): Promise<Journa
  * Met à jour un type de journal.
  */
 export async function updateJournalType(id: string, input: Partial<JournalTypeInput>): Promise<JournalTypeWithPricing> {
+  await prismaRuntimeReady;
   const data: Prisma.JournalTypeUpdateInput = {};
   const defaultTemplate = "Edition du {{date_long}}";
 

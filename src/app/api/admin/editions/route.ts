@@ -36,13 +36,28 @@ export async function POST(req: NextRequest) {
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.SUPPORT]);
     const form = await req.formData();
     const pdfFile = form.get("file");
-    const titre = form.get("titre") as string;
+    let titre = form.get("titre") as string;
     const datePublication = form.get("datePublication") as string;
     const type = form.get("type") as EditionType;
+    const journalTypeId = form.get("journalTypeId") as string | null;
+
+    // Génération automatique du titre si manquant et journalTypeId présent
+    if (!titre && journalTypeId) {
+      const { getJournalTypeById } = await import("@/modules/journal-types/journalTypeService");
+      const { generateEditionTitle } = await import("@/modules/journal-types/titleGenerator");
+      const journalType = await getJournalTypeById(journalTypeId);
+      if (journalType) {
+        // Conversion du type JournalTypeWithPricing vers JournalType (compatible pour le générateur)
+        // Le générateur attend { name, frequency, titleTemplate } qui sont présents
+        // @ts-ignore
+        titre = generateEditionTitle(journalType, new Date(datePublication));
+      }
+    }
 
     if (!pdfFile || !(pdfFile instanceof File)) {
       return NextResponse.json({ error: "PDF requis" }, { status: 400 });
     }
+
 
     const pdfBuffer = Buffer.from(await pdfFile.arrayBuffer());
     const editionId = crypto.randomUUID();
@@ -55,8 +70,10 @@ export async function POST(req: NextRequest) {
       datePublication: new Date(datePublication),
       type,
       cheminInternePdf: pdfDestination,
-      nombrePages: null
+      nombrePages: null,
+      journalTypeId: journalTypeId || null
     });
+
 
     // Conversion PDF -> images (stub, à remplacer par implémentation réelle)
     const imagesDir = path.join("editions", edition.id, "images");
