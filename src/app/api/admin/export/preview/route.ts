@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
         source: true,
         user: { select: { email: true, nom: true } },
         enterpriseAccount: { select: { nom: true } },
-        journalType: { select: { name: true } },
+        plan: { select: { nom: true } },
         promoCodeId: true,
       }
     });
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       label: s.user?.email || s.enterpriseAccount?.nom || "N/A",
       subscriberType: s.enterpriseAccount ? "Entreprise" : "Individuel",
       enterprise: s.enterpriseAccount?.nom ?? null,
-      journal: s.journalType?.name ?? null,
+      plan: s.plan?.nom ?? null,
       type: s.type,
       status: s.statut,
       dateDebut: s.dateDebut ? s.dateDebut.toISOString().split("T")[0] : null,

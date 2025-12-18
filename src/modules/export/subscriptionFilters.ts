@@ -62,7 +62,14 @@ export function buildSubscriptionWhere(filters: SubscriptionFilterInput): Prisma
   }
 
   if (journalTypeId) {
-    where.journalTypeId = journalTypeId;
+    // Filter by plan that includes this journal type
+    where.plan = {
+      journalTypes: {
+        some: {
+          journalTypeId: journalTypeId
+        }
+      }
+    };
   }
 
   if (subscriptionType) {
