@@ -8,7 +8,12 @@ import { UserRole } from "@prisma/client";
 import { CreateUserButton } from "./CreateUserButton";
 import { EditUserModal } from "./EditUserModal";
 
-const staffRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION, UserRole.COMMERCIAL];
+const staffRoles: UserRole[] = [
+  UserRole.SUPER_ADMIN, 
+  UserRole.SUPPORT, 
+  UserRole.FACTURATION, 
+  UserRole.COMMERCIAL
+].filter(Boolean);
 type SearchParams = Record<string, string | string[] | undefined>;
 
 export default async function AdminUsersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -54,7 +59,14 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
     });
   } catch (error) {
     console.error("Error fetching users:", error);
-    return <div className="p-8 text-red-600">Erreur lors du chargement des utilisateurs.</div>;
+    return (
+      <div className="p-8 text-red-600">
+        <p className="font-bold">Erreur lors du chargement des utilisateurs.</p>
+        <pre className="mt-4 overflow-auto rounded bg-red-50 p-4 text-xs text-red-800">
+          {error instanceof Error ? error.message : String(error)}
+        </pre>
+      </div>
+    );
   }
 
   const allRoles = staffRoles;

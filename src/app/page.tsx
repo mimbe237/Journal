@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LatestEditionShowcase } from "@/components/LatestEditionShowcase";
 import { TestimonialsSection } from "@/components/TestimonialsSection";
+import { PricingSectionServer } from "@/components/subscriptions/PricingSectionServer";
 import { prisma } from "@/lib/config/prisma";
 
 // Fetch stats dynamically (cached for 1 hour)
@@ -13,7 +14,7 @@ async function getStats() {
   return [
     { label: "Éditions publiées", value: `${editionCount}+` },
     { label: "Lecteurs inscrits", value: `${userCount}+` },
-    { label: "Taux de rétention", value: "92%" }, // Hardcoded for now (complex metric)
+    { label: "Taux de rétention", value: "92%" },
     { label: "Disponibilité", value: "99.9%" }
   ];
 }
@@ -24,27 +25,11 @@ type Feature = {
   description: string;
 };
 
-type Plan = {
-  title: string;
-  price: string;
-  period: string;
-  features: string[];
-  highlight?: boolean;
-  badge?: string;
-};
-
-// const stats = [
-//   { label: "Éditions publiées", value: "250+" },
-//   { label: "Lecteurs actifs", value: "12 000" },
-//   { label: "Taux de rétention", value: "92%" },
-//   { label: "Disponibilité", value: "99.9%" }
-// ];
-
 const features: Feature[] = [
   {
     icon: "👁️",
     title: "Lecture fluide",
-    description: "Zoom, défilement doux, plein écran : le lecteur s’adapte à chaque device."
+    description: "Zoom, défilement doux, plein écran : le lecteur s'adapte à chaque device."
   },
   {
     icon: "🔒",
@@ -70,33 +55,6 @@ const features: Feature[] = [
     icon: "🎯",
     title: "UX claire",
     description: "Interface épurée, contrastes lisibles, feedbacks immédiats sur les actions."
-  }
-];
-
-const plans: Plan[] = [
-  {
-    title: "Mensuel",
-    price: "9,99€",
-    period: "/mois",
-    features: [
-      "Accès aux éditions du jour",
-      "Archives illimitées",
-      "Lecture multi-appareils",
-      "Support email"
-    ]
-  },
-  {
-    title: "Annuel",
-    price: "99€",
-    period: "/an",
-    features: [
-      "Tout le contenu mensuel",
-      "Support prioritaire",
-      "2 mois offerts",
-      "Accès anticipé aux nouvelles fonctionnalités"
-    ],
-    highlight: true,
-    badge: "Populaire"
   }
 ];
 
@@ -178,40 +136,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="bg-slate-900 py-20 text-white">
-        <div className="mx-auto max-w-6xl px-4 md:px-8">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-emerald-300">Abonnements</p>
-              <h2 className="text-3xl font-semibold md:text-4xl">Des plans simples et lisibles</h2>
-            </div>
-            <p className="max-w-xl text-slate-300">
-              Chaque plan inclut le lecteur sécurisé, les archives et l’expérience multi-appareils. Sans
-              coût caché.
-            </p>
-          </div>
-
-          <div className="mt-12 grid gap-6 md:grid-cols-2">
-            {plans.map((plan) => (
-              <PricingCard key={plan.title} {...plan} />
-            ))}
-          </div>
-
-          <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-800/70 p-8 text-center">
-            <h3 className="text-xl font-semibold text-white">Compte Entreprise</h3>
-            <p className="mt-3 text-slate-300">
-              Multi-utilisateurs, accès pour bibliothèques et institutions, support dédié et facturation
-              groupée.
-            </p>
-            <Link
-              href="/auth/register"
-              className="mt-6 inline-flex items-center justify-center rounded-lg bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
-            >
-              Discuter avec l’équipe
-            </Link>
-          </div>
-        </div>
-      </section>
+      {/* Pricing Section - Dynamic from database */}
+      <PricingSectionServer />
 
       <TestimonialsSection />
 
@@ -273,57 +199,6 @@ function FeatureCard({ icon, title, description }: Feature) {
       <div className="mb-4 text-3xl">{icon}</div>
       <h3 className="text-xl font-semibold text-slate-900">{title}</h3>
       <p className="mt-3 text-slate-600">{description}</p>
-    </div>
-  );
-}
-
-function PricingCard({ title, price, period, features, highlight, badge }: Plan) {
-  return (
-    <div
-      className={`relative rounded-2xl p-8 transition ${
-        highlight
-          ? "border-emerald-300 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-2xl shadow-emerald-900/30"
-          : "border border-slate-800 bg-slate-800/60 text-white"
-      }`}
-    >
-      {badge && (
-        <span className="absolute right-4 top-4 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
-          {badge}
-        </span>
-      )}
-
-      <h3 className="text-2xl font-semibold">{title}</h3>
-      <div className="mt-4 flex items-end gap-2">
-        <span className="text-5xl font-bold">{price}</span>
-        <span className={highlight ? "text-emerald-100" : "text-slate-300"}>{period}</span>
-      </div>
-
-      <ul className="mt-6 space-y-3">
-        {features.map((feature) => (
-          <li key={feature} className="flex items-start gap-2 text-sm">
-            <span className={highlight ? "text-emerald-100" : "text-emerald-300"}>✓</span>
-            <span className={highlight ? "text-emerald-50" : "text-slate-100"}>{feature}</span>
-          </li>
-        ))}
-      </ul>
-
-      <Link
-        href="/auth/register"
-        className={`mt-8 inline-flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold transition ${
-          highlight ? "bg-white text-emerald-700 hover:bg-emerald-50" : "bg-emerald-600 text-white hover:bg-emerald-700"
-        }`}
-      >
-        Choisir ce plan
-      </Link>
-    </div>
-  );
-}
-
-function BenefitRow({ title }: { title: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-      <span className="text-emerald-600">•</span>
-      <span>{title}</span>
     </div>
   );
 }

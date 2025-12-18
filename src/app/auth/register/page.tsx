@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ButtonPrimary } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -14,11 +14,35 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [registrationsEnabled, setRegistrationsEnabled] = useState<boolean | null>(null);
+  const [showDisabledModal, setShowDisabledModal] = useState(false);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await fetch("/api/public/settings");
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setRegistrationsEnabled(data.registrationEnabled !== false);
+      } catch {
+        // Fail-open pour ne pas bloquer si endpoint inaccessible
+        setRegistrationsEnabled(true);
+      }
+    };
+    loadSettings();
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (registrationsEnabled === false) {
+      setShowDisabledModal(true);
+      setError("Les inscriptions sont désactivées. Contactez un administrateur.");
+      return;
+    }
+
     setLoading(true);
     try {
       const role = accountType === "enterprise" ? "COMPTE_ENTREPRISE" : "ABONNE";
@@ -134,8 +158,12 @@ export default function RegisterPage() {
               {error && <p className="text-sm text-red-600">{error}</p>}
               {success && <p className="text-sm text-emerald-600">{success}</p>}
 
-              <ButtonPrimary type="submit" disabled={loading} className="w-full">
-                {loading ? "Création..." : "Créer le compte"}
+              <ButtonPrimary
+                type="submit"
+                disabled={loading || registrationsEnabled === false}
+                className="w-full"
+              >
+                {registrationsEnabled === false ? "Inscriptions désactivées" : loading ? "Création..." : "Créer le compte"}
               </ButtonPrimary>
             </form>
 
@@ -148,6 +176,32 @@ export default function RegisterPage() {
           </Card>
         </div>
       </div>
+
+      {showDisabledModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="max-w-md w-full rounded-2xl bg-white shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-700">
+                !
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Inscriptions désactivées</h3>
+                <p className="text-sm text-slate-600">
+                  Les nouvelles inscriptions sont temporairement fermées. Contactez un administrateur pour obtenir un accès.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowDisabledModal(false)}
+                className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

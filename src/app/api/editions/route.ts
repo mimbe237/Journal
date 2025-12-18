@@ -5,8 +5,10 @@ import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 import { listEditions } from "@/modules/editions/editionService";
 import { getEditionAccessForUser } from "@/modules/editions/editionAccessService";
 
-// Cache les résultats pendant 60 secondes (éditions changent rarement)
-export const revalidate = 60;
+// Forcer la route en mode dynamique pour autoriser l'usage des cookies (auth).
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 // Liste des éditions pour le kiosque.
 // TODO: décider si l'accès nécessite un abonnement actif ou seulement une connexion.
@@ -28,7 +30,8 @@ export async function GET(req: NextRequest) {
       result.data.map(async (edition) => {
         const access = await getEditionAccessForUser({
           userId: user.id,
-          editionDate: edition.datePublication
+          editionDate: edition.datePublication,
+          journalTypeId: edition.journalTypeId
         });
         return {
           id: edition.id,
@@ -39,6 +42,7 @@ export async function GET(req: NextRequest) {
           cheminImageUne: edition.cheminImageUne,
           prix: edition.prix,
           devise: edition.devise,
+          journalTypeId: edition.journalTypeId,
           access: {
             status: access.status,
             detail: access.detail,

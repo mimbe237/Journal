@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/config/prisma";
 import { UserRole } from "@prisma/client";
 import { requireUserWithRoles } from "@/lib/auth/authorization";
+import { buildSubscriptionWhere } from "@/modules/export/subscriptionFilters";
 
 export const runtime = "nodejs";
 
@@ -10,30 +11,12 @@ export async function POST(req: NextRequest) {
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.FACTURATION, UserRole.SUPPORT]);
     const body = await req.json();
     const {
-      status = "all",
-      startDate,
-      endDate,
-      subscriberType = "all",
       page = 1,
-      pageSize = 50
+      pageSize = 50,
+      ...filters
     } = body || {};
 
-    // Build where clause
-    const where: any = {};
-    if (status !== "all") {
-      where.statut = status;
-    }
-    if (startDate) {
-      where.dateDebut = { ...(where.dateDebut || {}), gte: new Date(startDate) };
-    }
-    if (endDate) {
-      where.dateFin = { ...(where.dateFin || {}), lte: new Date(endDate) };
-    }
-    if (subscriberType === "individual") {
-      where.userId = { not: null };
-    } else if (subscriberType === "enterprise") {
-      where.enterpriseAccountId = { not: null };
-    }
+    const where = buildSubscriptionWhere(filters);
 
     const total = await prisma.subscription.count({ where });
     const subs = await prisma.subscription.findMany({
@@ -52,13 +35,17 @@ export async function POST(req: NextRequest) {
         source: true,
         user: { select: { email: true, nom: true } },
         enterpriseAccount: { select: { nom: true } },
+        journalType: { select: { name: true } },
+        promoCodeId: true,
       }
     });
 
     const rows = subs.map((s) => ({
       id: s.id,
       label: s.user?.email || s.enterpriseAccount?.nom || "N/A",
-      subscriberType: s.user ? "Individuel" : "Entreprise",
+      subscriberType: s.enterpriseAccount ? "Entreprise" : "Individuel",
+      enterprise: s.enterpriseAccount?.nom ?? null,
+      journal: s.journalType?.name ?? null,
       type: s.type,
       status: s.statut,
       dateDebut: s.dateDebut ? s.dateDebut.toISOString().split("T")[0] : null,
@@ -66,6 +53,7 @@ export async function POST(req: NextRequest) {
       montant: s.montant ? Number(s.montant) : null,
       devise: s.devise || null,
       source: s.source || null,
+      hasPromo: Boolean(s.promoCodeId),
     }));
 
     return NextResponse.json({ rows, total });

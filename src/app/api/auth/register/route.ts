@@ -3,12 +3,21 @@ import { UserRole } from "@prisma/client";
 
 import { registerUser, authenticateUser, generateJwtForUser } from "@/modules/auth/authService";
 import { setAuthCookie } from "@/lib/auth/authCookies";
+import { getRegistrationEnabled } from "@/modules/settings/appSettingsService";
 
 // Inscription utilisateur et connexion directe (set du cookie JWT).
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { nom, email, motDePasse, role } = body ?? {};
+
+    const registrationsOpen = await getRegistrationEnabled();
+    if (!registrationsOpen) {
+      return NextResponse.json(
+        { error: "Les inscriptions sont désactivées. Contactez un administrateur." },
+        { status: 403 }
+      );
+    }
 
     const user = await registerUser({
       nom,

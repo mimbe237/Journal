@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useCallback } from 'react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
@@ -13,6 +13,7 @@ interface EnterpriseAccount {
   contactEmail: string;
   contactTelephone?: string;
   nombreUtilisateursInclus: number;
+  licencesAchetees?: number;
   dateCreation: string;
   actif: boolean;
   niveauSla?: string;
@@ -56,10 +57,11 @@ export default function EnterpriseDetailPage({ params }: { params: Promise<{ id:
   const [enterprise, setEnterprise] = useState<EnterpriseAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'users' | 'subscriptions' | 'settings' | 'security'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'licenses' | 'subscriptions' | 'settings' | 'security'>('users');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddSubscriptionModal, setShowAddSubscriptionModal] = useState(false);
+  const [showPurchaseLicensesModal, setShowPurchaseLicensesModal] = useState(false);
 
   useEffect(() => {
     fetchEnterprise();
@@ -207,6 +209,7 @@ export default function EnterpriseDetailPage({ params }: { params: Promise<{ id:
         <nav className="flex gap-6">
           {[
             { key: 'users', label: 'Utilisateurs' },
+            { key: 'licenses', label: 'Licences' },
             { key: 'subscriptions', label: 'Abonnements' },
             { key: 'security', label: 'Sécurité' },
             { key: 'settings', label: 'Paramètres' },
@@ -240,6 +243,14 @@ export default function EnterpriseDetailPage({ params }: { params: Promise<{ id:
         <SubscriptionsTab 
           enterprise={enterprise} 
           onAdd={() => setShowAddSubscriptionModal(true)} 
+        />
+      )}
+
+      {activeTab === 'licenses' && (
+        <LicensesTab 
+          enterprise={enterprise}
+          onPurchase={() => setShowPurchaseLicensesModal(true)}
+          onUpdate={fetchEnterprise}
         />
       )}
 
@@ -285,6 +296,18 @@ export default function EnterpriseDetailPage({ params }: { params: Promise<{ id:
           }}
         />
       )}
+
+      {/* Purchase Licenses Modal */}
+      {showPurchaseLicensesModal && (
+        <PurchaseLicensesModal
+          enterpriseId={enterprise.id}
+          onClose={() => setShowPurchaseLicensesModal(false)}
+          onPurchased={() => {
+            setShowPurchaseLicensesModal(false);
+            fetchEnterprise();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -307,14 +330,27 @@ function UsersTab({
 }) {
   const pendingInvitations = enterprise.invitations.filter(i => !i.acceptedAt);
   const activeSubscription = enterprise.subscriptions.find(s => s.statut === 'ACTIF') || enterprise.subscriptions[0];
+  
+  // Calcul du quota: utilisateurs + invitations en attente vs licences achetées
+  const licencesAchetees = enterprise.licencesAchetees ?? enterprise.nombreUtilisateursInclus;
+  const utilisees = enterprise.users.length + pendingInvitations.length;
+  const quotaAtteint = utilisees >= licencesAchetees;
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Utilisateurs ({enterprise.users.length})</h3>
-        <Button onClick={onInvite} disabled={enterprise.users.length >= enterprise.nombreUtilisateursInclus}>
-          + Inviter un utilisateur
-        </Button>
+        <div className="relative group">
+          <Button onClick={onInvite} disabled={quotaAtteint}>
+            + Inviter un utilisateur
+          </Button>
+          {quotaAtteint && (
+            <div className="absolute right-0 mt-2 w-64 bg-gray-900 text-white text-xs rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              Quota de licences atteint ({utilisees}/{licencesAchetees}). 
+              Achetez des licences supplémentaires dans l'onglet "Licences".
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Users List */}
@@ -1106,7 +1142,6 @@ function EditEnterpriseModal({
     nom: enterprise.nom,
     contactEmail: enterprise.contactEmail,
     contactTelephone: enterprise.contactTelephone || '',
-    nombreUtilisateursInclus: enterprise.nombreUtilisateursInclus,
     niveauSla: enterprise.niveauSla || 'standard',
     adresseFacturation: enterprise.adresseFacturation || '',
     numeroSiret: enterprise.numeroSiret || '',
@@ -1198,18 +1233,16 @@ function EditEnterpriseModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nombre de licences *
+                Nombre de licences
               </label>
               <input
                 type="number"
-                required
-                min={enterprise.users.length}
-                value={formData.nombreUtilisateursInclus}
-                onChange={(e) => setFormData({ ...formData, nombreUtilisateursInclus: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border rounded-lg"
+                readOnly
+                value={enterprise.licencesAchetees ?? enterprise.nombreUtilisateursInclus}
+                className="w-full px-3 py-2 border rounded-lg bg-gray-100 cursor-not-allowed"
               />
-              <p className="text-sm text-gray-500 mt-1">
-                Minimum : {enterprise.users.length} (utilisateurs actuels)
+              <p className="text-sm text-blue-600 mt-1">
+                ℹ️ Gérez les licences dans l'onglet "Licences"
               </p>
             </div>
             <div>
@@ -1296,6 +1329,430 @@ function EditEnterpriseModal({
             </Button>
             <Button type="submit" disabled={loading}>
               {loading ? 'Sauvegarde...' : 'Sauvegarder'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// LICENSES TAB
+// ============================================
+interface LicenseSummary {
+  achetees: number;
+  utilisees: number;
+  disponibles: number;
+  invitationsPending: number;
+}
+
+interface LicenseTransaction {
+  id: string;
+  type: 'ACHAT' | 'AJUSTEMENT_ADMIN' | 'REMBOURSEMENT' | 'MIGRATION_INITIALE';
+  delta: number;
+  reason?: string;
+  paymentRef?: string;
+  prixUnitaire?: number;
+  montantTotal?: number;
+  createdAt: string;
+  createdBy?: {
+    nom: string;
+    email: string;
+  };
+}
+
+function LicensesTab({ 
+  enterprise,
+  onPurchase,
+  onUpdate
+}: { 
+  enterprise: EnterpriseAccount;
+  onPurchase: () => void;
+  onUpdate: () => void;
+}) {
+  const [summary, setSummary] = useState<LicenseSummary | null>(null);
+  const [transactions, setTransactions] = useState<LicenseTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adjustDelta, setAdjustDelta] = useState<number>(0);
+  const [adjustReason, setAdjustReason] = useState('');
+  const [showAdjustForm, setShowAdjustForm] = useState(false);
+  const [adjusting, setAdjusting] = useState(false);
+
+  const fetchLicenseData = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/admin/enterprises/${enterprise.id}/licenses`);
+      if (!res.ok) throw new Error('Failed to fetch licenses');
+      const data = await res.json();
+      setSummary(data.summary);
+      setTransactions(data.transactions || []);
+    } catch (error) {
+      console.error('Error fetching license data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [enterprise.id]);
+
+  useEffect(() => {
+    fetchLicenseData();
+  }, [fetchLicenseData]);
+
+  const handleAdjust = async () => {
+    if (adjustDelta === 0 || !adjustReason.trim()) return;
+    
+    setAdjusting(true);
+    try {
+      const res = await fetch(`/api/admin/enterprises/${enterprise.id}/licenses/adjust`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delta: adjustDelta, reason: adjustReason })
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to adjust licenses');
+      }
+      
+      setShowAdjustForm(false);
+      setAdjustDelta(0);
+      setAdjustReason('');
+      fetchLicenseData();
+      onUpdate();
+    } catch (error) {
+      console.error('Error adjusting licenses:', error);
+      alert(error instanceof Error ? error.message : 'Erreur lors de l\'ajustement');
+    } finally {
+      setAdjusting(false);
+    }
+  };
+
+  const getTransactionTypeLabel = (type: string) => {
+    switch (type) {
+      case 'ACHAT': return 'Achat';
+      case 'AJUSTEMENT_ADMIN': return 'Ajustement';
+      case 'REMBOURSEMENT': return 'Remboursement';
+      case 'MIGRATION_INITIALE': return 'Migration';
+      default: return type;
+    }
+  };
+
+  const getTransactionTypeBadgeClass = (type: string) => {
+    switch (type) {
+      case 'ACHAT': return 'bg-green-100 text-green-800';
+      case 'AJUSTEMENT_ADMIN': return 'bg-blue-100 text-blue-800';
+      case 'REMBOURSEMENT': return 'bg-red-100 text-red-800';
+      case 'MIGRATION_INITIALE': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8 text-gray-500">Chargement...</div>;
+  }
+
+  const usagePercentage = summary ? Math.round((summary.utilisees / Math.max(summary.achetees, 1)) * 100) : 0;
+  const effectiveDisponibles = summary ? summary.disponibles - summary.invitationsPending : 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card className="p-4">
+          <p className="text-sm text-gray-500">Licences achetées</p>
+          <p className="text-2xl font-bold text-gray-900">{summary?.achetees || 0}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-gray-500">Utilisées</p>
+          <p className="text-2xl font-bold text-blue-600">{summary?.utilisees || 0}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-gray-500">Disponibles</p>
+          <p className="text-2xl font-bold text-green-600">{summary?.disponibles || 0}</p>
+          {(summary?.invitationsPending || 0) > 0 && (
+            <p className="text-xs text-orange-500 mt-1">
+              dont {summary?.invitationsPending} réservées (invitations)
+            </p>
+          )}
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-gray-500">Taux d'utilisation</p>
+          <p className="text-2xl font-bold text-gray-900">{usagePercentage}%</p>
+        </Card>
+      </div>
+
+      {/* Progress Bar */}
+      <Card className="p-4">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm font-medium text-gray-700">Utilisation des licences</span>
+          <span className="text-sm text-gray-500">
+            {summary?.utilisees || 0} / {summary?.achetees || 0}
+          </span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-3">
+          <div 
+            className={`h-3 rounded-full transition-all ${
+              usagePercentage >= 90 ? 'bg-red-500' : 
+              usagePercentage >= 70 ? 'bg-orange-500' : 'bg-green-500'
+            }`}
+            style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+          />
+        </div>
+        {effectiveDisponibles <= 0 && (
+          <p className="text-sm text-red-600 mt-2">
+            ⚠️ Quota atteint - Impossible d'inviter de nouveaux utilisateurs
+          </p>
+        )}
+      </Card>
+
+      {/* Actions */}
+      <div className="flex gap-4">
+        <Button onClick={onPurchase}>
+          + Acheter des licences
+        </Button>
+        <Button variant="secondary" onClick={() => setShowAdjustForm(!showAdjustForm)}>
+          Ajustement manuel
+        </Button>
+      </div>
+
+      {/* Adjust Form */}
+      {showAdjustForm && (
+        <Card className="p-4 border-l-4 border-blue-500">
+          <h4 className="font-medium mb-3">Ajustement manuel des licences</h4>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Delta (+ ou -)
+              </label>
+              <input
+                type="number"
+                value={adjustDelta}
+                onChange={(e) => setAdjustDelta(parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 border rounded-lg"
+                placeholder="+5 ou -2"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Raison *
+              </label>
+              <input
+                type="text"
+                value={adjustReason}
+                onChange={(e) => setAdjustReason(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg"
+                placeholder="Ex: Correction suite erreur de saisie"
+                required
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <Button 
+              onClick={handleAdjust} 
+              disabled={adjustDelta === 0 || !adjustReason.trim() || adjusting}
+            >
+              {adjusting ? 'Ajustement...' : 'Appliquer'}
+            </Button>
+            <Button variant="secondary" onClick={() => setShowAdjustForm(false)}>
+              Annuler
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Transaction History */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Historique des transactions</h3>
+        <Card className="overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left p-4 font-medium text-gray-700">Date</th>
+                <th className="text-left p-4 font-medium text-gray-700">Type</th>
+                <th className="text-left p-4 font-medium text-gray-700">Quantité</th>
+                <th className="text-left p-4 font-medium text-gray-700">Raison</th>
+                <th className="text-left p-4 font-medium text-gray-700">Référence</th>
+                <th className="text-left p-4 font-medium text-gray-700">Montant</th>
+                <th className="text-left p-4 font-medium text-gray-700">Par</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {transactions.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-gray-500">
+                    Aucune transaction de licence enregistrée
+                  </td>
+                </tr>
+              ) : (
+                transactions.map((tx) => (
+                  <tr key={tx.id} className="hover:bg-gray-50">
+                    <td className="p-4 text-gray-500 text-sm">
+                      {new Date(tx.createdAt).toLocaleString('fr-FR')}
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTransactionTypeBadgeClass(tx.type)}`}>
+                        {getTransactionTypeLabel(tx.type)}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className={tx.delta >= 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                        {tx.delta >= 0 ? '+' : ''}{tx.delta}
+                      </span>
+                    </td>
+                    <td className="p-4 text-gray-600 text-sm max-w-xs truncate">
+                      {tx.reason || '-'}
+                    </td>
+                    <td className="p-4 text-gray-500 text-sm">
+                      {tx.paymentRef || '-'}
+                    </td>
+                    <td className="p-4 text-gray-600 text-sm">
+                      {tx.montantTotal ? `${tx.montantTotal.toLocaleString()} FCFA` : '-'}
+                    </td>
+                    <td className="p-4 text-gray-500 text-sm">
+                      {tx.createdBy?.nom || 'Système'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// PURCHASE LICENSES MODAL
+// ============================================
+function PurchaseLicensesModal({
+  enterpriseId,
+  onClose,
+  onPurchased
+}: {
+  enterpriseId: string;
+  onClose: () => void;
+  onPurchased: () => void;
+}) {
+  const [quantity, setQuantity] = useState(1);
+  const [prixUnitaire, setPrixUnitaire] = useState(5000);
+  const [paymentRef, setPaymentRef] = useState('');
+  const [reason, setReason] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const montantTotal = quantity * prixUnitaire;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (quantity <= 0) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/enterprises/${enterpriseId}/licenses/purchase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quantity,
+          prixUnitaire,
+          paymentRef: paymentRef || undefined,
+          reason: reason || undefined
+        })
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to purchase licenses');
+      }
+
+      onPurchased();
+    } catch (error) {
+      console.error('Error purchasing licenses:', error);
+      alert(error instanceof Error ? error.message : 'Erreur lors de l\'achat');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-lg w-full p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold">Acheter des licences</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre de licences *
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Prix unitaire (FCFA) *
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={prixUnitaire}
+                onChange={(e) => setPrixUnitaire(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="flex justify-between items-center">
+              <span className="font-medium text-gray-700">Montant total</span>
+              <span className="text-xl font-bold text-blue-600">
+                {montantTotal.toLocaleString()} FCFA
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Référence de paiement
+            </label>
+            <input
+              type="text"
+              value={paymentRef}
+              onChange={(e) => setPaymentRef(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg"
+              placeholder="Ex: VIR-2024-001, FACT-123"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Commentaire / Raison
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg"
+              rows={2}
+              placeholder="Ex: Achat annuel, Extension suite demande client..."
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Annuler
+            </Button>
+            <Button type="submit" disabled={loading || quantity <= 0}>
+              {loading ? 'Enregistrement...' : `Acheter ${quantity} licence${quantity > 1 ? 's' : ''}`}
             </Button>
           </div>
         </form>

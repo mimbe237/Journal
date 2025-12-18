@@ -1,113 +1,97 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ButtonPrimary } from "@/components/ui/Button";
+import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Card } from "@/components/ui/Card";
-import { SubscriptionType } from "@prisma/client";
+import { ButtonPrimary } from "@/components/ui/Button";
 
-type PlanOption = {
-  type: SubscriptionType;
-  label: string;
-  description: string;
-  price: number;
-  durationDays: number;
-  features: string[];
-  badge?: string;
-};
+interface PublicPlan {
+  id: string;
+  nom: string;
+  slug: string;
+  description: string | null;
+  targetAudience: "INDIVIDUAL" | "ENTERPRISE";
+  durationMonths: number;
+  basePrice: number;
+  pricePerUser: number | null;
+  calculatedPrice: number;
+  minUsers: number | null;
+  maxUsers: number | null;
+  currency: string;
+  advantages: string[];
+  highlight: boolean;
+  badge: string | null;
+  journalTypes: { id: string; name: string }[];
+}
 
-const INDIVIDUAL_PLANS: PlanOption[] = [
-  {
-    type: SubscriptionType.MENSUEL,
-    label: "Mensuel",
-    description: "Accès complet pendant 1 mois",
-    price: 2500,
-    durationDays: 30,
-    features: ["Toutes les éditions", "Lecture illimitée", "Annulation possible"]
-  },
-  {
-    type: SubscriptionType.ANNUEL,
-    label: "Annuel",
-    description: "Accès complet pendant 1 an (meilleur prix)",
-    price: 25000,
-    durationDays: 365,
-    features: ["Toutes les éditions", "Lecture illimitée", "Support prioritaire", "Économies de 17%"],
-    badge: "Meilleur prix"
-  },
-  {
-    type: SubscriptionType.TEST,
-    label: "Essai gratuit",
-    description: "7 jours d'accès complet",
-    price: 0,
-    durationDays: 7,
-    features: ["Accès complet 7 jours", "Sans engagement"]
-  }
-];
-
-const ENTERPRISE_PLANS: PlanOption[] = [
-  {
-    type: SubscriptionType.MENSUEL,
-    label: "Entreprise mensuel",
-    description: "Accès complet pour l'équipe pendant 1 mois",
-    price: 8500,
-    durationDays: 30,
-    features: ["Multi-utilisateurs (jusqu'à 5)", "Lecture illimitée", "Support prioritaire"]
-  },
-  {
-    type: SubscriptionType.ANNUEL,
-    label: "Entreprise annuel",
-    description: "Tarif préférentiel annuel",
-    price: 85000,
-    durationDays: 365,
-    features: ["Multi-utilisateurs (jusqu'à 10)", "Support dédié", "Économies de 15%"],
-    badge: "Populaire"
-  }
-];
+interface ActiveSubscription {
+  id: string;
+  type: string;
+  planId?: string;
+}
 
 export default function SubscriptionsPage() {
-  const [segment, setSegment] = useState<"individual" | "enterprise">("individual");
-  const [currentPlanType, setCurrentPlanType] = useState<SubscriptionType | null>(null);
-  const [loading, setLoading] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const [segment, setSegment] = useState<"INDIVIDUAL" | "ENTERPRISE">("INDIVIDUAL");
+  const [plans, setPlans] = useState<PublicPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentSubscription, setCurrentSubscription] = useState<ActiveSubscription | null>(null);
 
+  // Fetch current subscription
   useEffect(() => {
-    let cancelled = false;
     async function loadCurrent() {
       try {
         const res = await fetch("/api/subscriptions/active", { credentials: "include", cache: "no-store" });
         if (!res.ok) return;
         const json = await res.json();
-        if (cancelled) return;
-        if (json?.subscription?.type) {
-          setCurrentPlanType(json.subscription.type as SubscriptionType);
+        if (json?.subscription) {
+          setCurrentSubscription(json.subscription);
         }
       } catch {
-        // silencieux si non connecté
+        // Silent if not logged in
       }
     }
     loadCurrent();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
-  const plans = useMemo(() => (segment === "enterprise" ? ENTERPRISE_PLANS : INDIVIDUAL_PLANS), [segment]);
-  const currentPrice = useMemo(() => {
-    const plan = plans.find((p) => p.type === currentPlanType);
-    return plan?.price ?? null;
-  }, [plans, currentPlanType]);
+  // Fetch plans based on segment
+  const fetchPlans = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/subscription-plans?audience=${segment}`);
+      if (!res.ok) throw new Error("Erreur lors du chargement des plans");
+      const data = await res.json();
+      setPlans(data);
+    } catch (err: any) {
+      setError(err.message);
+      setPlans([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [segment]);
 
-  async function handleChoosePlan(plan: PlanOption) {
-    setLoading(plan.type);
+  useEffect(() => {
+    fetchPlans();
+  }, [fetchPlans]);
+
+  // Handle plan selection
+  async function handleChoosePlan(plan: PublicPlan) {
+    setCheckoutLoading(plan.id);
     setError(null);
     try {
       const res = await fetch("/api/payments/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subscriptionType: plan.type,
-          amount: plan.price,
-          currency: "XAF",
-          durationDays: plan.durationDays
+          planId: plan.id,
+          subscriptionType: plan.durationMonths === 1 ? "MENSUEL" : plan.durationMonths === 12 ? "ANNUEL" : "AUTRE",
+          amount: plan.calculatedPrice,
+          currency: plan.currency,
+          durationDays: plan.durationMonths * 30
         })
       });
 
@@ -124,16 +108,22 @@ export default function SubscriptionsPage() {
         return;
       }
 
-      // Abonnement gratuit : on rafraîchit l'état local
-      setLoading(null);
-      setCurrentPlanType(plan.type);
+      // Free subscription: refresh state
+      setCheckoutLoading(null);
+      setCurrentSubscription({ id: json.subscriptionId, type: "ACTIVE", planId: plan.id });
       setError(null);
-      return;
     } catch (err: any) {
       setError(err?.message ?? "Erreur checkout");
-      setLoading(null);
+      setCheckoutLoading(null);
     }
   }
+
+  // Get duration label
+  const getDurationLabel = (months: number) => {
+    if (months === 1) return "30 jours d'accès";
+    if (months === 12) return "365 jours d'accès";
+    return `${months * 30} jours d'accès`;
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4">
@@ -144,14 +134,16 @@ export default function SubscriptionsPage() {
           <p className="mt-3 text-base text-slate-600">
             Accédez à toutes les éditions du journal avec l'abonnement qui vous convient.
           </p>
+
+          {/* Toggle Individuel/Entreprise */}
           <div className="mt-4 inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
             {[
-              { key: "individual", label: "Individuel" },
-              { key: "enterprise", label: "Entreprise" }
+              { key: "INDIVIDUAL", label: "Individuel" },
+              { key: "ENTERPRISE", label: "Entreprise" }
             ].map((opt) => (
               <button
                 key={opt.key}
-                onClick={() => setSegment(opt.key as "individual" | "enterprise")}
+                onClick={() => setSegment(opt.key as "INDIVIDUAL" | "ENTERPRISE")}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                   segment === opt.key
                     ? "bg-emerald-600 text-white shadow"
@@ -162,90 +154,136 @@ export default function SubscriptionsPage() {
               </button>
             ))}
           </div>
-          {currentPlanType && (
+
+          {currentSubscription && (
             <p className="mt-3 text-sm text-emerald-700">
-              Plan actuel : <span className="font-semibold">{currentPlanType}</span>
+              Vous avez un abonnement actif
             </p>
           )}
         </div>
 
+        {/* Error */}
         {error && (
           <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
           </div>
         )}
 
-        <div className="grid gap-6 md:grid-cols-3">
-          {plans.map((plan) => {
-            const isCurrent = plan.type === currentPlanType;
-            const isUpgrade = currentPrice !== null && plan.price > currentPrice && !isCurrent;
-            return (
-            <Card
-              key={plan.type}
-              className={`flex flex-col gap-4 border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md ${
-                isCurrent ? "ring-2 ring-emerald-400" : ""
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-900">{plan.label}</h2>
-                  <p className="text-sm text-slate-500">{plan.description}</p>
-                </div>
-                {(isCurrent || plan.badge) && (
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      isCurrent
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-emerald-600/10 text-emerald-700"
-                    }`}
-                  >
-                    {isCurrent ? "Plan actuel" : plan.badge}
-                  </span>
-                )}
-              </div>
+        {/* Loading */}
+        {loading && (
+          <div className="flex justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+          </div>
+        )}
 
-              <div className="space-y-1">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-slate-900">{plan.price.toLocaleString()}</span>
-                  <span className="text-slate-500">FCFA</span>
-                </div>
-                <p className="text-xs text-slate-500">{plan.durationDays} jours d'accès</p>
-              </div>
+        {/* No plans */}
+        {!loading && plans.length === 0 && !error && (
+          <div className="py-12 text-center text-slate-500">
+            Aucun plan disponible pour le moment.
+          </div>
+        )}
 
-              <div className="space-y-2">
-                {plan.features.map((feature) => (
-                  <div key={feature} className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    <span className="text-sm text-slate-700">{feature}</span>
-                  </div>
-                ))}
-              </div>
+        {/* Plans Grid */}
+        {!loading && plans.length > 0 && (
+          <div className={`grid gap-6 ${plans.length === 1 ? "md:grid-cols-1 max-w-md mx-auto" : plans.length === 2 ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
+            {plans.map((plan) => {
+              const isCurrent = currentSubscription?.planId === plan.id;
+              const isFreeTrial = plan.calculatedPrice === 0;
 
-              <div className="mt-auto pt-4">
-                <ButtonPrimary
-                  onClick={() => handleChoosePlan(plan)}
-                  disabled={loading === plan.type || isCurrent}
-                  className={`w-full justify-center ${isCurrent ? "bg-slate-300 text-slate-600 hover:bg-slate-300" : ""}`}
+              return (
+                <Card
+                  key={plan.id}
+                  className={`flex flex-col gap-4 border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md ${
+                    plan.highlight
+                      ? "border-emerald-500 ring-2 ring-emerald-100"
+                      : isCurrent
+                        ? "border-emerald-400 ring-2 ring-emerald-100"
+                        : "border-slate-200"
+                  }`}
                 >
-                  {isCurrent
-                    ? "Plan actuel"
-                    : loading === plan.type
-                    ? "Redirection..."
-                    : isUpgrade
-                    ? "Passer à cette offre"
-                    : plan.price === 0
-                    ? "Commencer l'essai"
-                    : "Choisir ce plan"}
-                </ButtonPrimary>
-              </div>
-            </Card>
-          )})}
-        </div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h2 className="text-xl font-semibold text-slate-900">{plan.nom}</h2>
+                      {plan.description && (
+                        <p className="text-sm text-slate-500">{plan.description}</p>
+                      )}
+                    </div>
+                    {(isCurrent || plan.badge) && (
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          isCurrent
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-emerald-600/10 text-emerald-700"
+                        }`}
+                      >
+                        {isCurrent ? "Plan actuel" : plan.badge}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-bold text-slate-900">
+                        {plan.calculatedPrice.toLocaleString("fr-FR")}
+                      </span>
+                      <span className="text-slate-500">{plan.currency}</span>
+                    </div>
+                    <p className="text-xs text-slate-500">{getDurationLabel(plan.durationMonths)}</p>
+                  </div>
+
+                  {/* Advantages */}
+                  {Array.isArray(plan.advantages) && plan.advantages.length > 0 && (
+                    <div className="space-y-2">
+                      {plan.advantages.map((advantage, idx) => (
+                        <div key={idx} className="flex items-start gap-2">
+                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          <span className="text-sm text-slate-700">{advantage}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-auto pt-4">
+                    <ButtonPrimary
+                      onClick={() => handleChoosePlan(plan)}
+                      disabled={checkoutLoading === plan.id || isCurrent}
+                      className={`w-full justify-center ${isCurrent ? "bg-slate-300 text-slate-600 hover:bg-slate-300" : ""}`}
+                    >
+                      {isCurrent
+                        ? "Plan actuel"
+                        : checkoutLoading === plan.id
+                          ? "Redirection..."
+                          : isFreeTrial
+                            ? "Commencer l'essai"
+                            : "Choisir ce plan"}
+                    </ButtonPrimary>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Enterprise CTA */}
+        {segment === "INDIVIDUAL" && !loading && (
+          <div className="mt-10 rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
+            <h3 className="text-xl font-semibold text-slate-900">Compte Entreprise</h3>
+            <p className="mt-3 text-slate-600">
+              Multi-utilisateurs, accès pour équipes et institutions, support dédié et facturation groupée.
+            </p>
+            <button
+              onClick={() => setSegment("ENTERPRISE")}
+              className="mt-6 inline-flex items-center justify-center rounded-lg bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+            >
+              Voir les offres Entreprise
+            </button>
+          </div>
+        )}
 
         <div className="mt-12 text-center">
           <p className="text-slate-400">
             Besoin d'aide ?{" "}
-            <a href="mailto:support@journal.com" className="text-emerald-400 underline hover:text-emerald-300">
+            <a href="mailto:support@journal.com" className="text-emerald-500 underline hover:text-emerald-400">
               Contactez-nous
             </a>
           </p>

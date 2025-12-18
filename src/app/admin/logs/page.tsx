@@ -76,6 +76,79 @@ export default async function LogsPage() {
     }
   };
 
+  const formatType = (type?: string) => {
+    switch (type) {
+      case "MENSUEL": return "Mensuel";
+      case "TRIMESTRIEL": return "Trimestriel";
+      case "SEMESTRIEL": return "Semestriel";
+      case "ANNUEL": return "Annuel";
+      default: return type || "";
+    }
+  };
+
+  const shorten = (id?: string, size = 10) => {
+    if (!id) return "";
+    if (id.length <= size) return id;
+    const head = id.slice(0, Math.floor(size / 2));
+    const tail = id.slice(-Math.floor(size / 2));
+    return `${head}…${tail}`;
+  };
+
+  const buildDetail = (log: LogWithUser) => {
+    const meta = (log.meta || {}) as Record<string, any>;
+    const chips: { label: string; value?: string | number | boolean }[] = [];
+    const addChip = (label: string, value?: any) => {
+      if (value === undefined || value === null || value === "") return;
+      chips.push({ label, value });
+    };
+
+    let title = "";
+    let subtitle = "";
+
+    if (log.typeEvenement === "CREATION_ABONNEMENT") {
+      title = meta.free ? "Création d'un abonnement gratuit" : "Création d'un abonnement";
+      if (meta.type) title += ` ${formatType(meta.type)}`;
+      if (meta.targetUserId) subtitle = `Compte ${shorten(meta.targetUserId)}`;
+      addChip("Statut", meta.statut);
+      addChip("Source", meta.source);
+      addChip("Type", formatType(meta.type));
+      addChip("Promo", meta.promoCodeId);
+      addChip("Gratuit", meta.free ? "Oui" : undefined);
+    } else if (log.typeEvenement === "MODIFICATION_ABONNEMENT") {
+      title = "Mise à jour abonnement";
+      if (meta.changes?.from && meta.changes?.to) {
+        const { from, to } = meta.changes;
+        if (from.statut && to.statut && from.statut !== to.statut) {
+          subtitle = `Statut ${from.statut} → ${to.statut}`;
+        } else if (from.type && to.type && from.type !== to.type) {
+          subtitle = `Type ${formatType(from.type)} → ${formatType(to.type)}`;
+        }
+      }
+      addChip("Abonnement", shorten(meta.subscriptionId));
+      addChip("Compte", shorten(meta.targetUserId));
+    } else if (log.typeEvenement === "SUPPRESSION_ABONNEMENT") {
+      title = "Abonnement mis à la corbeille";
+      subtitle = meta.trashedUntil ? `Restauration possible jusqu'au ${format(new Date(meta.trashedUntil), "dd MMM yyyy", { locale: fr })}` : "";
+      addChip("Abonnement", shorten(meta.subscriptionId));
+      addChip("Compte", shorten(meta.targetUserId));
+    } else if (log.typeEvenement === "SUPPRESSION_DEFINITIVE_ABONNEMENT") {
+      title = "Abonnement supprimé définitivement";
+      addChip("Abonnement", shorten(meta.subscriptionId));
+      addChip("Compte", shorten(meta.targetUserId));
+    } else if (log.typeEvenement === "RESTAURATION_ABONNEMENT") {
+      title = "Abonnement restauré";
+      addChip("Abonnement", shorten(meta.subscriptionId));
+      addChip("Compte", shorten(meta.targetUserId));
+    } else {
+      title = meta.appEventType || "Détail indisponible";
+    }
+
+    // Fallback si rien n'est ressorti
+    if (!title && meta.appEventType) title = meta.appEventType;
+
+    return { title, subtitle, chips, raw: meta };
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <PageHeader 
@@ -114,8 +187,33 @@ export default async function LogsPage() {
                       {getActionLabel(log.typeEvenement)}
                     </span>
                   </td>
-                  <td className="px-6 py-3 text-slate-500 max-w-md truncate">
-                    {JSON.stringify(log.meta)}
+                  <td className="px-6 py-3 text-slate-700 max-w-md">
+                    {(() => {
+                      const detail = buildDetail(log);
+                      return (
+                        <div className="space-y-1">
+                          <div className="font-semibold text-slate-900">{detail.title || "Détail indisponible"}</div>
+                          {detail.subtitle ? (
+                            <div className="text-xs text-slate-500">{detail.subtitle}</div>
+                          ) : null}
+                          {detail.chips.length > 0 ? (
+                            <div className="flex flex-wrap gap-2 text-[11px]">
+                              {detail.chips.map((chip, idx) => (
+                                <span key={idx} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-700">
+                                  <span className="font-semibold">{chip.label}:</span>
+                                  <span>{String(chip.value)}</span>
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                          {detail.raw && Object.keys(detail.raw).length > 0 ? (
+                            <div className="text-[11px] text-slate-400 font-mono truncate">
+                              {JSON.stringify(detail.raw)}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))}

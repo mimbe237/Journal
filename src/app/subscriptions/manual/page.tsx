@@ -19,7 +19,7 @@ export default function ManualSubscriptionPage() {
     type: "MENSUEL",
     periode: "12", // Default 12 months
     montant: "",
-    devise: "XOF",
+    devise: "XAF",
   });
   
   const [files, setFiles] = useState<FileList | null>(null);
@@ -163,7 +163,7 @@ export default function ManualSubscriptionPage() {
                   value={formData.devise}
                   onChange={(e) => setFormData({ ...formData, devise: e.target.value })}
                 >
-                  <option value="XOF">XOF (CFA)</option>
+                  <option value="XAF">XAF (FCFA)</option>
                   <option value="EUR">EUR (€)</option>
                   <option value="USD">USD ($)</option>
                 </Select>

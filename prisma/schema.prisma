@@ -83,6 +83,8 @@ enum SystemEventType {
   CHANGEMENT_ROLE_ENTREPRISE
   INVITATION_ENTREPRISE_ENVOYEE
   INVITATION_ENTREPRISE_ACCEPTEE
+  ACHAT_LICENCE_ENTREPRISE
+  AJUSTEMENT_LICENCE_ENTREPRISE
   CREATION_CODE_PROMO
   MODIFICATION_CODE_PROMO
   UTILISATION_CODE_PROMO
@@ -106,6 +108,14 @@ enum EnterpriseUserRole {
   MANAGER
   UTILISATEUR
   SUSPENDU
+}
+
+/// Types de transactions de licences entreprise.
+enum LicenseTransactionType {
+  ACHAT                 // Achat de nouvelles licences
+  AJUSTEMENT_ADMIN      // Ajustement manuel (correction, geste commercial)
+  REMBOURSEMENT         // Remboursement partiel
+  MIGRATION_INITIALE    // Migration des données existantes
 }
 
 /// Statut d'un utilisateur au sein d'une entreprise.
@@ -179,6 +189,9 @@ model User {
   // Relations pour les soumissions manuelles
   submittedManualSubscriptions ManualSubscriptionSubmission[] @relation("SubmittedBy")
   validatedManualSubscriptions ManualSubscriptionSubmission[] @relation("ValidatedBy")
+  
+  // Transactions de licences créées par cet utilisateur
+  licenseTransactionsCreated EnterpriseLicenseTransaction[] @relation("LicenseTransactionCreator")
 
   @@map("users")
 }
@@ -189,14 +202,19 @@ model EnterpriseAccount {
   nom                    String
   contactEmail           String
   contactTelephone       String?
-  nombreUtilisateursInclus Int
+  
+  // Gestion des licences
+  // LEGACY: nombreUtilisateursInclus sera migré vers licencesAchetees
+  nombreUtilisateursInclus Int          @default(0)  // DEPRECATED - utiliser licencesAchetees
+  licencesAchetees       Int            @default(0)  // Total licences achetées (via transactions)
+  
   dateCreation           DateTime       @default(now())
   
   // Admin Primaire (acheteur)
   adminPrimaireId        String?        @unique
   adminPrimaireEmail     String?        // Email invité si pas encore accepté
   
-  // Compteurs de licences
+  // Compteurs de licences (calculés, mis à jour automatiquement)
   nombreUtilisateursActifs  Int         @default(0)
   nombreUtilisateursInvites Int         @default(0)
   
@@ -230,6 +248,7 @@ model EnterpriseAccount {
   invitations            EnterpriseInvitation[]
   submissions            ManualSubscriptionSubmission[]
   auditLogs              EnterpriseAuditLog[]
+  licenseTransactions    EnterpriseLicenseTransaction[]
 
   @@map("enterprise_accounts")
 }
@@ -253,6 +272,30 @@ model EnterpriseInvitation {
   @@index([token])
   @@index([enterpriseAccountId])
   @@map("enterprise_invitations")
+}
+
+/// Transactions de licences entreprise (achat, ajustement, remboursement).
+/// Chaque modification du quota de licences est tracée ici pour audit complet.
+model EnterpriseLicenseTransaction {
+  id                   String                   @id @default(cuid())
+  enterpriseAccountId  String
+  type                 LicenseTransactionType
+  delta                Int                      // +10 = achat 10 licences, -2 = retrait 2
+  reason               String?                  // "Renouvellement annuel 2025"
+  paymentRef           String?                  // "FAC-2025-0042" ou ID paiement
+  prixUnitaire         Decimal?                 @db.Decimal(10, 2)
+  montantTotal         Decimal?                 @db.Decimal(10, 2)
+  devise               String?                  @default("XAF") @db.VarChar(3)
+  createdBy            String                   // userId de l'admin
+  createdAt            DateTime                 @default(now())
+  meta                 Json?                    // {invoiceUrl, notes, ...}
+
+  enterpriseAccount    EnterpriseAccount        @relation(fields: [enterpriseAccountId], references: [id], onDelete: Cascade)
+  creator              User                     @relation("LicenseTransactionCreator", fields: [createdBy], references: [id])
+
+  @@index([enterpriseAccountId, createdAt])
+  @@index([createdBy])
+  @@map("enterprise_license_transactions")
 }
 
 /// Logs d'audit pour les actions entreprise.
@@ -292,6 +335,7 @@ model Subscription {
   userId               String?
   enterpriseAccountId  String?
   promoCodeId          String?
+  planId               String?              // Plan d'abonnement souscrit (optionnel)
 
   deletedAt            DateTime?
   trashedUntil         DateTime?
@@ -300,11 +344,13 @@ model Subscription {
   enterpriseAccount   EnterpriseAccount?    @relation(fields: [enterpriseAccountId], references: [id])
   promoCode           PromoCode?            @relation(fields: [promoCodeId], references: [id])
   submission          ManualSubscriptionSubmission? @relation(fields: [submissionId], references: [id])
+  plan                SubscriptionPlan?     @relation(fields: [planId], references: [id])
   paymentTransactions PaymentTransaction[]
 
   @@index([userId, statut, dateFin])
   @@index([submissionId])
   @@index([enterpriseAccountId, statut, dateFin])
+  @@index([planId])
   @@map("subscriptions")
 }
 
@@ -479,6 +525,7 @@ model JournalType {
   updatedAt      DateTime         @updatedAt
 
   editions       Edition[]
+  subscriptionPlans SubscriptionPlanJournalType[]
 
   @@map("journal_types")
 }
@@ -728,4 +775,71 @@ model NotificationPreferences {
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notification_preferences")
+}
+
+// ----- Système de Plans d'Abonnement Configurables -----
+
+/// Audience cible d'un plan d'abonnement.
+enum PlanTargetAudience {
+  INDIVIDUAL    // Abonnement individuel (1 utilisateur)
+  ENTERPRISE    // Abonnement entreprise (multi-utilisateurs)
+}
+
+/// Plan d'abonnement configurable par l'admin.
+/// Permet de combiner plusieurs types de journaux avec une durée et un prix.
+/// Supporte les abonnements individuels (B2C) et entreprises (B2B).
+model SubscriptionPlan {
+  id              String              @id @default(cuid())
+  nom             String              @unique            // "Abonnement Duo", "Pack Premium", etc.
+  slug            String              @unique            // "duo-6-mois", "pack-premium"
+  description     String?                                // Description courte
+  
+  // Audience cible
+  targetAudience  PlanTargetAudience  @default(INDIVIDUAL)
+  
+  // Tarification de base
+  durationMonths  Int                                    // Durée en mois (1, 3, 6, 12, etc.)
+  basePrice       Decimal             @db.Decimal(10, 2) // Prix de base (fixe pour INDIVIDUAL)
+  currency        String              @default("XAF") @db.VarChar(3)
+  
+  // Tarification entreprise (uniquement si targetAudience = ENTERPRISE)
+  pricePerUser    Decimal?            @db.Decimal(10, 2) // Prix par utilisateur supplémentaire
+  minUsers        Int?                                   // Nombre minimum d'utilisateurs (ex: 5)
+  maxUsers        Int?                                   // Nombre maximum (null = illimité)
+  
+  // Affichage
+  advantages      Json                @default("[]")     // ["Support prioritaire", "Archives illimitées", ...]
+  highlight       Boolean             @default(false)    // Mise en avant (badge "Populaire")
+  badge           String?                                // Texte du badge optionnel
+  displayOrder    Int                 @default(0)        // Ordre d'affichage
+  
+  // État
+  isActive        Boolean             @default(true)
+  isPublic        Boolean             @default(true)     // Visible côté public
+  
+  // Métadonnées
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  // Relations
+  journalTypes    SubscriptionPlanJournalType[]
+  subscriptions   Subscription[]
+
+  @@index([isActive, isPublic, targetAudience, displayOrder])
+  @@map("subscription_plans")
+}
+
+/// Table de liaison N:N entre plans et types de journaux.
+model SubscriptionPlanJournalType {
+  id            String   @id @default(cuid())
+  planId        String
+  journalTypeId String
+  
+  plan          SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  journalType   JournalType      @relation(fields: [journalTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, journalTypeId])
+  @@index([planId])
+  @@index([journalTypeId])
+  @@map("subscription_plan_journal_types")
 }

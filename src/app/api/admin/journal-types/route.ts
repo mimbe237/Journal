@@ -17,7 +17,7 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
-    await requireUserWithRoles(request, undefined, [UserRole.SUPER_ADMIN, UserRole.SUPPORT]);
+    await requireUserWithRoles(request, undefined, [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION]);
     
     const journalTypes = await listJournalTypes(true);
     return NextResponse.json(journalTypes);

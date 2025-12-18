@@ -24,7 +24,7 @@ type Row = {
 export default async function IndividualSubscribersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const currentUser = await getCurrentUser();
-  const allowedRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
+  const allowedRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION, UserRole.COMMERCIAL];
   if (!currentUser || !allowedRoles.includes(currentUser.role)) {
     return <div className="p-8 text-slate-700">Accès refusé</div>;
   }

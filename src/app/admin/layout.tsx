@@ -18,6 +18,7 @@ export default async function AdminLayout({
     UserRole.SUPER_ADMIN,
     UserRole.FACTURATION,
     UserRole.SUPPORT,
+    UserRole.COMMERCIAL,
     UserRole.COMPTE_ENTREPRISE // Some admin pages might be shared or we need to be careful
   ];
 

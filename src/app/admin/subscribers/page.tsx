@@ -7,7 +7,7 @@ import { ImportSubscribersModal } from "./ImportSubscribersModal";
 import { EditUserModal } from "../users/EditUserModal";
 
 const subscriberRoles: UserRole[] = [UserRole.ABONNE, UserRole.COMPTE_ENTREPRISE, UserRole.UTILISATEUR_ENTREPRISE];
-const allowedRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
+const allowedRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION, UserRole.COMMERCIAL];
 
 type SearchParams = Record<string, string | string[] | undefined>;
 

@@ -12,13 +12,26 @@ export default async function EmailTemplatesPage() {
     return <div className="p-8 text-slate-700">Accès refusé</div>;
   }
 
-  const templates = await prisma.emailTemplate.findMany({
-    orderBy: { updatedAt: "desc" },
-    include: {
-      layout: { select: { nom: true } },
-      _count: { select: { sends: true, versions: true } }
-    }
-  });
+  let templates = [];
+  try {
+    templates = await prisma.emailTemplate.findMany({
+      orderBy: { updatedAt: "desc" },
+      include: {
+        layout: { select: { nom: true } },
+        _count: { select: { sends: true, versions: true } }
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching templates:", error);
+    return (
+      <div className="p-8">
+        <div className="rounded-lg bg-red-50 p-4 text-red-700">
+          <h3 className="font-bold">Erreur lors du chargement des modèles</h3>
+          <p className="text-sm mt-1">{(error as any)?.message || "Erreur inconnue"}</p>
+        </div>
+      </div>
+    );
+  }
 
   const statusColors: Record<string, string> = {
     DRAFT: "bg-amber-100 text-amber-800",

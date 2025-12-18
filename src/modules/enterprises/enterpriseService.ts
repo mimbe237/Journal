@@ -2,6 +2,7 @@ import { EnterpriseAccount, SystemEventType, User, UserRole } from "@prisma/clie
 
 import { prisma } from "@/lib/config/prisma";
 import { getActiveSubscriptionForEnterprise, getActiveSubscriptionForUser } from "@/modules/subscriptions/subscriptionService";
+import { canAddUsers, syncEnterpriseCounters } from "@/modules/enterprises/licenseService";
 
 // ---- Helpers internes ----
 
@@ -38,7 +39,8 @@ export async function createEnterpriseAccount(params: {
         nom: params.nom.trim(),
         contactEmail: params.contactEmail.trim().toLowerCase(),
         contactTelephone: params.contactTelephone ?? null,
-        nombreUtilisateursInclus: params.nombreUtilisateursInclus
+        nombreUtilisateursInclus: params.nombreUtilisateursInclus,
+        licencesAchetees: params.nombreUtilisateursInclus  // Synchroniser les deux champs
       }
     });
 
@@ -120,10 +122,10 @@ export async function assignUserToEnterpriseAccount(params: {
     throw new Error("L'utilisateur est déjà rattaché à une autre entreprise");
   }
 
-  const currentCount = await countUsersInEnterprise(params.enterpriseAccountId);
-  if (currentCount >= enterprise.nombreUtilisateursInclus) {
-    // TODO: Supporter un dépassement avec facturation supplémentaire.
-    throw new Error("Quota d'utilisateurs atteint pour cette entreprise");
+  // Vérifier le quota de licences disponibles
+  const licenseCheck = await canAddUsers(params.enterpriseAccountId, 1);
+  if (!licenseCheck.allowed) {
+    throw new Error(licenseCheck.message || "Quota de licences atteint. Achetez des licences supplémentaires.");
   }
 
   const updated = await prisma.$transaction(async (tx) => {

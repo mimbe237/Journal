@@ -36,6 +36,20 @@ async function applyRuntimeMigrations(prisma: PrismaClient) {
     console.error("[runtime-migrations] failed to ensure journal_types titleTemplate column", error);
   }
 
+  // Tableau de configuration applicative (feature flags simples).
+  try {
+    await prisma.$executeRawUnsafe(
+      'CREATE TABLE IF NOT EXISTS "app_settings" ("key" TEXT PRIMARY KEY, "value" JSONB NOT NULL, "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now());'
+    );
+    await prisma.$executeRaw`
+      INSERT INTO "app_settings" ("key", "value")
+      VALUES (${"registration"}, ${JSON.stringify({ enabled: true })}::jsonb)
+      ON CONFLICT ("key") DO NOTHING;
+    `;
+  } catch (error) {
+    console.error("[runtime-migrations] failed to ensure app_settings table", error);
+  }
+
   // Ajoute les valeurs d'énumération manquantes pour SystemEventType (idempotent).
   try {
     await prisma.$executeRawUnsafe(

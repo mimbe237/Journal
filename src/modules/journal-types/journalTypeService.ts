@@ -6,6 +6,55 @@
 import { prisma, prismaRuntimeReady } from "@/lib/config/prisma";
 import { JournalFrequency, Prisma } from "@prisma/client";
 
+let ensureTitleTemplatePromise: Promise<void> | null = null;
+
+async function ensureTitleTemplateColumn(force = false) {
+  if (ensureTitleTemplatePromise && !force) {
+    return ensureTitleTemplatePromise;
+  }
+
+  ensureTitleTemplatePromise = (async () => {
+    try {
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE "journal_types" ADD COLUMN IF NOT EXISTS "titleTemplate" VARCHAR(255);'
+      );
+
+      const [{ exists: hasSnakeCase } = { exists: false }] = await prisma.$queryRaw<
+        { exists: boolean }[]
+      >`
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'journal_types'
+            AND column_name = 'title_template'
+        ) AS "exists"
+      `;
+
+      if (hasSnakeCase) {
+        await prisma.$executeRawUnsafe(
+          'UPDATE "journal_types" SET "titleTemplate" = COALESCE("titleTemplate", "title_template", \'Edition du {{date_long}}\') WHERE "titleTemplate" IS NULL;'
+        );
+      } else {
+        await prisma.$executeRawUnsafe(
+          'UPDATE "journal_types" SET "titleTemplate" = COALESCE("titleTemplate", \'Edition du {{date_long}}\') WHERE "titleTemplate" IS NULL;'
+        );
+      }
+    } catch (error) {
+      console.error("[journalType] ensure titleTemplate column failed", error);
+    }
+  })();
+
+  return ensureTitleTemplatePromise;
+}
+
+function isMissingTitleTemplateColumn(error: unknown) {
+  return (
+    error instanceof Error &&
+    /column .*titleTemplate|column .*title_template/i.test(error.message)
+  );
+}
+
 // Types pour les entrées/sorties
 export interface JournalTypeInput {
   name: string;
@@ -40,15 +89,35 @@ export interface JournalTypeWithPricing {
  */
 export async function listJournalTypes(includeInactive = false): Promise<JournalTypeWithPricing[]> {
   await prismaRuntimeReady;
-  const journalTypes = await prisma.journalType.findMany({
-    where: includeInactive ? {} : { isActive: true },
-    include: {
-      _count: {
-        select: { editions: true }
-      }
-    },
-    orderBy: { name: "asc" }
-  });
+  await ensureTitleTemplateColumn();
+
+  let journalTypes: Awaited<ReturnType<typeof prisma.journalType.findMany>>;
+  try {
+    journalTypes = await prisma.journalType.findMany({
+      where: includeInactive ? {} : { isActive: true },
+      include: {
+        _count: {
+          select: { editions: true }
+        }
+      },
+      orderBy: { name: "asc" }
+    });
+  } catch (error) {
+    if (isMissingTitleTemplateColumn(error)) {
+      await ensureTitleTemplateColumn(true);
+      journalTypes = await prisma.journalType.findMany({
+        where: includeInactive ? {} : { isActive: true },
+        include: {
+          _count: {
+            select: { editions: true }
+          }
+        },
+        orderBy: { name: "asc" }
+      });
+    } else {
+      throw error;
+    }
+  }
 
   const defaultTemplate = "Edition du {{date_long}}";
 
@@ -75,14 +144,33 @@ export async function getActiveJournalTypesWithPricing(): Promise<JournalTypeWit
  */
 export async function getJournalTypeById(id: string): Promise<JournalTypeWithPricing | null> {
   await prismaRuntimeReady;
-  const journalType = await prisma.journalType.findUnique({
-    where: { id },
-    include: {
-      _count: {
-        select: { editions: true }
+  await ensureTitleTemplateColumn();
+  let journalType: Awaited<ReturnType<typeof prisma.journalType.findUnique>>;
+
+  try {
+    journalType = await prisma.journalType.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { editions: true }
+        }
       }
+    });
+  } catch (error) {
+    if (isMissingTitleTemplateColumn(error)) {
+      await ensureTitleTemplateColumn(true);
+      journalType = await prisma.journalType.findUnique({
+        where: { id },
+        include: {
+          _count: {
+            select: { editions: true }
+          }
+        }
+      });
+    } else {
+      throw error;
     }
-  });
+  }
 
   if (!journalType) return null;
   const defaultTemplate = "Edition du {{date_long}}";
@@ -102,6 +190,7 @@ export async function getJournalTypeById(id: string): Promise<JournalTypeWithPri
  */
 export async function createJournalType(input: JournalTypeInput): Promise<JournalTypeWithPricing> {
   await prismaRuntimeReady;
+  await ensureTitleTemplateColumn();
   const defaultTemplate = "Edition du {{date_long}}";
   const journalType = await prisma.journalType.create({
     data: {
@@ -136,6 +225,7 @@ export async function createJournalType(input: JournalTypeInput): Promise<Journa
  */
 export async function updateJournalType(id: string, input: Partial<JournalTypeInput>): Promise<JournalTypeWithPricing> {
   await prismaRuntimeReady;
+  await ensureTitleTemplateColumn();
   const data: Prisma.JournalTypeUpdateInput = {};
   const defaultTemplate = "Edition du {{date_long}}";
 

@@ -9,7 +9,7 @@ import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 // GET liste paginée des comptes entreprises
 export async function GET(req: NextRequest) {
   try {
-    await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION]);
+    await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION, UserRole.COMMERCIAL]);
     const { searchParams } = new URL(req.url);
     const take = Math.min(parseInt(searchParams.get("take") ?? "20", 10), 100);
     const skip = parseInt(searchParams.get("skip") ?? "0", 10);

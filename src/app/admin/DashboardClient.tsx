@@ -168,7 +168,7 @@ export default function AdminDashboardPage() {
             <Card className="p-6">
               <div className="text-sm text-slate-600">Revenus ce mois</div>
               <div className="text-4xl font-bold text-slate-900 mt-2">
-                {revenueCurrent.toFixed(2)} €
+                {revenueCurrent.toLocaleString("fr-FR")} FCFA
               </div>
               {revenueLast !== null && (
                 <>
@@ -176,7 +176,7 @@ export default function AdminDashboardPage() {
                     {revenueChange >= 0 ? '↗' : '↘'} {Math.abs(revenueChange).toFixed(1)}% vs mois dernier
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
-                    Mois dernier: {revenueLast.toFixed(2)} €
+                    Mois dernier: {revenueLast.toLocaleString("fr-FR")} FCFA
                   </div>
                 </>
               )}

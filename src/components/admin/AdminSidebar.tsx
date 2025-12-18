@@ -261,8 +261,10 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
       {
         title: "Configuration",
         items: [
+          { href: "/admin/subscription-plans", label: "Plans d'abonnement", icon: Icons.Subscriptions },
           { href: "/admin/journal-types", label: "Types de journaux", icon: Icons.Settings },
           { href: "/admin/currencies", label: "Devises", icon: Icons.Currency },
+          { href: "/admin/settings", label: "Paramètres", icon: Icons.Settings },
         ]
       }
     ];

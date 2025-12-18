@@ -8,9 +8,18 @@ import { ExportFilters, ExportFiltersState, initialExportFilters } from "./Expor
 import { PreviewTable } from "./PreviewTable";
 
 type JournalTypeOption = { id: string; name: string };
+type EnterpriseOption = { id: string; name: string };
+const subscriptionTypeOptions = [
+  { value: "MENSUEL", label: "Mensuel" },
+  { value: "ANNUEL", label: "Annuel" },
+  { value: "OFFERT", label: "Offert" },
+  { value: "PROMOTIONNEL", label: "Promotionnel" },
+  { value: "TEST", label: "Test" },
+];
 
 export default function ExportsPage() {
   const [journalTypes, setJournalTypes] = useState<JournalTypeOption[]>([]);
+  const [enterprises, setEnterprises] = useState<EnterpriseOption[]>([]);
   const [filters, setFilters] = useState<ExportFiltersState>(initialExportFilters);
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -26,6 +35,22 @@ export default function ExportsPage() {
       setJournalTypes(activeTypes.map((jt: any) => ({ id: jt.id, name: jt.name })));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue lors du chargement des types");
+    }
+  }, []);
+
+  const fetchEnterprises = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/enterprises?take=200");
+      if (!res.ok) throw new Error("Impossible de charger les entreprises");
+      const data = await res.json();
+      setEnterprises(
+        Array.isArray(data?.enterprises)
+          ? data.enterprises.map((e: any) => ({ id: e.id, name: e.nom }))
+          : []
+      );
+    } catch (err) {
+      // on ne bloque pas les exports si l'API entreprises ne répond pas
+      console.error(err);
     }
   }, []);
 
@@ -58,8 +83,9 @@ export default function ExportsPage() {
 
   useEffect(() => {
     fetchJournalTypes();
+    fetchEnterprises();
     fetchPreview(initialExportFilters);
-  }, [fetchJournalTypes, fetchPreview]);
+  }, [fetchJournalTypes, fetchEnterprises, fetchPreview]);
 
   const handleApplyFilters = (nextFilters: ExportFiltersState) => {
     fetchPreview(nextFilters);
@@ -117,7 +143,12 @@ export default function ExportsPage() {
           </button>
         </div>
 
-        <ExportFilters journalTypes={journalTypes} onApply={handleApplyFilters} />
+        <ExportFilters
+          journalTypes={journalTypes}
+          enterprises={enterprises}
+          subscriptionTypes={subscriptionTypeOptions}
+          onApply={handleApplyFilters}
+        />
 
         <PreviewTable rows={rows} loading={loading} error={error} />
       </Card>

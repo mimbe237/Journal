@@ -6,14 +6,15 @@ type PreviewRow = {
   id: string;
   label: string;
   subscriberType: string;
+  enterprise: string | null;
   journal: string | null;
   status: string | null;
   dateDebut: string | null;
   dateFin: string | null;
   montant: number | null;
   devise: string | null;
-  paymentMethod: string | null;
   source: string | null;
+  hasPromo?: boolean;
 };
 
 export function PreviewTable({
@@ -56,13 +57,14 @@ export function PreviewTable({
             <tr>
               <th className="px-3 py-2 text-left font-semibold text-slate-700">Abonné</th>
               <th className="px-3 py-2 text-left font-semibold text-slate-700">Type</th>
+              <th className="px-3 py-2 text-left font-semibold text-slate-700">Entreprise</th>
               <th className="px-3 py-2 text-left font-semibold text-slate-700">Journal</th>
               <th className="px-3 py-2 text-left font-semibold text-slate-700">Statut</th>
               <th className="px-3 py-2 text-left font-semibold text-slate-700">Début</th>
               <th className="px-3 py-2 text-left font-semibold text-slate-700">Fin</th>
               <th className="px-3 py-2 text-left font-semibold text-slate-700">Montant</th>
-              <th className="px-3 py-2 text-left font-semibold text-slate-700">Paiement</th>
               <th className="px-3 py-2 text-left font-semibold text-slate-700">Source</th>
+              <th className="px-3 py-2 text-left font-semibold text-slate-700">Promo</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -70,6 +72,7 @@ export function PreviewTable({
               <tr key={r.id} className="hover:bg-slate-50">
                 <td className="px-3 py-2 font-medium text-slate-900">{r.label}</td>
                 <td className="px-3 py-2 text-slate-700">{r.subscriberType}</td>
+                <td className="px-3 py-2 text-slate-700">{r.enterprise || "-"}</td>
                 <td className="px-3 py-2 text-slate-700">{r.journal || "-"}</td>
                 <td className="px-3 py-2 text-slate-700">{r.status || "-"}</td>
                 <td className="px-3 py-2 text-slate-600">{r.dateDebut || "-"}</td>
@@ -77,8 +80,8 @@ export function PreviewTable({
                 <td className="px-3 py-2 text-slate-900">
                   {r.montant != null && r.devise ? `${r.montant} ${r.devise}` : "-"}
                 </td>
-                <td className="px-3 py-2 text-slate-700">{r.paymentMethod || "-"}</td>
                 <td className="px-3 py-2 text-slate-700">{r.source || "-"}</td>
+                <td className="px-3 py-2 text-slate-700">{r.hasPromo ? "Oui" : "Non"}</td>
               </tr>
             ))}
           </tbody>

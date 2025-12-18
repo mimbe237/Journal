@@ -5,10 +5,15 @@ import { loadAdminDashboardStats } from "@/lib/admin/dashboardStats";
 import { getCurrentUser } from "@/lib/auth/currentUser";
 import { UserRole } from "@prisma/client";
 
+// Page strictement dynamique (cookies nécessaires pour l'auth staff).
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
 const numberFormatter = new Intl.NumberFormat("fr-FR");
 const currencyFormatter = new Intl.NumberFormat("fr-FR", {
   style: "currency",
-  currency: "EUR",
+  currency: "XAF",
   maximumFractionDigits: 0
 });
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" });
