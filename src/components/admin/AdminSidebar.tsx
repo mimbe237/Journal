@@ -111,6 +111,26 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
     </svg>
   ),
+  Currency: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+    </svg>
+  ),
+  PlusCircle: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  List: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+    </svg>
+  ),
+  CheckCircle: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
 };
 
 interface AdminSidebarProps {
@@ -139,8 +159,8 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
         title: "Facturation",
         items: [
           { href: "/admin/facturation", label: "Tableau de bord", icon: Icons.Dashboard },
-          { href: "/admin/subscriptions/manual/new", label: "Nouvelle soumission", icon: Icons.Facturation },
-          { href: "/admin/subscriptions/manual", label: "Toutes les soumissions", icon: Icons.Facturation },
+          { href: "/admin/subscribers/new", label: "Nouvelle soumission", icon: Icons.PlusCircle },
+          { href: "/admin/subscriptions/manual", label: "Toutes les soumissions", icon: Icons.List },
           { href: "/admin/facturation/rapports", label: "Rapports", icon: Icons.Exports },
         ]
       },
@@ -164,8 +184,8 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
         title: "Commercial",
         items: [
           { href: "/admin/commercial", label: "Tableau de bord", icon: Icons.Dashboard },
-          { href: "/admin/subscriptions/manual/new", label: "Nouvelle soumission", icon: Icons.Facturation },
-          { href: "/admin/subscriptions/manual", label: "Mes soumissions", icon: Icons.ListEditions },
+          { href: "/admin/subscribers/new", label: "Nouvelle soumission", icon: Icons.PlusCircle },
+          { href: "/admin/subscriptions/manual", label: "Mes soumissions", icon: Icons.List },
         ]
       },
       {
@@ -181,7 +201,7 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
         title: "Support",
         items: [
           { href: "/admin/support", label: "Tableau de bord", icon: Icons.Dashboard },
-          { href: "/admin/facturation/soumissions", label: "Soumissions", icon: Icons.Facturation },
+          { href: "/admin/facturation/soumissions", label: "Soumissions", icon: Icons.List },
           { href: "/admin/users", label: "Utilisateurs", icon: Icons.Users },
           { href: "/admin/logs", label: "Journal d'activités", icon: Icons.Logs },
         ]
@@ -219,7 +239,7 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
           { href: "/admin/subscribers/individuals", label: "Abonnés individuels", icon: Icons.Individual },
           { href: "/admin/enterprises", label: "Comptes entreprise", icon: Icons.Enterprise },
           { href: "/admin/subscriptions", label: "Abonnements", icon: Icons.Subscriptions },
-          { href: "/admin/subscriptions/manual", label: "Validation Abonnements", icon: Icons.Facturation },
+          { href: "/admin/subscriptions/manual", label: "Valider abonnements", icon: Icons.CheckCircle },
         ]
       },
       {
@@ -242,7 +262,7 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
         title: "Configuration",
         items: [
           { href: "/admin/journal-types", label: "Types de journaux", icon: Icons.Settings },
-          { href: "/admin/currencies", label: "Devises", icon: Icons.Facturation },
+          { href: "/admin/currencies", label: "Devises", icon: Icons.Currency },
         ]
       }
     ];

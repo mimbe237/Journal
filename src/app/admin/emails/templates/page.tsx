@@ -2,6 +2,7 @@ import { prisma } from "@/lib/config/prisma";
 import { getCurrentUser } from "@/lib/auth/currentUser";
 import { UserRole } from "@prisma/client";
 import Link from "next/link";
+import { EmailVariablesGuide } from "@/components/admin/emails/EmailVariablesGuide";
 
 const ALLOWED_ROLES: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT];
 
@@ -48,6 +49,7 @@ export default async function EmailTemplatesPage() {
             >
               + Nouveau modèle
             </Link>
+            <EmailVariablesGuide />
             <Link
               href="/admin/emails/layouts"
               className="inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"

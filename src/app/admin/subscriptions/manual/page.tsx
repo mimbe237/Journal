@@ -110,7 +110,7 @@ export default function ManualSubmissionsPage() {
             title="Soumissions manuelles"
             subtitle="Gérez les demandes d'abonnement."
           />
-          <Link href="/admin/subscriptions/manual/new">
+          <Link href="/admin/subscribers/new">
             <ButtonPrimary>Nouvelle soumission</ButtonPrimary>
           </Link>
         </div>

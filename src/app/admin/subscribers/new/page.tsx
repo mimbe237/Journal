@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default async function NewSubscriberPage() {
   const currentUser = await getCurrentUser();
-  const allowedRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
+  const allowedRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION, UserRole.COMMERCIAL];
   if (!currentUser || !allowedRoles.includes(currentUser.role as UserRole)) {
     return <div className="p-8 text-slate-700">Accès refusé</div>;
   }

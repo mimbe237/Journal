@@ -9,7 +9,7 @@ import { registerUser } from "@/modules/auth/authService";
 import { createSubscriptionForEnterprise, createSubscriptionForUser } from "@/modules/subscriptions/subscriptionService";
 import { fileStorageProvider } from "@/services/fileStorage";
 
-const ALLOWED_ROLES = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION];
+const ALLOWED_ROLES = [UserRole.SUPER_ADMIN, UserRole.SUPPORT, UserRole.FACTURATION, UserRole.COMMERCIAL];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 Mo
 
 export const runtime = "nodejs";
