@@ -27,7 +27,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ enterprises });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message ?? "Erreur de récupération" }, { status: 400 });
+    console.error("GET /api/admin/enterprises error:", error);
+    const status = error?.status || 500;
+    return NextResponse.json({ error: error?.message ?? "Erreur de récupération" }, { status });
   }
 }
 
@@ -83,7 +85,8 @@ export async function POST(req: NextRequest) {
       adminInvitation: invitationResult
     }, { status: 201 });
   } catch (error: any) {
-    console.error("Erreur création entreprise:", error);
-    return NextResponse.json({ error: error?.message ?? "Erreur lors de la création" }, { status: 400 });
+    console.error("POST /api/admin/enterprises error:", error);
+    const status = error?.status || (error?.message?.includes("requis") ? 400 : 500);
+    return NextResponse.json({ error: error?.message ?? "Erreur lors de la création" }, { status });
   }
 }
