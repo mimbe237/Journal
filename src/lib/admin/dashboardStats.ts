@@ -63,87 +63,132 @@ export async function loadAdminDashboardStats(now = new Date()): Promise<Dashboa
   const next30Days = new Date(now);
   next30Days.setDate(now.getDate() + 30);
 
-  const totalUsers = await prisma.user.count();
-  const newUsersToday = await prisma.user.count({
-    where: { dateCreation: { gte: startOfToday } }
-  });
-  const newUsersWeek = await prisma.user.count({
-    where: { dateCreation: { gte: startOfWeek } }
-  });
-  const newUsersMonth = await prisma.user.count({
-    where: { dateCreation: { gte: startOfMonth } }
-  });
+  const safe = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
+    try {
+      return await fn();
+    } catch (err) {
+      console.error("[dashboardStats] fallback due to error:", err);
+      return fallback;
+    }
+  };
+
+  const totalUsers = await safe(() => prisma.user.count(), 0);
+  const newUsersToday = await safe(
+    () => prisma.user.count({ where: { dateCreation: { gte: startOfToday } } }),
+    0
+  );
+  const newUsersWeek = await safe(
+    () => prisma.user.count({ where: { dateCreation: { gte: startOfWeek } } }),
+    0
+  );
+  const newUsersMonth = await safe(
+    () => prisma.user.count({ where: { dateCreation: { gte: startOfMonth } } }),
+    0
+  );
 
   const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
-  const activeSessions = await prisma.readingSession.count({
-    where: { dateHeureDebut: { gte: thirtyMinutesAgo } }
-  });
+  const activeSessions = await safe(
+    () => prisma.readingSession.count({ where: { dateHeureDebut: { gte: thirtyMinutesAgo } } }),
+    0
+  );
 
-  const totalSubscriptions = await prisma.subscription.count();
-  const activeSubscriptions = await prisma.subscription.count({
-    where: {
-      statut: "ACTIF",
-      dateFin: { gte: now }
-    }
-  });
+  const totalSubscriptions = await safe(() => prisma.subscription.count(), 0);
+  const activeSubscriptions = await safe(
+    () =>
+      prisma.subscription.count({
+        where: {
+          statut: "ACTIF",
+          dateFin: { gte: now }
+        }
+      }),
+    0
+  );
 
-  const subscriptionsByTypeRaw = await prisma.subscription.groupBy({
-    by: ["type"],
-    where: {
-      statut: "ACTIF",
-      dateFin: { gte: now }
-    },
-    _count: true
-  });
+  const subscriptionsByTypeRaw = await safe(
+    () =>
+      prisma.subscription.groupBy({
+        by: ["type"],
+        where: {
+          statut: "ACTIF",
+          dateFin: { gte: now }
+        },
+        _count: true
+      }),
+    []
+  );
 
   const allSubscriptionsByType = subscriptionsByTypeRaw.reduce<Record<string, number>>((acc, item) => {
     acc[item.type] = item._count;
     return acc;
   }, {});
 
-  const expiringSoon7 = await prisma.subscription.count({
-    where: {
-      statut: "ACTIF",
-      dateFin: { gte: now, lte: next7Days }
-    }
-  });
-  const expiringSoon30 = await prisma.subscription.count({
-    where: {
-      statut: "ACTIF",
-      dateFin: { gte: now, lte: next30Days }
-    }
-  });
+  const expiringSoon7 = await safe(
+    () =>
+      prisma.subscription.count({
+        where: {
+          statut: "ACTIF",
+          dateFin: { gte: now, lte: next7Days }
+        }
+      }),
+    0
+  );
+  const expiringSoon30 = await safe(
+    () =>
+      prisma.subscription.count({
+        where: {
+          statut: "ACTIF",
+          dateFin: { gte: now, lte: next30Days }
+        }
+      }),
+    0
+  );
 
-  const currentMonthRevenue = await prisma.subscription.aggregate({
-    where: {
-      dateDebut: { gte: startOfMonth },
-      statut: "ACTIF"
-    },
-    _sum: { montant: true }
-  });
+  const currentMonthRevenue = await safe(
+    () =>
+      prisma.subscription.aggregate({
+        where: {
+          dateDebut: { gte: startOfMonth },
+          statut: "ACTIF"
+        },
+        _sum: { montant: true }
+      }),
+    { _sum: { montant: 0 } }
+  );
 
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-  const lastMonthRevenue = await prisma.subscription.aggregate({
-    where: {
-      dateDebut: { gte: lastMonthStart, lte: lastMonthEnd },
-      statut: "ACTIF"
-    },
-    _sum: { montant: true }
-  });
+  const lastMonthRevenue = await safe(
+    () =>
+      prisma.subscription.aggregate({
+        where: {
+          dateDebut: { gte: lastMonthStart, lte: lastMonthEnd },
+          statut: "ACTIF"
+        },
+        _sum: { montant: true }
+      }),
+    { _sum: { montant: 0 } }
+  );
 
-  const totalEditions = await prisma.edition.count();
-  const latestEdition = await prisma.edition.findFirst({
-    orderBy: { datePublication: "desc" },
-    select: { titre: true, datePublication: true }
-  });
+  const totalEditions = await safe(() => prisma.edition.count(), 0);
+  const latestEdition = await safe(
+    () =>
+      prisma.edition.findFirst({
+        orderBy: { datePublication: "desc" },
+        select: { titre: true, datePublication: true }
+      }),
+    null
+  );
 
-  const sessionsByEdition = await prisma.readingSession.groupBy({
-    by: ["editionId"],
-    _count: true,
-    orderBy: { _count: { editionId: "desc" } },
-    take: 1
-  });
+  const sessionsByEdition = await safe(
+    () =>
+      prisma.readingSession.groupBy({
+        by: ["editionId"],
+        _count: true,
+        orderBy: { _count: { editionId: "desc" } },
+        take: 1
+      }),
+    []
+  );
 
   let mostReadEdition = null;
   if (sessionsByEdition.length > 0) {
@@ -158,9 +203,13 @@ export async function loadAdminDashboardStats(now = new Date()): Promise<Dashboa
     };
   }
 
-  const sessions = await prisma.readingSession.findMany({
-    select: { pageFin: true, edition: { select: { nombrePages: true } } }
-  });
+  const sessions = await safe(
+    () =>
+      prisma.readingSession.findMany({
+        select: { pageFin: true, edition: { select: { nombrePages: true } } }
+      }),
+    []
+  );
   let avgCompletion = 0;
   if (sessions.length > 0) {
     const total = sessions.reduce((sum, s) => {
@@ -170,55 +219,72 @@ export async function loadAdminDashboardStats(now = new Date()): Promise<Dashboa
     avgCompletion = Math.round((total / sessions.length) * 100);
   }
 
-  const activePromoCodes = await prisma.promoCode.count({
-    where: {
-      actif: true,
-      dateFin: { gte: now }
-    }
-  });
+  const activePromoCodes = await safe(
+    () =>
+      prisma.promoCode.count({
+        where: {
+          actif: true,
+          dateFin: { gte: now }
+        }
+      }),
+    0
+  );
 
-  const promoUsage = await prisma.subscription.count({
-    where: { promoCodeId: { not: null } }
-  });
+  const promoUsage = await safe(
+    () => prisma.subscription.count({ where: { promoCodeId: { not: null } } }),
+    0
+  );
 
-  const recentUsers = await prisma.user.findMany({
-    orderBy: { dateCreation: "desc" },
-    take: 5,
-    select: {
-      id: true,
-      nom: true,
-      email: true,
-      dateCreation: true,
-      subscriptions: {
-        where: { statut: "ACTIF", dateFin: { gte: now } },
-        take: 1,
-        select: { type: true }
-      }
-    }
-  });
+  const recentUsers = await safe(
+    () =>
+      prisma.user.findMany({
+        orderBy: { dateCreation: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          nom: true,
+          email: true,
+          dateCreation: true,
+          subscriptions: {
+            where: { statut: "ACTIF", dateFin: { gte: now } },
+            take: 1,
+            select: { type: true }
+          }
+        }
+      }),
+    []
+  );
 
-  const recentSessions = await prisma.readingSession.findMany({
-    orderBy: { dateHeureDebut: "desc" },
-    take: 5,
-    select: {
-      id: true,
-      dateHeureDebut: true,
-      pageFin: true,
-      user: { select: { nom: true } },
-      edition: { select: { titre: true, nombrePages: true } }
-    }
-  });
+  const recentSessions = await safe(
+    () =>
+      prisma.readingSession.findMany({
+        orderBy: { dateHeureDebut: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          dateHeureDebut: true,
+          pageFin: true,
+          user: { select: { nom: true } },
+          edition: { select: { titre: true, nombrePages: true } }
+        }
+      }),
+    []
+  );
 
-  const recentActivity = await prisma.subscription.findMany({
-    orderBy: { dateDebut: "desc" },
-    take: 5,
-    select: {
-      id: true,
-      type: true,
-      dateDebut: true,
-      user: { select: { nom: true, email: true } }
-    }
-  });
+  const recentActivity = await safe(
+    () =>
+      prisma.subscription.findMany({
+        orderBy: { dateDebut: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          type: true,
+          dateDebut: true,
+          user: { select: { nom: true, email: true } }
+        }
+      }),
+    []
+  );
 
   return {
     users: {
