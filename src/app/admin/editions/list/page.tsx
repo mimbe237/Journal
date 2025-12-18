@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { ButtonPrimary } from "@/components/ui/Button";
+import { DeleteButton } from "@/components/admin/DeleteButton";
 
 type Edition = {
   id: string;
@@ -180,6 +181,14 @@ export default function EditionsListPage() {
                     >
                       Modifier les infos
                     </button>
+                    <DeleteButton
+                      type="edition"
+                      id={edition.id}
+                      name={edition.titre}
+                      onDeleted={fetchEditions}
+                      size="md"
+                      className="w-full justify-center"
+                    />
                   </div>
                 </div>
               </Card>

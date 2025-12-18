@@ -241,6 +241,11 @@ model EnterpriseAccount {
   
   // Audit
   createdBy              String?        // Admin SUPER_ADMIN qui a créé
+  
+  // Soft delete
+  deletedAt              DateTime?
+  trashedUntil           DateTime?
+  deletedBy              String?        // Admin qui a supprimé
 
   adminPrimaire          User?          @relation("AdminPrimaire", fields: [adminPrimaireId], references: [id])
   users                  User[]
@@ -367,6 +372,11 @@ model Edition {
   devise            String?           @db.VarChar(3)
   createdAt         DateTime          @default(now())
   journalTypeId     String?
+  
+  // Soft delete
+  deletedAt         DateTime?
+  trashedUntil      DateTime?
+  deletedBy         String?           // Admin qui a supprimé
 
   journalType       JournalType?      @relation(fields: [journalTypeId], references: [id])
 
@@ -523,6 +533,11 @@ model JournalType {
   isActive       Boolean          @default(true)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
+  
+  // Soft delete
+  deletedAt      DateTime?
+  trashedUntil   DateTime?
+  deletedBy      String?          // Admin qui a supprimé
 
   editions       Edition[]
   subscriptionPlans SubscriptionPlanJournalType[]

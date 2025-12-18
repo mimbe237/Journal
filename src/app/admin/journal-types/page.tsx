@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { DeleteButton } from "@/components/admin/DeleteButton";
 
 interface JournalType {
   id: string;
@@ -232,21 +233,21 @@ export default function JournalTypesPage() {
                     {jt.isActive ? "Actif" : "Inactif"}
                   </button>
                 </td>
-                <td className="px-4 py-3 text-right space-x-2">
-                  <button
-                    onClick={() => openEditModal(jt)}
-                    className="text-blue-600 hover:underline text-sm"
-                  >
-                    Modifier
-                  </button>
-                  {(jt._count?.editions || 0) === 0 && (
+                <td className="px-4 py-3 text-right">
+                  <div className="flex justify-end items-center gap-2">
                     <button
-                      onClick={() => handleDelete(jt.id, jt.name)}
-                      className="text-red-600 hover:underline text-sm"
+                      onClick={() => openEditModal(jt)}
+                      className="text-blue-600 hover:underline text-sm"
                     >
-                      Supprimer
+                      Modifier
                     </button>
-                  )}
+                    <DeleteButton
+                      type="journalType"
+                      id={jt.id}
+                      name={jt.name}
+                      onDeleted={fetchJournalTypes}
+                    />
+                  </div>
                 </td>
               </tr>
             ))}

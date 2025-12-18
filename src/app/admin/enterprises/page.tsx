@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { LoadingState, ErrorState } from '@/components/ui/States';
 import { Input, Label } from '@/components/ui/FormControls';
+import { DeleteButton } from '@/components/admin/DeleteButton';
 
 interface EnterpriseAccount {
   id: string;
@@ -122,7 +123,7 @@ export default function EnterprisesPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-2 items-center">
                       <button
                         onClick={() => {
                           setSelectedEnterprise(ent);
@@ -138,6 +139,12 @@ export default function EnterprisesPage() {
                       >
                         Gérer
                       </Link>
+                      <DeleteButton
+                        type="enterprise"
+                        id={ent.id}
+                        name={ent.nom}
+                        onDeleted={fetchEnterprises}
+                      />
                     </div>
                   </td>
                 </tr>

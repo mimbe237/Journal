@@ -24,6 +24,7 @@
     "date-fns": "latest",
     "jsonwebtoken": "latest",
     "lightningcss": "^1.30.2",
+    "lucide-react": "^0.561.0",
     "mime-types": "^3.0.2",
     "mjml": "^4.18.0",
     "next": "^16.0.10",

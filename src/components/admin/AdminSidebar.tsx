@@ -101,6 +101,12 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   ),
+  Parametres: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v2m0 14v2m9-9h-2M5 12H3m14.364 5.364l-1.414-1.414M7.05 7.05 5.636 5.636m12.728 0-1.414 1.414M7.05 16.95l-1.414 1.414" />
+      <circle cx="12" cy="12" r="3" strokeWidth={2} />
+    </svg>
+  ),
   Logs: (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -129,6 +135,11 @@ const Icons = {
   CheckCircle: (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  Trash: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
     </svg>
   ),
 };
@@ -264,7 +275,8 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
           { href: "/admin/subscription-plans", label: "Plans d'abonnement", icon: Icons.Subscriptions },
           { href: "/admin/journal-types", label: "Types de journaux", icon: Icons.Settings },
           { href: "/admin/currencies", label: "Devises", icon: Icons.Currency },
-          { href: "/admin/settings", label: "Paramètres", icon: Icons.Settings },
+          { href: "/admin/trash", label: "Corbeille", icon: Icons.Trash },
+          { href: "/admin/settings", label: "Paramètres", icon: Icons.Parametres },
         ]
       }
     ];
