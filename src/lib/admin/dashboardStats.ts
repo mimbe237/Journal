@@ -152,7 +152,7 @@ export async function loadAdminDashboardStats(now = new Date()): Promise<Dashboa
         },
         _sum: { montant: true }
       }),
-    { _sum: { montant: 0 } }
+    { _sum: { montant: null } }
   );
 
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -166,7 +166,7 @@ export async function loadAdminDashboardStats(now = new Date()): Promise<Dashboa
         },
         _sum: { montant: true }
       }),
-    { _sum: { montant: 0 } }
+    { _sum: { montant: null } }
   );
 
   const totalEditions = await safe(() => prisma.edition.count(), 0);
