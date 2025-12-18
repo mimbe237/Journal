@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
@@ -32,6 +32,33 @@ interface ActiveSubscription {
 }
 
 export default function SubscriptionsPage() {
+  return (
+    <Suspense fallback={<SubscriptionsLoadingFallback />}>
+      <SubscriptionsContent />
+    </Suspense>
+  );
+}
+
+function SubscriptionsLoadingFallback() {
+  return (
+    <div className="min-h-screen bg-slate-50 py-12 px-4">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-10 text-center">
+          <p className="text-xs uppercase tracking-[0.3em] text-emerald-600">Nos offres</p>
+          <h1 className="text-3xl font-bold text-slate-900 md:text-4xl">Choisissez votre abonnement</h1>
+          <p className="mt-3 text-base text-slate-600">
+            Accédez à toutes les éditions du journal avec l'abonnement qui vous convient.
+          </p>
+        </div>
+        <div className="flex justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SubscriptionsContent() {
   const searchParams = useSearchParams();
   const [segment, setSegment] = useState<"INDIVIDUAL" | "ENTERPRISE">("INDIVIDUAL");
   const [plans, setPlans] = useState<PublicPlan[]>([]);
