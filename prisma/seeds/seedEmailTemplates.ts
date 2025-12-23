@@ -9,7 +9,7 @@
  * - Les automations associées
  */
 
-import { PrismaClient, EmailTriggerType, EmailCategory, EmailTemplateStatus } from '@prisma/client';
+import { PrismaClient, EmailTriggerType, EmailCategory } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -816,6 +816,63 @@ Si le problème persiste, contactez votre banque ou notre support.`,
       nom: 'Notification échec paiement',
       description: 'Envoyé après un échec de paiement'
     }
+  },
+
+  // 15. Edition quotidienne avec emplacement pub
+  {
+    slug: 'edition-with-ad-slot',
+    nom: 'Edition quotidienne + pub',
+    description: "Envoi de l'edition avec un slot publicitaire cible",
+    category: 'NOTIFICATION',
+    sujet: '📰 Votre édition du jour : {{edition.titre}}',
+    corps: `<h2>Votre édition est prête 📥</h2>
+
+<p>Bonjour {{user.prenom}},</p>
+
+<p>L'édition du jour est disponible. Cliquez ci-dessous pour la lire :</p>
+
+<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin: 16px 0;">
+  <h3 style="margin: 0 0 6px 0; color: #0f172a;">{{edition.titre}}</h3>
+  <p style="margin: 0; color: #64748b;">Publié le {{edition.datePublication}}</p>
+  <p style="margin: 12px 0 0 0;">
+    <a href="{{edition.lien}}" class="button">Lire maintenant</a>
+  </p>
+</div>
+
+<!-- Slot publicitaire : reste vide si aucune pub ciblée -->
+{{ad.html}}
+
+<p style="color: #475569; font-size: 14px; margin-top: 20px;">
+  Merci de votre fidélité et bonne lecture !
+</p>`,
+    corpsText: `Votre édition est prête
+
+Bonjour {{user.prenom}},
+
+L'édition du jour est disponible : {{edition.titre}} ({{edition.datePublication}})
+Lire maintenant : {{edition.lien}}
+
+Publicité (si ciblée) : {{ad.clickUrl}}
+
+Merci de votre fidélité.`,
+    tokens: {
+      'user.prenom': 'Prénom de l\'utilisateur',
+      'edition.titre': 'Titre de l\'édition',
+      'edition.datePublication': 'Date de publication formatée',
+      'edition.lien': 'Lien direct vers l\'édition',
+      'ad.html': 'Snippet HTML de la bannière (ou vide)',
+      'ad.mjml': 'Snippet MJML de la bannière (optionnel)',
+      'ad.imageUrl': 'URL de l\'image pub',
+      'ad.clickUrl': 'URL de redirection pub',
+      'ad.altText': 'Texte alternatif pub',
+      'ad.hasAd': 'true/false selon ciblage',
+      'app.url': 'URL de l\'application'
+    },
+    automation: {
+      triggerType: 'NOUVELLE_EDITION',
+      nom: 'Edition + pub',
+      description: "Envoi automatique de l'edition avec slot pub"
+    }
   }
 ];
 
@@ -852,7 +909,7 @@ async function main() {
         corpsText: template.corpsText,
         tokens: template.tokens,
         layoutId: layout.id,
-        status: 'ACTIVE' as EmailTemplateStatus
+        status: 'PUBLISHED'
       },
       create: {
         slug: template.slug,
@@ -864,7 +921,7 @@ async function main() {
         corpsText: template.corpsText,
         tokens: template.tokens,
         layoutId: layout.id,
-        status: 'ACTIVE' as EmailTemplateStatus
+        status: 'PUBLISHED'
       }
     });
     console.log(`  ✓ ${created.slug}`);

@@ -132,3 +132,107 @@ export async function renderTemplateBySlug(
   return renderTemplate(template, values);
 }
 
+/**
+ * Injecte une bannière publicitaire dans le corps MJML d'un email.
+ * Recherche le placeholder {{ad.slot}} ou l'insère avant la fermeture </mj-body>.
+ * 
+ * @param mjmlContent - Le contenu MJML du template
+ * @param adMjml - Le snippet MJML de la publicité (ou null si pas de pub)
+ * @returns Le contenu MJML avec la pub injectée
+ */
+export function injectAdIntoMjml(mjmlContent: string, adMjml: string | null): string {
+  if (!adMjml) {
+    // Supprimer le placeholder si pas de pub
+    return mjmlContent.replace(/\{\{ad\.slot\}\}/g, "");
+  }
+
+  // Chercher le placeholder explicite
+  if (mjmlContent.includes("{{ad.slot}}")) {
+    return mjmlContent.replace("{{ad.slot}}", adMjml);
+  }
+
+  // Sinon, insérer avant </mj-body>
+  const closingTag = "</mj-body>";
+  const insertIndex = mjmlContent.lastIndexOf(closingTag);
+  if (insertIndex === -1) {
+    // Pas de structure MJML standard, ajouter à la fin
+    return mjmlContent + "\n" + adMjml;
+  }
+
+  return (
+    mjmlContent.slice(0, insertIndex) +
+    "\n" +
+    adMjml +
+    "\n" +
+    mjmlContent.slice(insertIndex)
+  );
+}
+
+/**
+ * Injecte une bannière publicitaire dans le corps HTML d'un email.
+ * Recherche le placeholder {{ad.slot}} ou l'insère avant </body>.
+ */
+export function injectAdIntoHtml(htmlContent: string, adHtml: string | null): string {
+  if (!adHtml) {
+    return htmlContent.replace(/\{\{ad\.slot\}\}/g, "");
+  }
+
+  if (htmlContent.includes("{{ad.slot}}")) {
+    return htmlContent.replace("{{ad.slot}}", adHtml);
+  }
+
+  // Insérer avant </body>
+  const closingTag = "</body>";
+  const insertIndex = htmlContent.lastIndexOf(closingTag);
+  if (insertIndex === -1) {
+    return htmlContent + "\n" + adHtml;
+  }
+
+  return (
+    htmlContent.slice(0, insertIndex) +
+    "\n" +
+    adHtml +
+    "\n" +
+    htmlContent.slice(insertIndex)
+  );
+}
+
+/**
+ * Rend un template avec injection de publicité.
+ * Combine le rendu standard avec l'insertion d'une bannière ciblée.
+ */
+export async function renderTemplateWithAd(
+  template: EmailTemplateWithLayout,
+  values: TokenValues,
+  adMjml: string | null,
+  adHtml: string | null
+): Promise<{ subject: string; html: string; text: string | null }> {
+  // Résoudre les tokens dans le sujet
+  const subject = replaceTokens(template.sujet, values);
+
+  // Combiner layout et corps
+  let fullMjml = template.corps;
+  if (template.layout?.mjml) {
+    fullMjml = template.layout.mjml.replace("{{content}}", template.corps);
+  }
+
+  // Injecter la pub dans le MJML
+  fullMjml = injectAdIntoMjml(fullMjml, adMjml);
+
+  // Remplacer les tokens dans le corps
+  const mjmlWithValues = replaceTokens(fullMjml, values);
+
+  // Convertir MJML → HTML
+  let html = await mjmlToHtml(mjmlWithValues);
+
+  // Si la conversion MJML a échoué et qu'on a du HTML brut, injecter la pub HTML
+  if (html === mjmlWithValues && adHtml) {
+    html = injectAdIntoHtml(html, adHtml);
+  }
+
+  // Version texte
+  const text = template.corpsText ? replaceTokens(template.corpsText, values) : null;
+
+  return { subject, html, text };
+}
+

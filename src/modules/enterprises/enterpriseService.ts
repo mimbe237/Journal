@@ -220,12 +220,28 @@ export async function canEnterpriseUserAccessEdition(params: {
  * Utilisable côté API de lecture.
  */
 export async function canUserAccessEdition(params: { userId: string; editionId: string }): Promise<boolean> {
-  const hasIndividual = await getActiveSubscriptionForUser(params.userId);
+  const user = await prisma.user.findUnique({
+    where: { id: params.userId },
+    select: { id: true, role: true, enterpriseAccountId: true }
+  });
+
+  if (!user) return false;
+
+  // Accès illimité pour les rôles staff/admin
+  const staffRoles: UserRole[] = [
+    UserRole.SUPER_ADMIN,
+    UserRole.SUPPORT,
+    UserRole.FACTURATION,
+    UserRole.COMMERCIAL
+  ];
+  if (staffRoles.includes(user.role)) return true;
+
+  // Accès via abonnement individuel
+  const hasIndividual = await getActiveSubscriptionForUser(user.id);
   if (hasIndividual) return true;
 
-  const user = await prisma.user.findUnique({ where: { id: params.userId } });
-  if (!user?.enterpriseAccountId) return false;
-
+  // Accès via abonnement entreprise
+  if (!user.enterpriseAccountId) return false;
   const hasEnterprise = await getActiveSubscriptionForEnterprise(user.enterpriseAccountId);
   return Boolean(hasEnterprise);
 }

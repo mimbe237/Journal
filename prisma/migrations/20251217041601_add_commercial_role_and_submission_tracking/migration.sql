@@ -44,8 +44,7 @@ ADD COLUMN     "role" "EnterpriseUserRole" NOT NULL DEFAULT 'UTILISATEUR',
 ALTER COLUMN "createdBy" SET NOT NULL;
 
 -- AlterTable
-ALTER TABLE "journal_types" DROP COLUMN "title_template",
-ADD COLUMN     "titleTemplate" VARCHAR(255);
+ALTER TABLE "journal_types" ADD COLUMN     "titleTemplate" VARCHAR(255);
 
 -- AlterTable
 ALTER TABLE "manual_subscriptions" ADD COLUMN     "soumisParId" TEXT;

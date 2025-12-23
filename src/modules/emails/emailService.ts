@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/config/prisma";
 import { emailProvider } from "@/services/email";
 import { EmailSendStatus, EmailTriggerType, Prisma } from "@prisma/client";
-import { renderTemplate } from "./templateRenderer";
-import { TokenValues, getSampleTokenValues } from "./tokens";
+import { renderTemplate, renderTemplateWithAd } from "./templateRenderer";
+import { TokenValues, getSampleTokenValues, createAdTokenValues } from "./tokens";
+import { selectAdForEditionEmail } from "@/modules/advertising/adSelectionService";
+import { recordImpressionForEmail } from "@/modules/advertising/trackingService";
 
 export type SendEmailParams = {
   templateSlug?: string;
@@ -102,6 +104,133 @@ export async function sendTestEmail(params: {
     to: params.testEmail,
     values
   });
+}
+
+/**
+ * Envoie un email d'édition avec publicité ciblée.
+ * Sélectionne automatiquement une pub adaptée à l'utilisateur et l'injecte dans le template.
+ */
+export async function sendEditionEmailWithAd(params: {
+  templateSlug?: string;
+  templateId?: string;
+  to: string;
+  toName?: string;
+  userId: string;
+  values: TokenValues;
+  locale?: string;
+}): Promise<string> {
+  const { to, toName, userId, values, locale = "fr" } = params;
+
+  // Récupérer le template
+  let template;
+  if (params.templateId) {
+    template = await prisma.emailTemplate.findUnique({
+      where: { id: params.templateId },
+      include: { layout: true }
+    });
+  } else if (params.templateSlug) {
+    template = await prisma.emailTemplate.findFirst({
+      where: { slug: params.templateSlug, locale, status: "PUBLISHED" },
+      include: { layout: true }
+    });
+  }
+
+  if (!template) {
+    throw new Error(`Template non trouvé: ${params.templateSlug || params.templateId}`);
+  }
+
+  // Créer le log d'envoi d'abord pour avoir l'ID
+  const emailSend = await prisma.emailSend.create({
+    data: {
+      templateId: template.id,
+      recipientEmail: to,
+      recipientName: toName,
+      userId,
+      subject: "", // Sera mis à jour après le rendu
+      status: EmailSendStatus.PENDING,
+      metadata: values as Prisma.InputJsonValue
+    }
+  });
+
+  try {
+    // Sélectionner une publicité ciblée pour cet utilisateur
+    const selectedAd = await selectAdForEditionEmail(userId, emailSend.id);
+    
+    // Créer les tokens de pub
+    const adTokenValues = createAdTokenValues(
+      selectedAd
+        ? {
+            campaignId: selectedAd.campaignId,
+            creativeId: selectedAd.creativeId,
+            imageUrl: selectedAd.imageUrl,
+            clickUrl: selectedAd.clickUrl,
+            altText: selectedAd.altText,
+            htmlSnippet: selectedAd.htmlSnippet,
+            mjmlSnippet: selectedAd.mjmlSnippet,
+          }
+        : null
+    );
+
+    // Fusionner les valeurs avec les tokens de pub
+    const valuesWithAd: TokenValues = {
+      ...values,
+      ad: adTokenValues
+    };
+
+    // Rendre le template avec la pub injectée
+    const rendered = await renderTemplateWithAd(
+      template,
+      valuesWithAd,
+      selectedAd?.mjmlSnippet || null,
+      selectedAd?.htmlSnippet || null
+    );
+
+    // Mettre à jour le sujet dans l'emailSend
+    await prisma.emailSend.update({
+      where: { id: emailSend.id },
+      data: { subject: rendered.subject }
+    });
+
+    // Envoyer via le provider
+    await emailProvider.sendEmail({
+      to,
+      subject: rendered.subject,
+      html: rendered.html,
+      text: rendered.text ?? undefined
+    });
+
+    // Enregistrer l'impression de la pub
+    if (selectedAd) {
+      await recordImpressionForEmail(
+        selectedAd.campaignId,
+        selectedAd.creativeId,
+        userId,
+        emailSend.id
+      );
+    }
+
+    // Marquer comme envoyé
+    await prisma.emailSend.update({
+      where: { id: emailSend.id },
+      data: {
+        status: EmailSendStatus.SENT,
+        sentAt: new Date()
+      }
+    });
+
+    return emailSend.id;
+  } catch (error: any) {
+    // Marquer comme échoué
+    await prisma.emailSend.update({
+      where: { id: emailSend.id },
+      data: {
+        status: EmailSendStatus.FAILED,
+        failedAt: new Date(),
+        errorMessage: error?.message || "Erreur inconnue"
+      }
+    });
+    throw error;
+  }
 }
 
 /**

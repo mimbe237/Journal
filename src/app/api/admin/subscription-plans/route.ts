@@ -28,7 +28,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(plans);
   } catch (error: any) {
     console.error("GET /api/admin/subscription-plans error:", error);
-    return NextResponse.json({ error: error.message || "Erreur serveur" }, { status: 500 });
+    const status = error.status || 500;
+    return NextResponse.json({ error: error.message || "Erreur serveur" }, { status });
   }
 }
 
@@ -97,6 +98,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(plan, { status: 201 });
   } catch (error: any) {
     console.error("POST /api/admin/subscription-plans error:", error);
-    return NextResponse.json({ error: error.message || "Erreur serveur" }, { status: 400 });
+    const status = error.status || 500;
+    return NextResponse.json({ error: error.message || "Erreur serveur" }, { status });
   }
 }

@@ -142,6 +142,12 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
     </svg>
   ),
+  Advertising: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+    </svg>
+  ),
 };
 
 interface AdminSidebarProps {
@@ -267,6 +273,7 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
           { href: "/admin/promocodes", label: "Codes promo", icon: Icons.PromoCodes },
           { href: "/admin/exports", label: "Exports", icon: Icons.Exports },
           { href: "/admin/emails", label: "Emails", icon: Icons.Email },
+          { href: "/admin/advertising", label: "Publicités", icon: Icons.Advertising, keywords: ["pub", "campagne", "annonceur", "banner"] },
         ]
       },
       {
