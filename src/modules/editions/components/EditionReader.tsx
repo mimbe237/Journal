@@ -568,6 +568,35 @@ export function EditionReader({ editionId }: EditionReaderProps) {
   // Reading progress
   const { progress, updatePage } = useReadingTime(editionId);
 
+  // Server-side tracking
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editionId) return;
+
+    const track = async () => {
+      try {
+        const res = await fetch(`/api/editions/${editionId}/track`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ page: currentPage, sessionId }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.sessionId && !sessionId) {
+            setSessionId(data.sessionId);
+          }
+        }
+      } catch (err) {
+        console.error("Tracking failed", err);
+      }
+    };
+
+    // Debounce tracking (2s)
+    const timer = setTimeout(track, 2000);
+    return () => clearTimeout(timer);
+  }, [editionId, currentPage, sessionId]);
+
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);

@@ -22,8 +22,9 @@ export async function GET(req: NextRequest) {
     const pageSize = parseInt(searchParams.get("pageSize") ?? "12", 10);
     const type = (searchParams.get("type") as EditionType | null) ?? undefined;
     const order = (searchParams.get("order") as "ASC" | "DESC" | null) ?? "DESC";
+    const query = searchParams.get("query") ?? undefined;
 
-    const result = await listEditions({ page, pageSize, type, order });
+    const result = await listEditions({ page, pageSize, type, order, query });
 
     // Calculer l'accès par édition pour l'utilisateur courant
     const dataWithAccess = await Promise.all(

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { ThemeToggle } from "@/lib/hooks/useTheme";
 
 export function Header() {
   const pathname = usePathname();
@@ -10,6 +11,7 @@ export function Header() {
   const [user, setUser] = useState<{ nom: string; email: string; role: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const isStaff = user?.role === "SUPER_ADMIN" || user?.role === "FACTURATION" || user?.role === "SUPPORT";
   const staffDashboardPath = user
@@ -54,6 +56,14 @@ export function Header() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setMobileMenuOpen(false);
+    }
+  }
+
   async function handleLogout() {
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -69,9 +79,9 @@ export function Header() {
   if (isAuthPage) return null;
 
   return (
-    <header className="border-b border-slate-200 bg-white sticky top-0 z-50">
+    <header className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 sticky top-0 z-50">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:py-4 md:px-8">
-        <Link href="/" className="text-lg md:text-xl font-bold text-slate-900">
+        <Link href="/" className="text-lg md:text-xl font-bold text-slate-900 dark:text-white">
           Journal Numérique
         </Link>
 
@@ -96,6 +106,21 @@ export function Header() {
 
         {/* Desktop navigation */}
         <nav className="hidden md:flex items-center gap-6">
+          <form onSubmit={handleSearch} className="relative">
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              className="w-48 rounded-full border border-slate-200 bg-slate-50 px-4 py-1.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+          </form>
+
           {!loading && user ? (
             <>
               {!isStaff && (
@@ -180,10 +205,11 @@ export function Header() {
                 Profil
               </Link>
               <div className="flex items-center gap-3">
-                <span className="text-sm text-slate-600">{user.nom}</span>
+                <ThemeToggle />
+                <span className="text-sm text-slate-600 dark:text-slate-400">{user.nom}</span>
                 <button
                   onClick={handleLogout}
-                  className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
+                  className="rounded-md bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                 >
                   Déconnexion
                 </button>
@@ -191,15 +217,16 @@ export function Header() {
             </>
           ) : (
             <>
+              <ThemeToggle />
               <Link
                 href="/faq"
-                className="text-sm font-medium text-slate-600 hover:text-slate-900"
+                className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               >
                 FAQ
               </Link>
               <Link
                 href="/auth/login"
-                className="text-sm font-medium text-slate-600 hover:text-slate-900"
+                className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               >
                 Connexion
               </Link>
@@ -216,8 +243,22 @@ export function Header() {
 
       {/* Mobile navigation drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white">
+        <div className="md:hidden border-t border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-700">
           <div className="space-y-1 px-4 py-4">
+            <form onSubmit={handleSearch} className="relative mb-4">
+              <input
+                type="text"
+                placeholder="Rechercher..."
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-base focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
+            </form>
             {!loading && user ? (
               <>
                 <div className="pb-3 mb-3 border-b border-slate-100">

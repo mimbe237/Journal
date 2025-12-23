@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { EditionCard } from "@/modules/editions/components/EditionCard";
+import { EditionCardSkeleton } from "@/modules/editions/components/EditionCardSkeleton";
 import { LoadingState, ErrorState } from "@/components/ui/States";
 
 type EditionListItem = {
@@ -147,7 +148,13 @@ export default function EditionsKioskPage() {
 
       <section className="pb-16">
         <div className="mx-auto max-w-6xl px-4 md:px-8">
-          {loading && <LoadingState message="Chargement des éditions..." />}
+          {loading && (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <EditionCardSkeleton key={i} />
+              ))}
+            </div>
+          )}
           {error && <ErrorState message={error} />}
 
           {!loading && !error && (

@@ -55,12 +55,21 @@ export async function listEditions(params?: {
   pageSize?: number;
   type?: EditionType;
   order?: "DESC" | "ASC";
+  query?: string;
 }): Promise<{ data: Edition[]; total: number }> {
   await prismaRuntimeReady;
 
   const page = Math.max(params?.page ?? 1, 1);
   const pageSize = Math.min(Math.max(params?.pageSize ?? 20, 1), 100);
-  const where = params?.type ? { type: params.type } : {};
+  
+  const where: any = {};
+  if (params?.type) {
+    where.type = params.type;
+  }
+  if (params?.query && params.query.trim().length > 0) {
+    where.titre = { contains: params.query.trim(), mode: 'insensitive' };
+  }
+
   const total = await prisma.edition.count({ where });
   const data = await prisma.edition.findMany({
     where,
