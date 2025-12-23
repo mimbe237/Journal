@@ -70,6 +70,80 @@ export async function GET() {
       ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "organizationSize" "OrganizationSize";
       ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "organizationType" "OrganizationType";
       ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "sector" TEXT;
+      
+      -- Colonnes manquantes de la migration subscription_plans
+      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "licencesAchetees" INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3);
+      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "deletedBy" TEXT;
+      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "trashedUntil" TIMESTAMP(3);
+      ALTER TABLE "enterprise_accounts" ALTER COLUMN "nombreUtilisateursInclus" SET DEFAULT 0;
+    `);
+
+    // 7b. Créer les tables manquantes (Plans & Transactions)
+    try {
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          CREATE TYPE "LicenseTransactionType" AS ENUM ('ACHAT', 'AJUSTEMENT_ADMIN', 'REMBOURSEMENT', 'MIGRATION_INITIALE');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+      
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          CREATE TYPE "PlanTargetAudience" AS ENUM ('INDIVIDUAL', 'ENTERPRISE');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+    } catch (e) { console.log("Enums Plans existent déjà"); }
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "enterprise_license_transactions" (
+        "id" TEXT NOT NULL,
+        "enterpriseAccountId" TEXT NOT NULL,
+        "type" "LicenseTransactionType" NOT NULL,
+        "delta" INTEGER NOT NULL,
+        "reason" TEXT,
+        "paymentRef" TEXT,
+        "prixUnitaire" DECIMAL(10,2),
+        "montantTotal" DECIMAL(10,2),
+        "devise" VARCHAR(3) DEFAULT 'XAF',
+        "createdBy" TEXT NOT NULL,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "meta" JSONB,
+        CONSTRAINT "enterprise_license_transactions_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "subscription_plans" (
+        "id" TEXT NOT NULL,
+        "nom" TEXT NOT NULL,
+        "slug" TEXT NOT NULL,
+        "description" TEXT,
+        "targetAudience" "PlanTargetAudience" NOT NULL DEFAULT 'INDIVIDUAL',
+        "durationMonths" INTEGER NOT NULL,
+        "basePrice" DECIMAL(10,2) NOT NULL,
+        "currency" VARCHAR(3) NOT NULL DEFAULT 'XAF',
+        "pricePerUser" DECIMAL(10,2),
+        "minUsers" INTEGER,
+        "maxUsers" INTEGER,
+        "advantages" JSONB NOT NULL DEFAULT '[]',
+        "highlight" BOOLEAN NOT NULL DEFAULT false,
+        "badge" TEXT,
+        "displayOrder" INTEGER NOT NULL DEFAULT 0,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "isPublic" BOOLEAN NOT NULL DEFAULT true,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
+        CONSTRAINT "subscription_plans_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "subscription_plan_journal_types" (
+        "id" TEXT NOT NULL,
+        "planId" TEXT NOT NULL,
+        "journalTypeId" TEXT NOT NULL,
+        CONSTRAINT "subscription_plan_journal_types_pkey" PRIMARY KEY ("id")
+      );
     `);
 
     // 8. Créer les tables Publicité
