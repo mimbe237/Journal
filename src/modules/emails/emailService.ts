@@ -4,7 +4,7 @@ import { EmailSendStatus, EmailTriggerType, Prisma } from "@prisma/client";
 import { renderTemplate, renderTemplateWithAd } from "./templateRenderer";
 import { TokenValues, getSampleTokenValues, createAdTokenValues } from "./tokens";
 import { selectAdForEditionEmail } from "@/modules/advertising/adSelectionService";
-import { recordImpressionForEmail } from "@/modules/advertising/trackingService";
+import { recordEmailAdImpression } from "@/modules/advertising/trackingService";
 
 export type SendEmailParams = {
   templateSlug?: string;
@@ -201,7 +201,7 @@ export async function sendEditionEmailWithAd(params: {
 
     // Enregistrer l'impression de la pub
     if (selectedAd) {
-      await recordImpressionForEmail(
+      await recordEmailAdImpression(
         selectedAd.campaignId,
         selectedAd.creativeId,
         userId,

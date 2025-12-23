@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { selectAdForEditionEmail } from "@/modules/advertising/adSelectionService";
 import { recordImpression } from "@/modules/advertising/trackingService";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/authOptions";
+import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
+import { AdChannel } from "@prisma/client";
 
 /**
  * GET /api/ads/banner
@@ -11,15 +11,15 @@ import { authOptions } from "@/lib/auth/authOptions";
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const user = await getCurrentUserFromRequest(request);
+    if (!user?.id) {
       return NextResponse.json({ ad: null }, { status: 200 });
     }
 
     const { searchParams } = new URL(request.url);
     const emailSendId = searchParams.get("emailSendId") || undefined;
 
-    const ad = await selectAdForEditionEmail(session.user.id, emailSendId);
+    const ad = await selectAdForEditionEmail(user.id, emailSendId);
     
     if (!ad) {
       return NextResponse.json({ ad: null }, { status: 200 });
@@ -29,11 +29,9 @@ export async function GET(request: NextRequest) {
     await recordImpression({
       creativeId: ad.creativeId,
       campaignId: ad.campaignId,
-      userId: session.user.id,
+      userId: user.id,
       emailSendId,
-      channel: "EMAIL",
-      ipAddress: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || undefined,
-      userAgent: request.headers.get("user-agent") || undefined,
+      channel: AdChannel.EMAIL_EDITION,
     });
 
     return NextResponse.json({ ad });
