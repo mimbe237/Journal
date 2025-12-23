@@ -142,6 +142,8 @@ function getRedirectPathForRole(role?: string) {
       return "/admin/support";
     case "FACTURATION":
       return "/admin/facturation";
+    case "COMMERCIAL":
+      return "/admin";
     case "COMPTE_ENTREPRISE":
       return "/enterprise/dashboard";
     default:
