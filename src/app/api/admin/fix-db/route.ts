@@ -36,9 +36,154 @@ export async function GET() {
       ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "region" TEXT;
     `);
 
+    // ==========================================
+    // MODULE PUBLICITÉ (ADVERTISING)
+    // ==========================================
+
+    // 6. Créer les Enums Publicité
+    try {
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          CREATE TYPE "OrganizationType" AS ENUM ('STARTUP', 'PME', 'GRAND_GROUPE', 'ADMINISTRATION', 'ONG', 'EDUCATION', 'SANTE', 'MEDIA', 'PARTICULIER');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          CREATE TYPE "OrganizationSize" AS ENUM ('MICRO', 'SMALL', 'MEDIUM', 'LARGE');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          CREATE TYPE "AdCampaignStatus" AS ENUM ('DRAFT', 'SCHEDULED', 'ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+      await prisma.$executeRawUnsafe(`
+        DO $$ BEGIN
+          CREATE TYPE "AdChannel" AS ENUM ('EMAIL_EDITION', 'EMAIL_NEWSLETTER', 'IN_APP_BANNER', 'IN_APP_INTERSTITIAL');
+        EXCEPTION WHEN duplicate_object THEN null; END $$;
+      `);
+    } catch (e) { console.log("Enums Publicité existent déjà"); }
+
+    // 7. Mettre à jour enterprise_accounts
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "interests" "InterestCategory"[] DEFAULT ARRAY[]::"InterestCategory"[];
+      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "organizationSize" "OrganizationSize";
+      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "organizationType" "OrganizationType";
+      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "sector" TEXT;
+    `);
+
+    // 8. Créer les tables Publicité
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "audience_segments" (
+        "id" TEXT NOT NULL,
+        "nom" TEXT NOT NULL,
+        "description" TEXT,
+        "filters" JSONB NOT NULL DEFAULT '{}',
+        "estimatedReach" INTEGER NOT NULL DEFAULT 0,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "lastRefreshedAt" TIMESTAMP(3),
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
+        CONSTRAINT "audience_segments_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "advertisers" (
+        "id" TEXT NOT NULL,
+        "nom" TEXT NOT NULL,
+        "contactEmail" TEXT NOT NULL,
+        "contactPhone" TEXT,
+        "entreprise" TEXT,
+        "logoUrl" TEXT,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "notes" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
+        CONSTRAINT "advertisers_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ad_campaigns" (
+        "id" TEXT NOT NULL,
+        "nom" TEXT NOT NULL,
+        "advertiserId" TEXT NOT NULL,
+        "status" "AdCampaignStatus" NOT NULL DEFAULT 'DRAFT',
+        "startDate" TIMESTAMP(3) NOT NULL,
+        "endDate" TIMESTAMP(3) NOT NULL,
+        "budget" DECIMAL(10,2),
+        "currency" VARCHAR(3) NOT NULL DEFAULT 'XAF',
+        "priority" INTEGER NOT NULL DEFAULT 0,
+        "channels" "AdChannel"[] DEFAULT ARRAY[]::"AdChannel"[],
+        "isExclusive" BOOLEAN NOT NULL DEFAULT false,
+        "dailyCap" INTEGER,
+        "totalCap" INTEGER,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
+        CONSTRAINT "ad_campaigns_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ad_campaign_segments" (
+        "id" TEXT NOT NULL,
+        "campaignId" TEXT NOT NULL,
+        "segmentId" TEXT NOT NULL,
+        CONSTRAINT "ad_campaign_segments_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ad_creatives" (
+        "id" TEXT NOT NULL,
+        "campaignId" TEXT NOT NULL,
+        "nom" TEXT NOT NULL,
+        "imageUrl" TEXT NOT NULL,
+        "clickUrl" TEXT NOT NULL,
+        "altText" TEXT,
+        "mjmlSnippet" TEXT,
+        "htmlSnippet" TEXT,
+        "width" INTEGER,
+        "height" INTEGER,
+        "isActive" BOOLEAN NOT NULL DEFAULT true,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
+        CONSTRAINT "ad_creatives_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ad_impressions" (
+        "id" TEXT NOT NULL,
+        "campaignId" TEXT NOT NULL,
+        "creativeId" TEXT NOT NULL,
+        "userId" TEXT,
+        "channel" "AdChannel" NOT NULL,
+        "emailSendId" TEXT,
+        "viewedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "metadata" JSONB,
+        CONSTRAINT "ad_impressions_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ad_clicks" (
+        "id" TEXT NOT NULL,
+        "campaignId" TEXT NOT NULL,
+        "creativeId" TEXT NOT NULL,
+        "userId" TEXT,
+        "channel" "AdChannel" NOT NULL,
+        "emailSendId" TEXT,
+        "clickedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "metadata" JSONB,
+        CONSTRAINT "ad_clicks_pkey" PRIMARY KEY ("id")
+      );
+    `);
+
     return NextResponse.json({ 
       success: true, 
-      message: "Base de données réparée : headlines, tags, interests et region ajoutés." 
+      message: "Base de données réparée : Module Publicité complet installé." 
     });
   } catch (error: any) {
     console.error("Erreur migration manuelle:", error);
