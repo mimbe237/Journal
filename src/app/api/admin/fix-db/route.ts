@@ -31,9 +31,14 @@ export async function GET() {
       ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "interests" "InterestCategory"[] DEFAULT ARRAY[]::"InterestCategory"[];
     `);
 
+    // 5. Ajouter la colonne region sur users
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "region" TEXT;
+    `);
+
     return NextResponse.json({ 
       success: true, 
-      message: "Base de données réparée : headlines, tags, et interests ajoutés." 
+      message: "Base de données réparée : headlines, tags, interests et region ajoutés." 
     });
   } catch (error: any) {
     console.error("Erreur migration manuelle:", error);
