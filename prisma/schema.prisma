@@ -447,6 +447,10 @@ model Edition {
 
   journalType JournalType? @relation(fields: [journalTypeId], references: [id])
 
+  // Contenu enrichi (Grand Titres & Mots-clés)
+  headlines    Json?       // Liste des grands titres [{ title: string, page: number }]
+  tags         String[]    // Mots-clés pour la recherche
+
   readingSessions ReadingSession[]
   readingProgress ReadingProgress[]
 

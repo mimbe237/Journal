@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ThemeToggle } from "@/lib/hooks/useTheme";
+import { GlobalSearch } from "@/components/search/GlobalSearch";
 
 export function Header() {
   const pathname = usePathname();
@@ -11,7 +12,6 @@ export function Header() {
   const [user, setUser] = useState<{ nom: string; email: string; role: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
 
   const isStaff = user?.role === "SUPER_ADMIN" || user?.role === "FACTURATION" || user?.role === "SUPPORT";
   const staffDashboardPath = user
@@ -56,14 +56,6 @@ export function Header() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      setMobileMenuOpen(false);
-    }
-  }
-
   async function handleLogout() {
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -106,20 +98,9 @@ export function Header() {
 
         {/* Desktop navigation */}
         <nav className="hidden md:flex items-center gap-6">
-          <form onSubmit={handleSearch} className="relative">
-            <input
-              type="text"
-              placeholder="Rechercher..."
-              className="w-48 rounded-full border border-slate-200 bg-slate-50 px-4 py-1.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
-          </form>
+          <div className="w-64">
+            <GlobalSearch />
+          </div>
 
           {!loading && user ? (
             <>
@@ -245,20 +226,9 @@ export function Header() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-700">
           <div className="space-y-1 px-4 py-4">
-            <form onSubmit={handleSearch} className="relative mb-4">
-              <input
-                type="text"
-                placeholder="Rechercher..."
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-base focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </button>
-            </form>
+            <div className="mb-4">
+              <GlobalSearch />
+            </div>
             {!loading && user ? (
               <>
                 <div className="pb-3 mb-3 border-b border-slate-100">

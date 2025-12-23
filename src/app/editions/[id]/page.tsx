@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EditionReader } from "@/modules/editions/components/EditionReader";
+import { EditionSummary } from "@/modules/editions/components/EditionSummary";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ButtonSecondary } from "@/components/ui/Button";
 import { getEditionById } from "@/modules/editions/editionService";
@@ -10,6 +11,12 @@ import { SocialShare } from "@/components/ui/SocialShare";
 type Props = {
   params: Promise<{ id?: string }>;
 };
+
+// Helper pour typer le JSON headlines
+interface Headline {
+  title: string;
+  page: number;
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id: rawId } = await params;
@@ -86,6 +93,10 @@ export default async function EditionPage({ params }: Props) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://journal.example.com";
   const shareUrl = `${appUrl}/editions/${edition.id}`;
 
+  // Cast headlines safely
+  const headlines = (edition.headlines as unknown as Headline[]) || [];
+  const tags = edition.tags || [];
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8 md:px-8">
@@ -101,6 +112,9 @@ export default async function EditionPage({ params }: Props) {
             </div>
           }
         />
+
+        {/* Sommaire et Mots-clés */}
+        <EditionSummary headlines={headlines} tags={tags} />
 
         <EditionReader editionId={id} />
       </div>

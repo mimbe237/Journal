@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { ButtonPrimary } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/admin/DeleteButton";
+import { HeadlinesEditor } from "@/components/admin/editions/HeadlinesEditor";
 
 type Edition = {
   id: string;
@@ -13,6 +14,8 @@ type Edition = {
   type: string;
   nombrePages: number | null;
   cheminImageUne: string | null;
+  headlines?: any;
+  tags?: string[];
 };
 
 export default function EditionsListPage() {
@@ -21,7 +24,7 @@ export default function EditionsListPage() {
   const [selectedEdition, setSelectedEdition] = useState<Edition | null>(null);
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [editMode, setEditMode] = useState<'cover' | 'details' | null>(null);
+  const [editMode, setEditMode] = useState<'cover' | 'details' | 'metadata' | null>(null);
   const [editFormData, setEditFormData] = useState({
     titre: '',
     datePublication: '',
@@ -181,6 +184,15 @@ export default function EditionsListPage() {
                     >
                       Modifier les infos
                     </button>
+                    <button
+                      onClick={() => {
+                        setSelectedEdition(edition);
+                        setEditMode('metadata');
+                      }}
+                      className="w-full rounded-lg bg-purple-600 px-3 py-2 text-sm text-white hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <span>✨</span> Enrichir (IA)
+                    </button>
                     <DeleteButton
                       type="edition"
                       id={edition.id}
@@ -322,6 +334,40 @@ export default function EditionsListPage() {
                 </ButtonPrimary>
               </div>
             </Card>
+          </div>
+        )}
+        {/* Modal pour enrichir (Headlines & Tags) */}
+        {selectedEdition && editMode === 'metadata' && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+            <div className="relative w-full max-w-2xl bg-white dark:bg-slate-800 rounded-xl shadow-2xl my-8">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                    Enrichir l'édition : {selectedEdition.titre}
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setSelectedEdition(null);
+                      setEditMode(null);
+                    }}
+                    className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  >
+                    ✕
+                  </button>
+                </div>
+                
+                <HeadlinesEditor
+                  editionId={selectedEdition.id}
+                  initialHeadlines={selectedEdition.headlines || []}
+                  initialTags={selectedEdition.tags || []}
+                  onSave={() => {
+                    fetchEditions(); // Refresh list
+                    setSelectedEdition(null);
+                    setEditMode(null);
+                  }}
+                />
+              </div>
+            </div>
           </div>
         )}
       </div>

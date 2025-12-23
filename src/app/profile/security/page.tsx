@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from "react";
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -12,6 +12,26 @@ export default function SecurityPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadLogs() {
+      try {
+        const res = await fetch("/api/profile/security", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setLogs(data.logs);
+        }
+      } catch (err) {
+        console.error("Failed to load security logs", err);
+      } finally {
+        setLogsLoading(false);
+      }
+    }
+    loadLogs();
+  }, []);
 
   // Validation du mot de passe en temps réel
   const passwordValidation = {
@@ -210,24 +230,68 @@ export default function SecurityPage() {
           </form>
         </div>
 
-        {/* Autres options de sécurité (future) */}
-        <div className="mt-8 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden opacity-60">
-          <div className="p-6">
-            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-              <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        {/* Historique de connexion */}
+        <div className="mt-8 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <svg className="w-5 h-5 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Authentification à deux facteurs
-              <span className="ml-2 text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full">Bientôt disponible</span>
+              Historique de connexion
             </h2>
-            <p className="text-sm text-slate-600 mt-1">
-              Ajoutez une couche de sécurité supplémentaire à votre compte.
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+              Les 10 dernières connexions à votre compte.
             </p>
           </div>
+          
+          {logsLoading ? (
+            <div className="p-6 text-center text-slate-500 dark:text-slate-400">Chargement...</div>
+          ) : logs.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                <thead className="bg-slate-50 dark:bg-slate-900">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Appareil</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">IP</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                  {logs.map((log) => (
+                    <tr key={log.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                        {new Date(log.date).toLocaleString("fr-FR")}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 max-w-xs truncate" title={log.device}>
+                        {parseUserAgent(log.device)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400">
+                        {log.ip || "Inconnu"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="p-6 text-center text-slate-500 dark:text-slate-400 italic">
+              Aucun historique disponible.
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+function parseUserAgent(ua: string) {
+  if (!ua) return "Inconnu";
+  if (ua.includes("Macintosh")) return "Mac";
+  if (ua.includes("Windows")) return "Windows";
+  if (ua.includes("iPhone")) return "iPhone";
+  if (ua.includes("Android")) return "Android";
+  if (ua.includes("Linux")) return "Linux";
+  return "Autre";
 }
 
 function ValidationItem({ valid, text }: { valid: boolean; text: string }) {

@@ -3,80 +3,45 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-
-import { EditionCard } from "@/modules/editions/components/EditionCard";
-import { EditionCardSkeleton } from "@/modules/editions/components/EditionCardSkeleton";
-import { LoadingState, ErrorState } from "@/components/ui/States";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Card } from "@/components/ui/Card";
+import { LoadingState } from "@/components/ui/States";
 
-type EditionListItem = {
+interface SearchResult {
   id: string;
   titre: string;
   datePublication: string;
-  type: string;
-  nombrePages: number | null;
-  cheminImageUne?: string | null;
-  prix?: number | null;
-  devise?: string | null;
-  access?: {
-    status: "read" | "buy_or_subscribe" | "subscribe";
-    detail?: string | null;
-    coverage?: {
-      type: "individual" | "enterprise";
-      dateDebut: string;
-      dateFin: string;
-    } | null;
-  };
-};
+  cheminImageUne: string | null;
+  headlines: { title: string; page: number }[] | null;
+  tags: string[];
+}
 
 function SearchResults() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q") || "";
-  
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [editions, setEditions] = useState<EditionListItem[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!query) {
-      setLoading(false);
-      setEditions([]);
+      setResults([]);
       return;
     }
 
-    let cancelled = false;
-    async function load() {
+    async function fetchResults() {
       setLoading(true);
-      setError(null);
       try {
-        const res = await fetch(`/api/editions?query=${encodeURIComponent(query)}&page=1&pageSize=50`, {
-          cache: "no-store",
-          credentials: "include"
-        });
-        const raw = await res.text();
-        let json: any = null;
-        try {
-          json = raw ? JSON.parse(raw) : null;
-        } catch {
-          // ignore non-JSON
-        }
-        if (!res.ok) {
-          const message = json?.error || raw || "Impossible de charger les résultats";
-          throw new Error(message);
-        }
-        if (cancelled) return;
-        setEditions(json?.data ?? []);
-      } catch (err: any) {
-        if (cancelled) return;
-        setError(err.message);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        setResults(data.results || []);
+      } catch (error) {
+        console.error(error);
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
+
+    fetchResults();
   }, [query]);
 
   if (!query) {
@@ -88,35 +53,91 @@ function SearchResults() {
   }
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-6 w-48 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <EditionCardSkeleton key={i} />
-          ))}
-        </div>
-      </div>
-    );
+    return <LoadingState message="Recherche dans les archives..." />;
   }
-  if (error) return <ErrorState message={error} />;
 
   return (
     <div className="space-y-6">
       <p className="text-slate-600 dark:text-slate-400">
-        {editions.length} résultat{editions.length > 1 ? "s" : ""} pour "{query}"
+        {results.length} résultat{results.length > 1 ? "s" : ""} pour "{query}"
       </p>
-      
-      {editions.length > 0 ? (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {editions.map((edition) => (
-            <EditionCard key={edition.id} {...edition} />
+
+      {results.length > 0 ? (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {results.map((edition) => (
+            <Link key={edition.id} href={`/editions/${edition.id}`} className="group">
+              <Card className="h-full hover:border-emerald-500 transition-colors overflow-hidden flex flex-col">
+                <div className="aspect-[3/4] w-full bg-slate-200 dark:bg-slate-700 relative mb-4 overflow-hidden rounded-md">
+                  {edition.cheminImageUne ? (
+                    <img
+                      src={edition.cheminImageUne}
+                      alt={edition.titre}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-slate-400">
+                      <span className="text-4xl">📰</span>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex-1 flex flex-col">
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2 group-hover:text-emerald-600 transition-colors">
+                    {edition.titre}
+                  </h3>
+                  <p className="text-sm text-slate-500 mb-4">
+                    Publié le {new Date(edition.datePublication).toLocaleDateString("fr-FR")}
+                  </p>
+
+                  {/* Matching Headlines */}
+                  {edition.headlines && edition.headlines.length > 0 && (
+                    <div className="space-y-2 mb-4 flex-1">
+                      {edition.headlines
+                        .filter(h => h.title.toLowerCase().includes(query.toLowerCase()))
+                        .slice(0, 3)
+                        .map((h, i) => (
+                          <div key={i} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2">
+                            <span className="text-emerald-500 mt-1.5 text-[10px]">●</span>
+                            <span className="bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">
+                              {h.title}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {edition.tags && edition.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-auto pt-4 border-t border-slate-100 dark:border-slate-700">
+                      {edition.tags.map(tag => (
+                        <span 
+                          key={tag} 
+                          className={`text-xs px-2 py-1 rounded-full ${
+                            tag.toLowerCase().includes(query.toLowerCase())
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                              : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                          }`}
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </Link>
           ))}
         </div>
       ) : (
         <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-          <p className="text-slate-500 dark:text-slate-400">Aucun résultat trouvé pour "{query}".</p>
-          <Link href="/editions" className="text-emerald-600 hover:underline mt-2 inline-block">
+          <div className="text-4xl mb-4">🔍</div>
+          <h3 className="text-lg font-medium text-slate-900 dark:text-white">
+            Aucun résultat trouvé
+          </h3>
+          <p className="text-slate-500 mt-2">
+            Essayez d'autres mots-clés ou vérifiez l'orthographe.
+          </p>
+          <Link href="/editions" className="text-emerald-600 hover:underline mt-4 inline-block">
             Voir toutes les éditions
           </Link>
         </div>

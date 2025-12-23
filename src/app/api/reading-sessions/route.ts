@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '10');
     const offset = parseInt(searchParams.get('offset') || '0');
+    const includeStats = searchParams.get('stats') === 'true';
 
     const readingProgress = await prisma.readingProgress.findMany({
       where: { userId: user.id },
@@ -38,6 +39,47 @@ export async function GET(request: NextRequest) {
 
     const total = await prisma.readingProgress.count({ where: { userId: user.id } });
 
+    let stats = null;
+    if (includeStats) {
+      const allProgress = await prisma.readingProgress.findMany({
+        where: { userId: user.id },
+        select: { pageNumber: true, lastReadAt: true }
+      });
+
+      const totalBooksRead = allProgress.length;
+      const totalPagesRead = allProgress.reduce((acc, curr) => acc + curr.pageNumber, 0);
+
+      // Simple streak calculation
+      let streak = 0;
+      if (allProgress.length > 0) {
+        const dates = allProgress
+          .map(p => new Date(p.lastReadAt).toDateString())
+          .sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+        
+        const uniqueDates = Array.from(new Set(dates));
+        const today = new Date().toDateString();
+        const yesterday = new Date(Date.now() - 86400000).toDateString();
+
+        if (uniqueDates.includes(today) || uniqueDates.includes(yesterday)) {
+          streak = 1;
+          let currentDate = new Date(uniqueDates[0]);
+          for (let i = 1; i < uniqueDates.length; i++) {
+            const prevDate = new Date(uniqueDates[i]);
+            const diffTime = Math.abs(currentDate.getTime() - prevDate.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            if (diffDays === 1) {
+              streak++;
+              currentDate = prevDate;
+            } else {
+              break;
+            }
+          }
+        }
+      }
+
+      stats = { totalBooksRead, totalPagesRead, readingStreak: streak };
+    }
+
     return NextResponse.json({
       data: readingProgress.map(rp => ({
         id: rp.id,
@@ -52,7 +94,8 @@ export async function GET(request: NextRequest) {
         lastReadAt: rp.lastReadAt
       })),
       total,
-      hasMore: offset + limit < total
+      hasMore: offset + limit < total,
+      stats
     });
   } catch (error) {
     console.error('Erreur reading-sessions GET:', error);
