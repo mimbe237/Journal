@@ -9,6 +9,9 @@ import os from "os";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
 
+// Prisma + fs + pdf conversion nécessitent un runtime Node.js
+export const runtime = "nodejs";
+
 // Configuration S3/R2
 const s3Client = new S3Client({
   region: process.env.S3_REGION || "auto",

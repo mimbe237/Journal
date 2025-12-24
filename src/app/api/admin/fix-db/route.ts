@@ -350,6 +350,15 @@ export async function GET() {
       console.log("Erreur update enum SubscriptionType", e);
     }
 
+    // 13. Supprimer les colonnes de prix obsolètes de journal_types
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "journal_types" DROP COLUMN IF EXISTS "monthlyPrice"`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "journal_types" DROP COLUMN IF EXISTS "sixMonthPrice"`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "journal_types" DROP COLUMN IF EXISTS "yearlyPrice"`);
+    } catch (e) {
+      console.log("Erreur suppression colonnes prix journal_types", e);
+    }
+
     return NextResponse.json({ 
       success: true, 
       message: "Base de données réparée : Module Publicité complet installé." 

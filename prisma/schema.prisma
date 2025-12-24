@@ -599,9 +599,6 @@ model JournalType {
   name          String           @unique
   frequency     JournalFrequency
   unitPrice     Decimal          @db.Decimal(10, 2)
-  monthlyPrice  Decimal          @db.Decimal(10, 2)
-  sixMonthPrice Decimal          @db.Decimal(10, 2)
-  yearlyPrice   Decimal          @db.Decimal(10, 2)
   titleTemplate String?          @db.VarChar(255)
   isActive      Boolean          @default(true)
   createdAt     DateTime         @default(now())
