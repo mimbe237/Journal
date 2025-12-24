@@ -4,6 +4,8 @@ import { TestimonialsSection } from "@/components/TestimonialsSection";
 import { PricingSectionServer } from "@/components/subscriptions/PricingSectionServer";
 import { prisma } from "@/lib/config/prisma";
 
+export const dynamic = "force-dynamic";
+
 // Fetch stats dynamically (cached for 1 hour)
 async function getStats() {
   const [editionCount, userCount] = await Promise.all([
