@@ -8,17 +8,27 @@ export const dynamic = "force-dynamic";
 
 // Fetch stats dynamically (cached for 1 hour)
 async function getStats() {
-  const [editionCount, userCount] = await Promise.all([
-    prisma.edition.count(),
-    prisma.user.count()
-  ]);
-  
-  return [
-    { label: "Éditions publiées", value: `${editionCount}+` },
-    { label: "Lecteurs inscrits", value: `${userCount}+` },
-    { label: "Taux de rétention", value: "92%" },
-    { label: "Disponibilité", value: "99.9%" }
-  ];
+  try {
+    // Sequential execution to respect connection_limit=1
+    const editionCount = await prisma.edition.count();
+    const userCount = await prisma.user.count();
+    
+    return [
+      { label: "Éditions publiées", value: `${editionCount}+` },
+      { label: "Lecteurs inscrits", value: `${userCount}+` },
+      { label: "Taux de rétention", value: "92%" },
+      { label: "Disponibilité", value: "99.9%" }
+    ];
+  } catch (error) {
+    console.error("Failed to fetch stats:", error);
+    // Fallback values to prevent page crash
+    return [
+      { label: "Éditions publiées", value: "100+" },
+      { label: "Lecteurs inscrits", value: "500+" },
+      { label: "Taux de rétention", value: "92%" },
+      { label: "Disponibilité", value: "99.9%" }
+    ];
+  }
 }
 
 type Feature = {

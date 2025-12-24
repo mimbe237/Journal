@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { listEditions } from "@/modules/editions/editionService";
 
+export const dynamic = "force-dynamic";
+
 // Route publique pour afficher les éditions sur la page d'accueil
 // Retourne uniquement les informations de base (pas de contenu protégé)
 export async function GET(req: NextRequest) {
