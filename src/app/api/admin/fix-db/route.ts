@@ -176,6 +176,7 @@ export async function GET() {
         "updatedAt" TIMESTAMP(3) NOT NULL,
         CONSTRAINT "advertisers_pkey" PRIMARY KEY ("id")
       );
+      CREATE INDEX IF NOT EXISTS "advertisers_isActive_idx" ON "advertisers"("isActive");
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -197,6 +198,8 @@ export async function GET() {
         "updatedAt" TIMESTAMP(3) NOT NULL,
         CONSTRAINT "ad_campaigns_pkey" PRIMARY KEY ("id")
       );
+      CREATE INDEX IF NOT EXISTS "ad_campaigns_status_startDate_endDate_idx" ON "ad_campaigns"("status", "startDate", "endDate");
+      CREATE INDEX IF NOT EXISTS "ad_campaigns_advertiserId_idx" ON "ad_campaigns"("advertiserId");
     `);
 
     await prisma.$executeRawUnsafe(`
