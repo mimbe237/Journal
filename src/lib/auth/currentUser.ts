@@ -28,16 +28,21 @@ export async function getCurrentUserFromRequest(req: NextRequest | NextApiReques
 
 // Helper pour Server Components
 export async function getCurrentUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
-  if (!token) return null;
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+    if (!token) return null;
 
-  const payload = verifyJwt(token);
-  if (!payload) return null;
+    const payload = verifyJwt(token);
+    if (!payload) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id: payload.userId }
-  });
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId }
+    });
 
-  return user;
+    return user;
+  } catch (error) {
+    console.error("[getCurrentUser] Error retrieving user:", error);
+    return null;
+  }
 }

@@ -59,27 +59,26 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
       } : {})
     };
 
-    // Get count and users in parallel
-    const [countResult, usersResult] = await Promise.all([
-      prisma.user.count({ where: whereClause }),
-      prisma.user.findMany({
-        where: whereClause,
-        orderBy: { dateCreation: "desc" },
-        take: PAGE_SIZE,
-        skip,
-        select: {
-          id: true,
-          nom: true,
-          email: true,
-          dateCreation: true,
-          subscriptions: {
-            take: 1,
-            orderBy: { dateFin: "desc" },
-            select: { statut: true, dateDebut: true, dateFin: true }
-          }
+    // Get count and users sequentially to avoid connection pool saturation
+    const countResult = await prisma.user.count({ where: whereClause });
+    
+    const usersResult = await prisma.user.findMany({
+      where: whereClause,
+      orderBy: { dateCreation: "desc" },
+      take: PAGE_SIZE,
+      skip,
+      select: {
+        id: true,
+        nom: true,
+        email: true,
+        dateCreation: true,
+        subscriptions: {
+          take: 1,
+          orderBy: { dateFin: "desc" },
+          select: { statut: true, dateDebut: true, dateFin: true }
         }
-      })
-    ]);
+      }
+    });
 
     total = countResult;
     users = usersResult;
