@@ -224,20 +224,20 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
               </div>
               <div className="flex gap-2">
                 {page > 1 && (
-                  <Link
+                  <a
                     href={buildUrl(page - 1)}
                     className="rounded-lg border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100"
                   >
                     ← Précédent
-                  </Link>
+                  </a>
                 )}
                 {page < totalPages && (
-                  <Link
+                  <a
                     href={buildUrl(page + 1)}
                     className="rounded-lg border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100"
                   >
                     Suivant →
-                  </Link>
+                  </a>
                 )}
               </div>
             </div>
