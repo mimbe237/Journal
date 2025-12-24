@@ -34,6 +34,8 @@ type Row = {
   dateFin?: Date;
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function SubscribersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const currentUser = await getCurrentUser();
@@ -57,47 +59,66 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
 
   await prismaRuntimeReady;
 
-  const [users, enterprisesOptions] = await Promise.all([
-    prisma.user.findMany({
-      where: { role: { in: subscriberRoles } },
-      orderBy: { dateCreation: "desc" },
-      select: {
-        id: true,
-        nom: true,
-        email: true,
-        role: true,
-        dateCreation: true,
-        subscriptions: {
-          take: 1,
-          orderBy: { dateFin: "desc" },
-          select: {
-            statut: true,
-            dateDebut: true,
-            dateFin: true
-          }
-        },
-        enterpriseAccount: {
-          select: {
-            id: true,
-            nom: true,
-            subscriptions: {
-              take: 1,
-              orderBy: { dateFin: "desc" },
-              select: { 
-                statut: true,
-                dateDebut: true,
-                dateFin: true
-              }
+  const where: any = {
+    role: { in: subscriberRoles },
+  };
+
+  if (q) {
+    where.OR = [
+      { nom: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+      { enterpriseAccount: { nom: { contains: q, mode: "insensitive" } } }
+    ];
+  }
+
+  if (enterpriseFilter) {
+    where.enterpriseAccountId = enterpriseFilter;
+  }
+
+  if (typeFilterList.length === 1) {
+    if (typeFilterList[0] === "individu") {
+      where.enterpriseAccountId = null;
+    } else if (typeFilterList[0] === "entreprise") {
+      where.enterpriseAccountId = { not: null };
+    }
+  }
+
+  const users = await prisma.user.findMany({
+    where,
+    orderBy: { dateCreation: "desc" },
+    take: 200,
+    select: {
+      id: true,
+      nom: true,
+      email: true,
+      role: true,
+      dateCreation: true,
+      subscriptions: {
+        take: 1,
+        orderBy: { dateFin: "desc" },
+        select: {
+          statut: true,
+          dateDebut: true,
+          dateFin: true
+        }
+      },
+      enterpriseAccount: {
+        select: {
+          id: true,
+          nom: true,
+          subscriptions: {
+            take: 1,
+            orderBy: { dateFin: "desc" },
+            select: { 
+              statut: true,
+              dateDebut: true,
+              dateFin: true
             }
           }
         }
       }
-    }),
-    prisma.enterpriseAccount.findMany({
-      orderBy: { nom: "asc" },
-      select: { id: true, nom: true }
-    })
-  ]);
+    }
+  });
 
   const rows: Row[] = users.map((u) => ({
     id: u.id,
@@ -119,33 +140,13 @@ export default async function SubscribersPage({ searchParams }: { searchParams: 
       : null
   }));
 
-  const matchesSearch = (text: string | null | undefined) => {
-    if (!q) return true;
-    return (text ?? "").toLowerCase().includes(q);
-  };
-
   const filtered = rows.filter((row) => {
-    const isEnterprise = Boolean(row.enterprise);
-    if (typeFilterList.length) {
-      if (typeFilterList.includes("individu") && typeFilterList.includes("entreprise")) {
-        // both allowed
-      } else if (typeFilterList.includes("individu") && isEnterprise) return false;
-      else if (typeFilterList.includes("entreprise") && !isEnterprise) return false;
-    }
-
-    if (enterpriseFilter && row.enterprise?.id !== enterpriseFilter) return false;
-
     const statusToCheck = row.enterprise ? row.enterprise.latestStatus ?? row.latestStatus : row.latestStatus;
     if (statusFilterList.length) {
       if (!statusToCheck) return false;
       if (!statusFilterList.includes(statusToCheck)) return false;
     }
-
-    const inSearch =
-      matchesSearch(row.nom) ||
-      matchesSearch(row.email) ||
-      matchesSearch(row.enterprise?.nom);
-    return inSearch;
+    return true;
   });
 
   const formatDate = (d: Date) => new Date(d).toLocaleDateString("fr-FR");
