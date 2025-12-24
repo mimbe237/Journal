@@ -16,6 +16,8 @@ const staffRoles: UserRole[] = [
 ].filter(Boolean);
 type SearchParams = Record<string, string | string[] | undefined>;
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminUsersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const currentUser = await getCurrentUser();
@@ -49,6 +51,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
           : undefined
       },
       orderBy: { dateCreation: "desc" },
+      take: 100,
       select: {
         id: true,
         nom: true,
