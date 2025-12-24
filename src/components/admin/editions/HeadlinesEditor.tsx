@@ -74,20 +74,39 @@ export function HeadlinesEditor({
     }
   };
 
-  // --- Auto-Extraction Simulation ---
-  const simulateAutoExtraction = () => {
-    // Ici, on pourrait appeler une API qui fait de l'OCR
-    // Pour l'instant, on simule des données
-    const mockHeadlines = [
-      { title: "Éditorial: Vers une nouvelle ère", page: 2 },
-      { title: "Dossier Spécial: L'économie numérique", page: 5 },
-      { title: "Interview exclusive du Ministre", page: 12 },
-    ];
-    const mockTags = ["Économie", "Politique", "Numérique", "Interview"];
+  // --- Auto-Extraction ---
+  const [isExtracting, setIsExtracting] = useState(false);
+
+  const handleAutoExtraction = async () => {
+    if (!confirm("Cela va analyser le PDF complet pour extraire le sommaire et les titres. Continuer ?")) return;
     
-    if (confirm("Cela va remplacer les données actuelles par une extraction automatique. Continuer ?")) {
-      setHeadlines(mockHeadlines);
-      setTags(mockTags);
+    setIsExtracting(true);
+    try {
+      const res = await fetch(`/api/admin/editions/${editionId}/extract-metadata`, {
+        method: "POST"
+      });
+      
+      if (!res.ok) throw new Error("Erreur lors de l'extraction");
+      
+      const data = await res.json();
+      
+      if (data.headlines && data.headlines.length > 0) {
+        setHeadlines(data.headlines);
+      } else {
+        alert("Aucun titre trouvé automatiquement. Vérifiez que le PDF contient du texte sélectionnable.");
+      }
+      
+      if (data.tags && data.tags.length > 0) {
+        // Merge tags instead of replacing
+        const newTags = Array.from(new Set([...tags, ...data.tags]));
+        setTags(newTags);
+      }
+      
+    } catch (error) {
+      console.error(error);
+      alert("Erreur lors de l'analyse du PDF.");
+    } finally {
+      setIsExtracting(false);
     }
   };
 
@@ -98,8 +117,13 @@ export function HeadlinesEditor({
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
             Grands Titres (Sommaire)
           </h3>
-          <Button variant="secondary" onClick={simulateAutoExtraction} type="button">
-            ✨ Extraction Auto (IA)
+          <Button 
+            variant="secondary" 
+            onClick={handleAutoExtraction} 
+            type="button"
+            disabled={isExtracting}
+          >
+            {isExtracting ? "Analyse en cours..." : "✨ Extraction Auto (PDF Complet)"}
           </Button>
         </div>
         
