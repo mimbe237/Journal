@@ -12,8 +12,12 @@ const getDatabaseUrl = () => {
       if (!url.includes("pgbouncer=true")) {
         const separator = url.includes("?") ? "&" : "?";
         url = `${url}${separator}pgbouncer=true`;
-        console.log("Auto-fixed DATABASE_URL to include pgbouncer=true");
       }
+      if (!url.includes("connection_limit=")) {
+        const separator = url.includes("?") ? "&" : "?";
+        url = `${url}${separator}connection_limit=1`;
+      }
+      console.log("Auto-fixed DATABASE_URL to include pgbouncer=true & connection_limit=1");
     }
   }
   return url;

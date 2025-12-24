@@ -5,6 +5,8 @@ import { fr } from "date-fns/locale";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 
+export const dynamic = "force-dynamic";
+
 type LogWithUser = {
   id: string;
   typeEvenement: SystemEventType;
@@ -33,6 +35,9 @@ export default async function LogsPage() {
 
   try {
     logs = await prisma.systemEvent.findMany({
+      where: {
+        typeEvenement: { in: allowedTypes }
+      },
       include: {
         user: {
           select: {
@@ -47,8 +52,6 @@ export default async function LogsPage() {
       },
       take: 100
     });
-
-    logs = logs.filter((log) => allowedTypes.includes(log.typeEvenement));
   } catch (error: any) {
     console.error("[admin/logs] failed to load system events", error);
     loadError = error?.message ?? "Impossible de charger les événements.";
