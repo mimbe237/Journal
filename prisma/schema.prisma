@@ -256,6 +256,12 @@ model User {
   adImpressions AdImpression[]
   adClicks      AdClick[]
 
+  @@index([role])
+  @@index([email])
+  @@index([dateCreation])
+  @@index([enterpriseAccountId])
+  @@index([deletedAt])
+  @@index([role, enterpriseAccountId, deletedAt])
   @@map("users")
 }
 

@@ -411,6 +411,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 15. Créer les index de performance sur la table users
+    if (!step || step === 15) {
+      try {
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "users_role_idx" ON "users"("role")`);
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "users_email_idx" ON "users"("email")`);
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "users_dateCreation_idx" ON "users"("dateCreation")`);
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "users_enterpriseAccountId_idx" ON "users"("enterpriseAccountId")`);
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "users_deletedAt_idx" ON "users"("deletedAt")`);
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "users_role_enterprise_deleted_idx" ON "users"("role", "enterpriseAccountId", "deletedAt")`);
+        logs.push("15. Index de performance créés sur users");
+      } catch (e) {
+        logs.push("15. Erreur création index users (ignorée)");
+      }
+    }
+
     return NextResponse.json({ 
       success: true, 
       message: "Migration terminée",

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/config/prisma";
 import { Card } from "@/components/ui/Card";
 import { getCurrentUser } from "@/lib/auth/currentUser";
-import { UserRole, SubscriptionStatus } from "@prisma/client";
+import { UserRole, SubscriptionStatus, Prisma } from "@prisma/client";
 import Link from "next/link";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -9,6 +9,12 @@ type SearchParams = Record<string, string | string[] | undefined>;
 function parseParam(params: SearchParams, key: string): string {
   const value = params[key];
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+function parseIntParam(params: SearchParams, key: string, defaultValue: number): number {
+  const value = parseParam(params, key);
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? defaultValue : parsed;
 }
 
 type Row = {
@@ -21,6 +27,8 @@ type Row = {
   dateFin?: Date | null;
 };
 
+const PAGE_SIZE = 50;
+
 export default async function IndividualSubscribersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const currentUser = await getCurrentUser();
@@ -31,29 +39,52 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
 
   const q = parseParam(params, "q").toLowerCase().trim();
   const statusFilter = parseParam(params, "status") as "all" | SubscriptionStatus | "";
+  const page = Math.max(1, parseIntParam(params, "page", 1));
+  const skip = (page - 1) * PAGE_SIZE;
 
   let users: any[] = [];
+  let total = 0;
 
   try {
-    users = await prisma.user.findMany({
-      where: {
-        role: UserRole.ABONNE,
-        enterpriseAccountId: null
-      },
-      orderBy: { dateCreation: "desc" },
-      select: {
-        id: true,
-        nom: true,
-        email: true,
-        dateCreation: true,
-        subscriptions: {
-          take: 1,
-          orderBy: { dateFin: "desc" },
-          select: { statut: true, dateDebut: true, dateFin: true }
+    // Build where clause with search filter
+    const whereClause: Prisma.UserWhereInput = {
+      role: UserRole.ABONNE,
+      enterpriseAccountId: null,
+      deletedAt: null,
+      ...(q ? {
+        OR: [
+          { nom: { contains: q, mode: 'insensitive' } },
+          { email: { contains: q, mode: 'insensitive' } }
+        ]
+      } : {})
+    };
+
+    // Get count and users in parallel
+    const [countResult, usersResult] = await Promise.all([
+      prisma.user.count({ where: whereClause }),
+      prisma.user.findMany({
+        where: whereClause,
+        orderBy: { dateCreation: "desc" },
+        take: PAGE_SIZE,
+        skip,
+        select: {
+          id: true,
+          nom: true,
+          email: true,
+          dateCreation: true,
+          subscriptions: {
+            take: 1,
+            orderBy: { dateFin: "desc" },
+            select: { statut: true, dateDebut: true, dateFin: true }
+          }
         }
-      }
-    });
+      })
+    ]);
+
+    total = countResult;
+    users = usersResult;
   } catch (err: any) {
+    console.error("Error loading individual subscribers:", err);
     return (
       <div className="p-8 text-red-700">
         Impossible de charger les abonnés individuels. Consultez les logs serveur. {err?.message || ""}
@@ -71,18 +102,16 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
     dateFin: u.subscriptions[0]?.dateFin ?? null
   }));
 
-  const matchesSearch = (text: string | null | undefined) => {
-    if (!q) return true;
-    return (text ?? "").toLowerCase().includes(q);
-  };
-
+  // Filter by status in memory (small dataset after pagination)
   const filtered = rows.filter((row) => {
     if (statusFilter && statusFilter !== "all") {
       if (!row.latestStatus) return false;
       if (row.latestStatus !== statusFilter) return false;
     }
-    return matchesSearch(row.nom) || matchesSearch(row.email);
+    return true;
   });
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const statusBadge = (statut: SubscriptionStatus | null | undefined) => {
     if (!statut) return <span className="text-xs text-slate-400">Aucun</span>;
@@ -97,6 +126,15 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
 
   const formatDate = (d: Date) => new Date(d).toLocaleDateString("fr-FR");
 
+  // Build pagination URL
+  const buildUrl = (newPage: number) => {
+    const urlParams = new URLSearchParams();
+    if (q) urlParams.set("q", q);
+    if (statusFilter && statusFilter !== "all") urlParams.set("status", statusFilter);
+    urlParams.set("page", String(newPage));
+    return `?${urlParams.toString()}`;
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-6xl space-y-6 px-4 py-8 md:px-8">
@@ -104,7 +142,7 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-emerald-600">Administration</p>
             <h1 className="text-3xl font-bold text-slate-900">Abonnés individuels</h1>
-            <p className="text-sm text-slate-600">Abonnements non liés à une entreprise.</p>
+            <p className="text-sm text-slate-600">{total} abonné{total > 1 ? 's' : ''} non liés à une entreprise.</p>
           </div>
           <Link
             href="/admin/subscribers/new"
@@ -177,6 +215,33 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
               ))
             )}
           </div>
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 bg-slate-50">
+              <div className="text-sm text-slate-600">
+                Page {page} sur {totalPages} ({total} résultats)
+              </div>
+              <div className="flex gap-2">
+                {page > 1 && (
+                  <Link
+                    href={buildUrl(page - 1)}
+                    className="rounded-lg border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100"
+                  >
+                    ← Précédent
+                  </Link>
+                )}
+                {page < totalPages && (
+                  <Link
+                    href={buildUrl(page + 1)}
+                    className="rounded-lg border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100"
+                  >
+                    Suivant →
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </div>
