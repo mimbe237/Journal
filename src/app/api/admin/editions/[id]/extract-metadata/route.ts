@@ -14,7 +14,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const startTime = Date.now();
+  let stepInfo = "init";
+  
   try {
+    stepInfo = "auth";
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.SUPPORT]);
     const { id } = await params;
     
@@ -22,6 +26,7 @@ export async function POST(
     const { searchParams } = new URL(req.url);
     const forceHeuristic = searchParams.get("mode") === "heuristic";
 
+    stepInfo = "fetch-edition";
     const edition = await prisma.edition.findUnique({
       where: { id },
     });
@@ -30,53 +35,67 @@ export async function POST(
       return NextResponse.json({ error: "Édition ou PDF introuvable" }, { status: 404 });
     }
 
+    console.log(`[extract-metadata] Edition: ${id}, PDF path: ${edition.cheminInternePdf?.substring(0, 100)}...`);
+
     let pdfBuffer: Buffer;
+    stepInfo = "load-pdf";
 
     // Determine if local file or URL
     if (edition.cheminInternePdf.startsWith("http")) {
-      // Fetch from URL
+      // Fetch from URL (S3/R2)
+      console.log(`[extract-metadata] Fetching PDF from URL...`);
       const res = await fetch(edition.cheminInternePdf);
-      if (!res.ok) throw new Error("Impossible de télécharger le PDF");
+      if (!res.ok) {
+        throw new Error(`Impossible de télécharger le PDF: ${res.status} ${res.statusText}`);
+      }
       const arrayBuffer = await res.arrayBuffer();
       pdfBuffer = Buffer.from(arrayBuffer);
+      console.log(`[extract-metadata] PDF downloaded: ${pdfBuffer.length} bytes`);
     } else {
       // Local file
-      // Try to resolve path. It might be relative to storage root or absolute
+      console.log(`[extract-metadata] Loading local PDF...`);
       let filePath = edition.cheminInternePdf;
       
-      // If it doesn't start with /, assume it's in storage/editions (based on previous context)
-      // But let's check if it exists as is first
       try {
         await fs.access(filePath);
       } catch {
-        // Try relative to project root
         filePath = path.join(process.cwd(), edition.cheminInternePdf);
         try {
            await fs.access(filePath);
         } catch {
-           // Try relative to storage
            filePath = path.join(process.cwd(), "storage", edition.cheminInternePdf);
         }
       }
       
       pdfBuffer = await fs.readFile(filePath);
+      console.log(`[extract-metadata] PDF loaded from ${filePath}: ${pdfBuffer.length} bytes`);
     }
 
+    stepInfo = "extract";
+    console.log(`[extract-metadata] Starting extraction (AI: ${isOpenAIConfigured()}, forceHeuristic: ${forceHeuristic})...`);
+    
     const extractor = new PdfExtractor();
     const result = await extractor.extractMetadata(pdfBuffer, forceHeuristic);
+
+    const duration = Date.now() - startTime;
+    console.log(`[extract-metadata] Extraction complete in ${duration}ms. Headlines: ${result.headlines.length}, Tags: ${result.tags.length}`);
 
     return NextResponse.json({
       ...result,
       aiEnabled: isOpenAIConfigured(),
-      editionId: id
+      editionId: id,
+      duration
     });
 
   } catch (error: any) {
-    console.error("Extraction error:", error);
+    const duration = Date.now() - startTime;
+    console.error(`[extract-metadata] Error at step "${stepInfo}" after ${duration}ms:`, error);
     return NextResponse.json({ 
       error: error.message || "Erreur d'extraction",
       details: error.toString(),
-      aiEnabled: isOpenAIConfigured()
+      step: stepInfo,
+      aiEnabled: isOpenAIConfigured(),
+      duration
     }, { status: 500 });
   }
 }
