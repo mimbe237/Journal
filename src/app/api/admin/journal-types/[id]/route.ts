@@ -69,9 +69,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (body.name !== undefined) input.name = body.name;
     if (body.frequency !== undefined) input.frequency = body.frequency;
     if (body.unitPrice !== undefined) input.unitPrice = Number(body.unitPrice);
-    if (body.monthlyPrice !== undefined) input.monthlyPrice = Number(body.monthlyPrice);
-    if (body.sixMonthPrice !== undefined) input.sixMonthPrice = Number(body.sixMonthPrice);
-    if (body.yearlyPrice !== undefined) input.yearlyPrice = Number(body.yearlyPrice);
     if (body.titleTemplate !== undefined) input.titleTemplate = body.titleTemplate;
     if (body.isActive !== undefined) input.isActive = body.isActive;
     

@@ -166,6 +166,16 @@ export function AddSubscriberModal({ enterprises }: { enterprises: EnterpriseOpt
                 <h3 className="text-sm font-semibold text-slate-800">Informations d’abonnement</h3>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Montant payé (XAF)</label>
+                    <input
+                      type="number"
+                      name="montant"
+                      min="0"
+                      required
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div>
                     <label className="mb-1 block text-sm font-medium text-slate-700">Date de début</label>
                     <input
                       type="date"

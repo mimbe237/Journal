@@ -73,18 +73,7 @@ export async function POST(req: NextRequest) {
 
     let montant = montantStr ? Number(montantStr) : 0;
     if (Number.isNaN(montant) || montant <= 0) {
-      // si non fourni, tenter de récupérer via journalType/plan
-      if (journalTypeId) {
-        const jt = await prisma.journalType.findUnique({ where: { id: journalTypeId } });
-        if (jt) {
-          if (plan === "SIX_MONTHS") montant = Number(jt.sixMonthPrice);
-          else if (plan === "YEARLY") montant = Number(jt.yearlyPrice);
-          else montant = Number(jt.monthlyPrice);
-        }
-      }
-      if (Number.isNaN(montant) || montant <= 0) {
-        return NextResponse.json({ error: "Tarif introuvable pour la formule sélectionnée" }, { status: 400 });
-      }
+      return NextResponse.json({ error: "Le montant est requis." }, { status: 400 });
     }
 
     let finalEnterpriseId = enterpriseId;

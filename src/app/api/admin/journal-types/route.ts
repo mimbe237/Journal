@@ -60,9 +60,6 @@ export async function POST(request: NextRequest) {
       name: body.name,
       frequency: body.frequency,
       unitPrice: Number(body.unitPrice),
-      monthlyPrice: Number(body.monthlyPrice),
-      sixMonthPrice: Number(body.sixMonthPrice),
-      yearlyPrice: Number(body.yearlyPrice),
       titleTemplate: body.titleTemplate,
       isActive: body.isActive ?? true
     };
