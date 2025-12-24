@@ -9,7 +9,8 @@ interface SearchResult {
   titre: string;
   datePublication: string;
   cheminImageUne: string | null;
-  headlines: { title: string; page: number; category?: string }[] | null;
+  journalType?: { id: string; name: string } | null;
+  matchedHeadlines: { title?: string; page?: number }[];
   tags: string[];
 }
 
@@ -41,6 +42,12 @@ export function GlobalSearch() {
 
     return () => clearTimeout(delayDebounceFn);
   }, [query]);
+
+  function coverUrl(path: string | null) {
+    if (!path) return null;
+    if (path.startsWith("http")) return path;
+    return `/api/files/${path}`;
+  }
 
   return (
     <div className="relative w-full max-w-md">
@@ -79,7 +86,7 @@ export function GlobalSearch() {
                   >
                     {result.cheminImageUne ? (
                       <img
-                        src={result.cheminImageUne}
+                        src={coverUrl(result.cheminImageUne) || undefined}
                         alt=""
                         className="h-16 w-12 rounded object-cover bg-slate-200"
                       />
@@ -90,23 +97,29 @@ export function GlobalSearch() {
                       <div className="font-medium text-slate-900 dark:text-white truncate">
                         {result.titre}
                       </div>
-                      <div className="text-xs text-slate-500 mb-1">
-                        {new Date(result.datePublication).toLocaleDateString("fr-FR")}
+                      <div className="text-xs text-slate-500 mb-1 flex items-center gap-2">
+                        <span>{new Date(result.datePublication).toLocaleDateString("fr-FR")}</span>
+                        {result.journalType?.name && (
+                          <span className="rounded bg-slate-100 px-2 py-[2px] text-[11px] text-slate-600">
+                            {result.journalType.name}
+                          </span>
+                        )}
                       </div>
                       
-                      {/* Highlight matching headlines */}
-                      {result.headlines && (
+                      {/* Titres correspondants */}
+                      {result.matchedHeadlines?.length > 0 && (
                         <div className="space-y-1">
-                          {result.headlines
-                            .filter(h => h.title.toLowerCase().includes(query.toLowerCase()))
-                            .slice(0, 2)
-                            .map((h, i) => (
-                              <div key={i} className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 truncate">
-                                <span className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
-                                <span>{h.title}</span>
-                                {h.category && <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 px-1 rounded uppercase">{h.category}</span>}
-                              </div>
-                            ))}
+                          {result.matchedHeadlines.slice(0, 2).map((h, i) => (
+                            <div key={i} className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-2 truncate">
+                              <span className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
+                              <span className="truncate">{h.title}</span>
+                              {typeof h.page === "number" && (
+                                <span className="text-[10px] text-slate-500 bg-slate-100 rounded px-1">
+                                  Page {h.page}
+                                </span>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

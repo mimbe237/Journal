@@ -96,6 +96,11 @@ export function Header() {
           )}
         </button>
 
+        {/* Toggle thème visible en mobile */}
+        <div className="md:hidden ml-2">
+          <ThemeToggle className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800" />
+        </div>
+
         {/* Desktop navigation */}
         <nav className="hidden md:flex items-center gap-6">
           <div className="w-64">

@@ -10,14 +10,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Recherche dans les titres, tags et headlines
+    const q = query.trim();
+    const qLower = q.toLowerCase();
+
+    // Recherche dans les titres/tags (DB), puis filtrage des headlines en mémoire
     const editions = await prisma.edition.findMany({
       where: {
         OR: [
-          { titre: { contains: query, mode: 'insensitive' } },
-          { tags: { hasSome: [query] } }, // Recherche exacte dans les tags (limité)
-          // Note: Pour une recherche JSON profonde ou floue sur les tags, 
-          // PostgreSQL Full Text Search serait mieux, mais on reste simple ici.
+          { titre: { contains: q, mode: 'insensitive' } },
+          { tags: { hasSome: [q] } },
         ],
         deletedAt: null,
       },
@@ -28,15 +29,41 @@ export async function GET(request: NextRequest) {
         cheminImageUne: true,
         headlines: true,
         tags: true,
+        journalType: {
+          select: { id: true, name: true },
+        },
       },
       orderBy: { datePublication: 'desc' },
-      take: 10,
+      take: 15,
     });
 
-    // Post-processing pour filtrer/enrichir si besoin
-    // (Ex: si on veut chercher DANS le JSON headlines manuellement si Prisma ne le fait pas bien)
-    
-    return NextResponse.json({ results: editions });
+    const results = editions
+      .map((ed) => {
+        const headlines = (ed.headlines as { title?: string; page?: number }[] | null) || [];
+        const matchedHeadlines = headlines.filter(
+          (h) => h.title && h.title.toLowerCase().includes(qLower)
+        );
+
+        const matched =
+          ed.titre.toLowerCase().includes(qLower) ||
+          (ed.tags || []).some((t) => t.toLowerCase().includes(qLower)) ||
+          matchedHeadlines.length > 0;
+
+        if (!matched) return null;
+
+        return {
+          id: ed.id,
+          titre: ed.titre,
+          datePublication: ed.datePublication,
+          cheminImageUne: ed.cheminImageUne,
+          journalType: ed.journalType,
+          tags: ed.tags || [],
+          matchedHeadlines: matchedHeadlines.slice(0, 5),
+        };
+      })
+      .filter(Boolean);
+
+    return NextResponse.json({ results });
   } catch (error) {
     console.error('Search error:', error);
     return NextResponse.json({ error: 'Erreur de recherche' }, { status: 500 });

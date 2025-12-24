@@ -25,14 +25,32 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export function EditionSummary({ headlines, tags }: EditionSummaryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
   const hasHeadlines = headlines.length > 0;
-  const hasTags = tags.length > 0;
+  const derivedTags = Array.from(
+    new Set([
+      ...tags.map((t) => t.trim()).filter(Boolean),
+      ...headlines
+        .map((h) => h.category?.trim())
+        .filter(Boolean) as string[],
+    ])
+  );
+  const hasTags = derivedTags.length > 0;
+
+  const filteredHeadlines =
+    activeTag && hasHeadlines
+      ? headlines.filter(
+          (h) =>
+            h.category?.toLowerCase() === activeTag.toLowerCase() ||
+            h.title.toLowerCase().includes(activeTag.toLowerCase())
+        )
+      : headlines;
 
   if (!hasHeadlines && !hasTags) return null;
 
   // Show only first 4 headlines by default
-  const visibleHeadlines = isExpanded ? headlines : headlines.slice(0, 4);
-  const hasMore = headlines.length > 4;
+  const visibleHeadlines = isExpanded ? filteredHeadlines : filteredHeadlines.slice(0, 4);
+  const hasMore = filteredHeadlines.length > 4;
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden mb-6">
@@ -91,14 +109,23 @@ export function EditionSummary({ headlines, tags }: EditionSummaryProps) {
                   <span>🏷️</span> Sujets clés
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {tags.map((tag, idx) => (
-                    <span 
-                      key={idx}
-                      className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-white border border-slate-200 text-slate-600 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors cursor-default"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
+                  {derivedTags.map((tag, idx) => {
+                    const isActive = activeTag?.toLowerCase() === tag.toLowerCase();
+                    return (
+                      <button 
+                        type="button"
+                        key={idx}
+                        onClick={() => setActiveTag(isActive ? null : tag)}
+                        className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
+                          isActive
+                            ? "bg-emerald-100 border-emerald-300 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300"
+                            : "bg-white border-slate-200 text-slate-600 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300 hover:border-emerald-300 dark:hover:border-emerald-700"
+                        }`}
+                      >
+                        #{tag}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

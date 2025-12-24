@@ -1,20 +1,24 @@
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
+import { extractWithAI, isOpenAIConfigured, AIExtractionResult } from '@/services/ai/openaiService';
 
 // Configure worker for Node.js environment
-// In a real deployment, we might need to point to the worker file, 
-// but for text extraction in Node, we can often get away with this or using the legacy build.
-// If this fails, we might need to set `pdfjsLib.GlobalWorkerOptions.workerSrc`.
+// Disable worker loading in Node.js to prevent "fake worker" errors or file loading issues
+pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
 interface ExtractedHeadline {
   title: string;
-  page: number;
-  confidence: number;
+  page?: number;
+  confidence?: number;
   category?: string;
+  importance?: 'principal' | 'secondaire' | 'mineur';
 }
 
 interface ExtractionResult {
   headlines: ExtractedHeadline[];
   tags: string[];
+  summary?: string;
+  mainTopic?: string;
+  method: 'ai' | 'heuristic';
 }
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
@@ -30,8 +34,68 @@ export class PdfExtractor {
   
   /**
    * Extracts headlines and tags from a PDF buffer.
+   * Uses AI (OpenAI) if configured, otherwise falls back to heuristic extraction.
    */
-  async extractMetadata(pdfBuffer: Buffer): Promise<ExtractionResult> {
+  async extractMetadata(pdfBuffer: Buffer, forceHeuristic: boolean = false): Promise<ExtractionResult> {
+    // First, extract raw text from PDF
+    const { fullText, pageTexts } = await this.extractRawText(pdfBuffer);
+    
+    // If OpenAI is configured and not forced to use heuristic, use AI extraction
+    if (!forceHeuristic && isOpenAIConfigured()) {
+      try {
+        console.log("🤖 Utilisation de l'IA pour l'extraction...");
+        const aiResult = await extractWithAI(fullText);
+        return {
+          headlines: aiResult.headlines.map(h => ({
+            title: h.title,
+            category: h.category,
+            importance: h.importance
+          })),
+          tags: aiResult.tags,
+          summary: aiResult.summary,
+          mainTopic: aiResult.mainTopic,
+          method: 'ai'
+        };
+      } catch (error) {
+        console.error("⚠️ Extraction IA échouée, fallback vers heuristique:", error);
+        // Fall through to heuristic method
+      }
+    }
+    
+    // Fallback: Use heuristic extraction
+    console.log("📐 Utilisation de l'extraction heuristique...");
+    return this.extractWithHeuristics(pdfBuffer);
+  }
+
+  /**
+   * Extracts raw text from all pages of the PDF
+   */
+  private async extractRawText(pdfBuffer: Buffer): Promise<{ fullText: string; pageTexts: string[] }> {
+    const data = new Uint8Array(pdfBuffer);
+    const loadingTask = pdfjsLib.getDocument({ data });
+    const doc = await loadingTask.promise;
+    
+    const pageTexts: string[] = [];
+    const numPages = doc.numPages;
+    const limitPages = Math.min(numPages, 50); // Limit for performance
+    
+    for (let i = 1; i <= limitPages; i++) {
+      const page = await doc.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(" ");
+      pageTexts.push(pageText);
+    }
+    
+    return {
+      fullText: pageTexts.join("\n\n--- Page suivante ---\n\n"),
+      pageTexts
+    };
+  }
+
+  /**
+   * Heuristic-based extraction (original method)
+   */
+  private async extractWithHeuristics(pdfBuffer: Buffer): Promise<ExtractionResult> {
     const data = new Uint8Array(pdfBuffer);
     const loadingTask = pdfjsLib.getDocument({ data });
     const doc = await loadingTask.promise;
@@ -127,9 +191,9 @@ export class PdfExtractor {
     const tags = this.generateTags(allText.join(" "));
 
     // Sort headlines by page
-    headlines.sort((a, b) => a.page - b.page);
+    headlines.sort((a, b) => (a.page || 0) - (b.page || 0));
 
-    return { headlines, tags };
+    return { headlines, tags, method: 'heuristic' };
   }
 
   private guessCategory(text: string): string | undefined {

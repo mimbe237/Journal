@@ -3,10 +3,12 @@ import { prisma } from "@/lib/config/prisma";
 import { requireUserWithRoles } from "@/lib/auth/authorization";
 import { UserRole } from "@prisma/client";
 import { PdfExtractor } from "@/lib/pdf/pdfExtractor";
+import { isOpenAIConfigured } from "@/services/ai/openaiService";
 import fs from "fs/promises";
 import path from "path";
 
 export const runtime = "nodejs";
+export const maxDuration = 60; // Allow up to 60 seconds for AI extraction
 
 export async function POST(
   req: NextRequest,
@@ -15,6 +17,10 @@ export async function POST(
   try {
     await requireUserWithRoles(req, undefined, [UserRole.SUPER_ADMIN, UserRole.SUPPORT]);
     const { id } = await params;
+    
+    // Check if force heuristic mode is requested
+    const { searchParams } = new URL(req.url);
+    const forceHeuristic = searchParams.get("mode") === "heuristic";
 
     const edition = await prisma.edition.findUnique({
       where: { id },
@@ -57,12 +63,21 @@ export async function POST(
     }
 
     const extractor = new PdfExtractor();
-    const result = await extractor.extractMetadata(pdfBuffer);
+    const result = await extractor.extractMetadata(pdfBuffer, forceHeuristic);
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      ...result,
+      aiEnabled: isOpenAIConfigured(),
+      editionId: id
+    });
 
   } catch (error: any) {
     console.error("Extraction error:", error);
-    return NextResponse.json({ error: error.message || "Erreur d'extraction" }, { status: 500 });
+    return NextResponse.json({ 
+      error: error.message || "Erreur d'extraction",
+      details: error.toString(),
+      aiEnabled: isOpenAIConfigured()
+    }, { status: 500 });
   }
+}
 }
