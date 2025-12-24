@@ -299,6 +299,23 @@ export async function GET() {
       );
     `);
 
+    // 9. Créer la table ReadingSession
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "reading_sessions" (
+        "id" TEXT NOT NULL,
+        "userId" TEXT NOT NULL,
+        "editionId" TEXT NOT NULL,
+        "pageDebut" INTEGER NOT NULL,
+        "pageFin" INTEGER NOT NULL,
+        "dateHeureDebut" TIMESTAMP(3) NOT NULL,
+        "dateHeureFin" TIMESTAMP(3) NOT NULL,
+        "adresseIp" TEXT NOT NULL,
+        "userAgent" TEXT NOT NULL,
+        CONSTRAINT "reading_sessions_pkey" PRIMARY KEY ("id")
+      )
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "reading_sessions_userId_editionId_dateHeureDebut_idx" ON "reading_sessions"("userId", "editionId", "dateHeureDebut")`);
+
     return NextResponse.json({ 
       success: true, 
       message: "Base de données réparée : Module Publicité complet installé." 
