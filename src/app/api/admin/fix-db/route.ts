@@ -65,19 +65,60 @@ export async function GET() {
     } catch (e) { console.log("Enums Publicité existent déjà"); }
 
     // 7. Mettre à jour enterprise_accounts
+    // Créer la table si elle n'existe pas (cas d'une DB vierge ou migration ratée)
     await prisma.$executeRawUnsafe(`
-      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "interests" "InterestCategory"[] DEFAULT ARRAY[]::"InterestCategory"[];
-      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "organizationSize" "OrganizationSize";
-      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "organizationType" "OrganizationType";
-      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "sector" TEXT;
-      
-      -- Colonnes manquantes de la migration subscription_plans
-      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "licencesAchetees" INTEGER NOT NULL DEFAULT 0;
-      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3);
-      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "deletedBy" TEXT;
-      ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "trashedUntil" TIMESTAMP(3);
-      ALTER TABLE "enterprise_accounts" ALTER COLUMN "nombreUtilisateursInclus" SET DEFAULT 0;
+      CREATE TABLE IF NOT EXISTS "enterprise_accounts" (
+        "id" TEXT NOT NULL,
+        "nom" TEXT NOT NULL,
+        "contactEmail" TEXT NOT NULL,
+        "contactTelephone" TEXT,
+        "nombreUtilisateursInclus" INTEGER NOT NULL DEFAULT 0,
+        "licencesAchetees" INTEGER NOT NULL DEFAULT 0,
+        "dateCreation" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "adminPrimaireId" TEXT,
+        "adminPrimaireEmail" TEXT,
+        "nombreUtilisateursActifs" INTEGER NOT NULL DEFAULT 0,
+        "nombreUtilisateursInvites" INTEGER NOT NULL DEFAULT 0,
+        "organizationType" "OrganizationType",
+        "organizationSize" "OrganizationSize",
+        "sector" TEXT,
+        "interests" "InterestCategory"[] DEFAULT ARRAY[]::"InterestCategory"[],
+        "adresseFacturation" TEXT,
+        "numeroSiret" TEXT,
+        "ssoEnabled" BOOLEAN NOT NULL DEFAULT false,
+        "ssoProvider" TEXT,
+        "ssoConfig" JSONB,
+        "domaineAutorise" TEXT,
+        "restrictionIp" BOOLEAN NOT NULL DEFAULT false,
+        "plagesIpAutorisees" TEXT[],
+        "niveauSla" TEXT,
+        "contactDedieEmail" TEXT,
+        "contactDedieTelephone" TEXT,
+        "actif" BOOLEAN NOT NULL DEFAULT true,
+        "notes" TEXT,
+        "createdBy" TEXT,
+        "deletedAt" TIMESTAMP(3),
+        "trashedUntil" TIMESTAMP(3),
+        "deletedBy" TEXT,
+        CONSTRAINT "enterprise_accounts_pkey" PRIMARY KEY ("id")
+      )
     `);
+    
+    await prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "enterprise_accounts_adminPrimaireId_key" ON "enterprise_accounts"("adminPrimaireId")
+    `);
+
+    await prisma.$executeRawUnsafe(`ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "interests" "InterestCategory"[] DEFAULT ARRAY[]::"InterestCategory"[]`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "organizationSize" "OrganizationSize"`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "organizationType" "OrganizationType"`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "sector" TEXT`);
+    
+    // Colonnes manquantes de la migration subscription_plans
+    await prisma.$executeRawUnsafe(`ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "licencesAchetees" INTEGER NOT NULL DEFAULT 0`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3)`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "deletedBy" TEXT`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "enterprise_accounts" ADD COLUMN IF NOT EXISTS "trashedUntil" TIMESTAMP(3)`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "enterprise_accounts" ALTER COLUMN "nombreUtilisateursInclus" SET DEFAULT 0`);
 
     // 7b. Créer les tables manquantes (Plans & Transactions)
     try {
@@ -175,9 +216,9 @@ export async function GET() {
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL,
         CONSTRAINT "advertisers_pkey" PRIMARY KEY ("id")
-      );
-      CREATE INDEX IF NOT EXISTS "advertisers_isActive_idx" ON "advertisers"("isActive");
+      )
     `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "advertisers_isActive_idx" ON "advertisers"("isActive")`);
 
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "ad_campaigns" (
@@ -197,10 +238,10 @@ export async function GET() {
         "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP(3) NOT NULL,
         CONSTRAINT "ad_campaigns_pkey" PRIMARY KEY ("id")
-      );
-      CREATE INDEX IF NOT EXISTS "ad_campaigns_status_startDate_endDate_idx" ON "ad_campaigns"("status", "startDate", "endDate");
-      CREATE INDEX IF NOT EXISTS "ad_campaigns_advertiserId_idx" ON "ad_campaigns"("advertiserId");
+      )
     `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ad_campaigns_status_startDate_endDate_idx" ON "ad_campaigns"("status", "startDate", "endDate")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "ad_campaigns_advertiserId_idx" ON "ad_campaigns"("advertiserId")`);
 
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "ad_campaign_segments" (
