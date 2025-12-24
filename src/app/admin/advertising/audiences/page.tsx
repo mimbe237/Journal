@@ -15,29 +15,31 @@ interface AudienceSegment {
 }
 
 const ORG_TYPES = [
-  { value: "B2B_COMPANY", label: "Entreprise" },
-  { value: "B2B_INSTITUTION", label: "Institution" },
-  { value: "B2B_NGO", label: "ONG/Association" },
-  { value: "B2C_INDIVIDUAL", label: "Particulier" },
-];
-const ORG_SIZES = [
-  { value: "SOLO", label: "Solo (1)" },
-  { value: "SMALL", label: "Petite (2-10)" },
-  { value: "MEDIUM", label: "Moyenne (11-50)" },
-  { value: "LARGE", label: "Grande (51-200)" },
-  { value: "ENTERPRISE", label: "Très grande (200+)" },
-];
-const INTERESTS = [
-  { value: "TECHNOLOGY", label: "Technologie" },
-  { value: "BUSINESS", label: "Business" },
-  { value: "FINANCE", label: "Finance" },
-  { value: "POLITICS", label: "Politique" },
-  { value: "SPORTS", label: "Sports" },
-  { value: "CULTURE", label: "Culture" },
-  { value: "SCIENCE", label: "Science" },
-  { value: "HEALTH", label: "Santé" },
+  { value: "STARTUP", label: "Startup" },
+  { value: "PME", label: "PME" },
+  { value: "GRAND_GROUPE", label: "Grand Groupe" },
+  { value: "ADMINISTRATION", label: "Administration" },
+  { value: "ONG", label: "ONG" },
   { value: "EDUCATION", label: "Éducation" },
-  { value: "ENVIRONMENT", label: "Environnement" },
+  { value: "SANTE", label: "Santé" },
+  { value: "MEDIA", label: "Média" },
+  { value: "PARTICULIER", label: "Particulier" },
+];
+
+const ORG_SIZES = [
+  { value: "MICRO", label: "Micro (<10)" },
+  { value: "SMALL", label: "Petite (10-50)" },
+  { value: "MEDIUM", label: "Moyenne (50-250)" },
+  { value: "LARGE", label: "Grande (250+)" },
+];
+
+const INTERESTS = [
+  { value: "ECONOMIE", label: "Économie" },
+  { value: "TECH", label: "Tech" },
+  { value: "POLITIQUE", label: "Politique" },
+  { value: "SOCIETE", label: "Société" },
+  { value: "EDUCATION", label: "Éducation" },
+  { value: "SPORT", label: "Sport" },
 ];
 
 export default function AudiencesPage() {

@@ -65,7 +65,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!body.filters || Object.keys(body.filters).length === 0) {
+    // Vérifier qu'au moins un filtre est actif (tableau non vide)
+    const hasFilters = body.filters && Object.values(body.filters).some((val) => Array.isArray(val) && val.length > 0);
+
+    if (!hasFilters) {
       return NextResponse.json(
         { error: "Au moins un critère de filtrage est requis." },
         { status: 400 }

@@ -12,6 +12,11 @@ type JournalType = {
   id: string;
   name: string;
   isActive: boolean;
+  frequency: string;
+  unitPrice: number;
+  monthlyPrice: number;
+  sixMonthPrice: number;
+  yearlyPrice: number;
 };
 
 type TargetAudience = "INDIVIDUAL" | "ENTERPRISE";
@@ -38,6 +43,10 @@ export default function NewSubscriptionPlanPage() {
   const [badge, setBadge] = useState("");
   const [displayOrder, setDisplayOrder] = useState(0);
   const [isPublic, setIsPublic] = useState(true);
+  const [basePriceManuallyEdited, setBasePriceManuallyEdited] = useState(false);
+  const [pricePerUserManuallyEdited, setPricePerUserManuallyEdited] = useState(false);
+  const [suggestedBasePrice, setSuggestedBasePrice] = useState<number | null>(null);
+  const [suggestedPricePerUser, setSuggestedPricePerUser] = useState<number | null>(null);
 
   useEffect(() => {
     loadJournalTypes();
@@ -47,7 +56,20 @@ export default function NewSubscriptionPlanPage() {
     try {
       const res = await fetch("/api/admin/journal-types");
       const data = await res.json();
-      setJournalTypes(data.filter((jt: JournalType) => jt.isActive));
+      setJournalTypes(
+        data
+          .filter((jt: JournalType) => jt.isActive)
+          .map((jt: any) => ({
+            id: jt.id,
+            name: jt.name,
+            isActive: jt.isActive,
+            frequency: jt.frequency,
+            unitPrice: Number(jt.unitPrice),
+            monthlyPrice: Number(jt.monthlyPrice),
+            sixMonthPrice: Number(jt.sixMonthPrice),
+            yearlyPrice: Number(jt.yearlyPrice)
+          }))
+      );
     } catch (err) {
       console.error("Erreur chargement types de journaux:", err);
     }
@@ -57,6 +79,72 @@ export default function NewSubscriptionPlanPage() {
     setSelectedJournalTypes((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
+  }
+
+  // Calcule un prix suggéré à partir des types de journaux sélectionnés et de la durée
+  useEffect(() => {
+    if (selectedJournalTypes.length === 0) {
+      setSuggestedBasePrice(null);
+      setSuggestedPricePerUser(null);
+      return;
+    }
+
+    const selected = journalTypes.filter((jt) => selectedJournalTypes.includes(jt.id));
+    if (selected.length === 0) {
+      setSuggestedBasePrice(null);
+      setSuggestedPricePerUser(null);
+      return;
+    }
+
+    const priceForDuration = (jt: JournalType) => {
+      switch (durationMonths) {
+        case 1:
+          return jt.monthlyPrice > 0 ? jt.monthlyPrice : jt.unitPrice;
+        case 3:
+          return (jt.monthlyPrice > 0 ? jt.monthlyPrice : jt.unitPrice) * 3;
+        case 6:
+          if (jt.sixMonthPrice > 0) return jt.sixMonthPrice;
+          return (jt.monthlyPrice > 0 ? jt.monthlyPrice : jt.unitPrice) * 6;
+        case 12:
+          if (jt.yearlyPrice > 0) return jt.yearlyPrice;
+          return (jt.monthlyPrice > 0 ? jt.monthlyPrice : jt.unitPrice) * 12;
+        case 24:
+          // 2 ans = 2x annuel si dispo, sinon 24 x mensuel
+          if (jt.yearlyPrice > 0) return jt.yearlyPrice * 2;
+          return (jt.monthlyPrice > 0 ? jt.monthlyPrice : jt.unitPrice) * 24;
+        default:
+          return (jt.monthlyPrice > 0 ? jt.monthlyPrice : jt.unitPrice) * durationMonths;
+      }
+    };
+
+    const totalSuggested = selected.reduce((sum, jt) => sum + priceForDuration(jt), 0);
+    setSuggestedBasePrice(Math.round(totalSuggested));
+
+    // Pour B2B, suggérer un prix par utilisateur basé sur le mensuel * durée
+    const perUserSuggested = selected.reduce((sum, jt) => {
+      const monthly = jt.monthlyPrice > 0 ? jt.monthlyPrice : jt.unitPrice;
+      return sum + monthly * durationMonths;
+    }, 0) / selected.length;
+    setSuggestedPricePerUser(Math.round(perUserSuggested));
+
+    // Si l'utilisateur n'a pas encore saisi de prix, pré-remplir
+    if (!basePriceManuallyEdited && totalSuggested > 0 && targetAudience === "INDIVIDUAL") {
+      setBasePrice(totalSuggested.toString());
+    }
+    if (!pricePerUserManuallyEdited && perUserSuggested > 0 && targetAudience === "ENTERPRISE") {
+      setPricePerUser(Math.round(perUserSuggested).toString());
+    }
+  }, [selectedJournalTypes, journalTypes, durationMonths, targetAudience, basePriceManuallyEdited, pricePerUserManuallyEdited]);
+
+  function applySuggestions() {
+    if (suggestedBasePrice && targetAudience === "INDIVIDUAL") {
+      setBasePrice(suggestedBasePrice.toString());
+      setBasePriceManuallyEdited(false);
+    }
+    if (suggestedPricePerUser && targetAudience === "ENTERPRISE") {
+      setPricePerUser(suggestedPricePerUser.toString());
+      setPricePerUserManuallyEdited(false);
+    }
   }
 
   function addAdvantage() {
@@ -255,7 +343,10 @@ export default function NewSubscriptionPlanPage() {
                     id="basePrice"
                     type="number"
                     value={basePrice}
-                    onChange={(e) => setBasePrice(e.target.value)}
+                    onChange={(e) => {
+                      setBasePrice(e.target.value);
+                      setBasePriceManuallyEdited(true);
+                    }}
                     placeholder="50000"
                     min={0}
                     required
@@ -263,6 +354,11 @@ export default function NewSubscriptionPlanPage() {
                   {targetAudience === "ENTERPRISE" && (
                     <p className="mt-1 text-xs text-slate-500">Frais fixes du plan</p>
                   )}
+                  {targetAudience === "INDIVIDUAL" && suggestedBasePrice ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Suggestion (d'après les journaux sélectionnés) : {suggestedBasePrice} {currency}
+                    </p>
+                  ) : null}
                 </div>
                 <div>
                   <Label htmlFor="currency">Devise</Label>
@@ -289,7 +385,10 @@ export default function NewSubscriptionPlanPage() {
                         id="pricePerUser"
                         type="number"
                         value={pricePerUser}
-                        onChange={(e) => setPricePerUser(e.target.value)}
+                        onChange={(e) => {
+                          setPricePerUser(e.target.value);
+                          setPricePerUserManuallyEdited(true);
+                        }}
                         placeholder="10000"
                         min={0}
                         required={targetAudience === "ENTERPRISE"}
@@ -297,6 +396,11 @@ export default function NewSubscriptionPlanPage() {
                       <p className="mt-1 text-xs text-slate-500">
                         Total = Prix de base + (Prix/utilisateur × Nb utilisateurs)
                       </p>
+                      {suggestedPricePerUser ? (
+                        <p className="mt-1 text-xs text-slate-500">
+                          Suggestion (moyenne mensuelle × durée) : {suggestedPricePerUser} {currency}
+                        </p>
+                      ) : null}
                     </div>
                     <div>
                       <Label htmlFor="minUsers">Utilisateurs min *</Label>
@@ -361,8 +465,55 @@ export default function NewSubscriptionPlanPage() {
                         className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                       />
                       <span className="text-sm font-medium text-slate-700">{jt.name}</span>
+                      <span className="text-xs text-slate-500">
+                        Mensuel: {jt.monthlyPrice} | 6 mois: {jt.sixMonthPrice} | Annuel: {jt.yearlyPrice}
+                      </span>
                     </label>
                   ))}
+                </div>
+              )}
+
+              {selectedJournalTypes.length > 0 && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold">Récapitulatif tarifs suggérés</div>
+                    <button
+                      type="button"
+                      onClick={applySuggestions}
+                      className="text-emerald-600 hover:text-emerald-700 font-medium"
+                    >
+                      Appliquer les suggestions
+                    </button>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {journalTypes
+                      .filter((jt) => selectedJournalTypes.includes(jt.id))
+                      .map((jt) => (
+                        <div key={jt.id} className="flex items-center justify-between">
+                          <span>{jt.name}</span>
+                          <span>
+                            {durationMonths} mois →{" "}
+                            {(() => {
+                              switch (durationMonths) {
+                                case 1:
+                                  return jt.monthlyPrice || jt.unitPrice;
+                                case 3:
+                                  return (jt.monthlyPrice || jt.unitPrice) * 3;
+                                case 6:
+                                  return jt.sixMonthPrice || (jt.monthlyPrice || jt.unitPrice) * 6;
+                                case 12:
+                                  return jt.yearlyPrice || (jt.monthlyPrice || jt.unitPrice) * 12;
+                                case 24:
+                                  return jt.yearlyPrice ? jt.yearlyPrice * 2 : (jt.monthlyPrice || jt.unitPrice) * 24;
+                                default:
+                                  return (jt.monthlyPrice || jt.unitPrice) * durationMonths;
+                              }
+                            })()}{" "}
+                            {currency}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
                 </div>
               )}
             </div>

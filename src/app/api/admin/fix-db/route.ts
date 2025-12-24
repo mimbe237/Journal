@@ -299,6 +299,12 @@ export async function GET() {
       );
     `);
 
+    // 10. Ajouter la colonne planId sur subscriptions
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "subscriptions" ADD COLUMN IF NOT EXISTS "planId" TEXT;
+    `);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "subscriptions_planId_idx" ON "subscriptions"("planId")`);
+
     // 9. Créer la table ReadingSession
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "reading_sessions" (
@@ -315,6 +321,34 @@ export async function GET() {
       )
     `);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "reading_sessions_userId_editionId_dateHeureDebut_idx" ON "reading_sessions"("userId", "editionId", "dateHeureDebut")`);
+
+    // 11. Créer la table ReadingProgress
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "ReadingProgress" (
+        "id" TEXT NOT NULL,
+        "userId" TEXT NOT NULL,
+        "editionId" TEXT NOT NULL,
+        "pageNumber" INTEGER NOT NULL,
+        "totalPages" INTEGER NOT NULL,
+        "percentage" DOUBLE PRECISION NOT NULL DEFAULT 0,
+        "lastReadAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
+        CONSTRAINT "ReadingProgress_pkey" PRIMARY KEY ("id")
+      );
+    `);
+    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "ReadingProgress_userId_editionId_key" ON "ReadingProgress"("userId", "editionId")`);
+
+    // 12. Mettre à jour l'enum SubscriptionType
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TYPE "SubscriptionType" ADD VALUE IF NOT EXISTS 'TRIMESTRIEL'`);
+      await prisma.$executeRawUnsafe(`ALTER TYPE "SubscriptionType" ADD VALUE IF NOT EXISTS 'AUTRE'`);
+      await prisma.$executeRawUnsafe(`ALTER TYPE "SubscriptionType" ADD VALUE IF NOT EXISTS 'OFFERT'`);
+      await prisma.$executeRawUnsafe(`ALTER TYPE "SubscriptionType" ADD VALUE IF NOT EXISTS 'PROMOTIONNEL'`);
+      await prisma.$executeRawUnsafe(`ALTER TYPE "SubscriptionType" ADD VALUE IF NOT EXISTS 'TEST'`);
+    } catch (e) {
+      console.log("Erreur update enum SubscriptionType", e);
+    }
 
     return NextResponse.json({ 
       success: true, 

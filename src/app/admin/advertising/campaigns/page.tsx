@@ -50,14 +50,20 @@ export default function CampaignsPage() {
       const params = new URLSearchParams();
       if (filterStatus) params.set("status", filterStatus);
       const res = await fetch(`/api/admin/advertising/campaigns?${params}`);
-      if (res.ok) setCampaigns((await res.json()).campaigns || []);
+      if (res.ok) {
+        const data = await res.json();
+        setCampaigns(Array.isArray(data) ? data : data.campaigns || []);
+      }
     } catch { /* ignore */ } finally { setLoading(false); }
   }
 
   async function fetchAdvertisers() {
     try {
-      const res = await fetch("/api/admin/advertising/advertisers?isActive=true");
-      if (res.ok) setAdvertisers((await res.json()).advertisers || []);
+      const res = await fetch("/api/admin/advertising/advertisers?active=true");
+      if (res.ok) {
+        const data = await res.json();
+        setAdvertisers(Array.isArray(data) ? data : data.advertisers || []);
+      }
     } catch { /* ignore */ }
   }
 

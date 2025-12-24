@@ -49,7 +49,11 @@ export async function POST(req: NextRequest) {
       adresseFacturation,
       numeroSiret,
       adminPrimaireEmail,
-      sendAdminInvitation
+      sendAdminInvitation,
+      organizationType,
+      organizationSize,
+      sector,
+      interests
     } = body ?? {};
 
     if (!adminPrimaireEmail) {
@@ -67,6 +71,10 @@ export async function POST(req: NextRequest) {
         adresseFacturation,
         numeroSiret,
         adminPrimaireEmail: adminPrimaireEmail.toLowerCase(),
+        organizationType: organizationType || null,
+        organizationSize: organizationSize || null,
+        sector: sector || null,
+        interests: interests || [],
       }
     });
 

@@ -9,7 +9,7 @@ interface SearchResult {
   titre: string;
   datePublication: string;
   cheminImageUne: string | null;
-  headlines: { title: string; page: number }[] | null;
+  headlines: { title: string; page: number; category?: string }[] | null;
   tags: string[];
 }
 
@@ -103,7 +103,8 @@ export function GlobalSearch() {
                             .map((h, i) => (
                               <div key={i} className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 truncate">
                                 <span className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
-                                {h.title} (p.{h.page})
+                                <span>{h.title}</span>
+                                {h.category && <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 px-1 rounded uppercase">{h.category}</span>}
                               </div>
                             ))}
                         </div>

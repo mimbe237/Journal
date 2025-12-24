@@ -113,10 +113,10 @@ export default async function EditionPage({ params }: Props) {
           }
         />
 
-        {/* Sommaire et Mots-clés */}
-        <EditionSummary headlines={headlines} tags={tags} />
-
         <EditionReader editionId={id} />
+
+        {/* Sommaire et Mots-clés (placés sous le lecteur) */}
+        <EditionSummary headlines={headlines} tags={tags} />
       </div>
     </div>
   );

@@ -28,6 +28,8 @@ enum UserRole {
 enum SubscriptionType {
   MENSUEL
   ANNUEL
+  TRIMESTRIEL
+  AUTRE
   OFFERT
   PROMOTIONNEL
   TEST

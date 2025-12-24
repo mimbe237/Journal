@@ -3,6 +3,9 @@ import { S3Client, ListObjectsV2Command, HeadObjectCommand } from "@aws-sdk/clie
 import { prisma } from "@/lib/config/prisma";
 import { getCurrentUser } from "@/lib/auth/currentUser";
 
+// Prisma nécessite un runtime Node.js (pas edge)
+export const runtime = "nodejs";
+
 // Configuration S3/R2
 const s3Client = new S3Client({
   region: process.env.S3_REGION || "auto",

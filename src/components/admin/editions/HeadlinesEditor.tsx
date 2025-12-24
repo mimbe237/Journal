@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/Button";
 interface Headline {
   title: string;
   page?: number;
+  category?: string;
 }
+
+const CATEGORIES = ["ECONOMIE", "POLITIQUE", "TECH", "SOCIETE", "EDUCATION", "SPORT"];
 
 interface HeadlinesEditorProps {
   editionId: string;
@@ -138,6 +141,18 @@ export function HeadlinesEditor({
                   placeholder="Titre de l'article"
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:bg-slate-900 dark:border-slate-600 dark:text-white"
                 />
+              </div>
+              <div className="w-32">
+                <select
+                  value={headline.category || ""}
+                  onChange={(e) => updateHeadline(index, "category", e.target.value)}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:bg-slate-900 dark:border-slate-600 dark:text-white"
+                >
+                  <option value="">Catégorie...</option>
+                  {CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
               </div>
               <div className="w-20">
                 <input

@@ -251,31 +251,46 @@ export async function getGlobalAdStats(): Promise<GlobalAdStats> {
     prisma.adClick.count(),
   ]);
 
-  // Top 5 campagnes par impressions
-  const campaignsWithStats = await prisma.adCampaign.findMany({
-    include: {
-      advertiser: true,
-      _count: {
-        select: { impressions: true, clicks: true },
-      },
-    },
-    orderBy: {
-      impressions: { _count: "desc" },
-    },
+  // Top 5 campagnes par impressions (groupBy pour éviter les orderBy relationnels fragiles)
+  const topImpressions = await prisma.adImpression.groupBy({
+    by: ["campaignId"],
+    _count: { campaignId: true },
+    orderBy: { _count: { campaignId: "desc" } },
     take: 5,
   });
 
-  const topCampaigns = campaignsWithStats.map((c) => ({
-    id: c.id,
-    nom: c.nom,
-    advertiser: c.advertiser.nom,
-    impressions: c._count.impressions,
-    clicks: c._count.clicks,
-    ctr:
-      c._count.impressions > 0
-        ? Math.round((c._count.clicks / c._count.impressions) * 10000) / 100
-        : 0,
-  }));
+  const campaignIds = topImpressions.map((t) => t.campaignId);
+  const campaigns = campaignIds.length
+    ? await prisma.adCampaign.findMany({
+        where: { id: { in: campaignIds } },
+        include: { advertiser: true },
+      })
+    : [];
+
+  const campaignClicks = campaignIds.length
+    ? await prisma.adClick.groupBy({
+        by: ["campaignId"],
+        _count: { campaignId: true },
+        where: { campaignId: { in: campaignIds } },
+      })
+    : [];
+
+  const clicksMap = new Map<string, number>();
+  campaignClicks.forEach((c) => clicksMap.set(c.campaignId, c._count.campaignId));
+
+  const topCampaigns = topImpressions.map((impr) => {
+    const camp = campaigns.find((c) => c.id === impr.campaignId);
+    const clicks = clicksMap.get(impr.campaignId) ?? 0;
+    const impressions = impr._count.campaignId;
+    return {
+      id: impr.campaignId,
+      nom: camp?.nom ?? "Campagne",
+      advertiser: camp?.advertiser?.nom ?? "Annonceur",
+      impressions,
+      clicks,
+      ctr: impressions > 0 ? Math.round((clicks / impressions) * 10000) / 100 : 0,
+    };
+  });
 
   return {
     totalCampaigns,

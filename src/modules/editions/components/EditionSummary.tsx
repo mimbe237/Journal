@@ -6,12 +6,22 @@ import { Button } from "@/components/ui/Button";
 interface Headline {
   title: string;
   page: number;
+  category?: string;
 }
 
 interface EditionSummaryProps {
   headlines: Headline[];
   tags: string[];
 }
+
+const CATEGORY_COLORS: Record<string, string> = {
+  ECONOMIE: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  POLITIQUE: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  TECH: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+  SOCIETE: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+  EDUCATION: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+  SPORT: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+};
 
 export function EditionSummary({ headlines, tags }: EditionSummaryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -44,9 +54,16 @@ export function EditionSummary({ headlines, tags }: EditionSummaryProps) {
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 mt-0.5">
                       {headline.page}
                     </span>
-                    <span className="text-sm text-slate-700 dark:text-slate-300 font-medium group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors leading-relaxed">
-                      {headline.title}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-sm text-slate-700 dark:text-slate-300 font-medium group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors leading-relaxed">
+                        {headline.title}
+                      </span>
+                      {headline.category && (
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium w-fit mt-1 ${CATEGORY_COLORS[headline.category] || "bg-slate-100 text-slate-800"}`}>
+                          {headline.category}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

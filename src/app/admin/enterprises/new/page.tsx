@@ -17,9 +17,41 @@ type FormState = {
   niveauSla: string;
   adresseFacturation: string;
   numeroSiret: string;
+  organizationType: string;
+  organizationSize: string;
+  sector: string;
+  interests: string[];
 };
 
 type ErrorState = string | null;
+
+const ORG_TYPES = [
+  { value: "STARTUP", label: "Startup" },
+  { value: "PME", label: "PME" },
+  { value: "GRAND_GROUPE", label: "Grand Groupe" },
+  { value: "ADMINISTRATION", label: "Administration" },
+  { value: "ONG", label: "ONG" },
+  { value: "EDUCATION", label: "Éducation" },
+  { value: "SANTE", label: "Santé" },
+  { value: "MEDIA", label: "Média" },
+  { value: "PARTICULIER", label: "Particulier" },
+];
+
+const ORG_SIZES = [
+  { value: "MICRO", label: "Micro (<10)" },
+  { value: "SMALL", label: "Petite (10-50)" },
+  { value: "MEDIUM", label: "Moyenne (50-250)" },
+  { value: "LARGE", label: "Grande (250+)" },
+];
+
+const INTERESTS = [
+  { value: "ECONOMIE", label: "Économie" },
+  { value: "TECH", label: "Tech" },
+  { value: "POLITIQUE", label: "Politique" },
+  { value: "SOCIETE", label: "Société" },
+  { value: "EDUCATION", label: "Éducation" },
+  { value: "SPORT", label: "Sport" },
+];
 
 export default function NewEnterprisePage() {
   const router = useRouter();
@@ -32,10 +64,23 @@ export default function NewEnterprisePage() {
     niveauSla: 'standard',
     adresseFacturation: '',
     numeroSiret: '',
+    organizationType: '',
+    organizationSize: '',
+    sector: '',
+    interests: [],
   });
   const [sendInvitation, setSendInvitation] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<ErrorState>(null);
+
+  const toggleInterest = (interest: string) => {
+    setFormData(prev => ({
+      ...prev,
+      interests: prev.interests.includes(interest)
+        ? prev.interests.filter(i => i !== interest)
+        : [...prev.interests, interest]
+    }));
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -140,6 +185,63 @@ export default function NewEnterprisePage() {
                   placeholder="+237 6XX XXX XXX"
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
                 />
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4 border-t pt-4">
+            <h2 className="text-lg font-semibold text-slate-900">Profilage (Ciblage Publicitaire)</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Type d'organisation</label>
+                <select
+                  value={formData.organizationType}
+                  onChange={(e) => setFormData(prev => ({ ...prev, organizationType: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="">Sélectionner...</option>
+                  {ORG_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Taille</label>
+                <select
+                  value={formData.organizationSize}
+                  onChange={(e) => setFormData(prev => ({ ...prev, organizationSize: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="">Sélectionner...</option>
+                  {ORG_SIZES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-slate-700">Secteur d'activité</label>
+                <input
+                  type="text"
+                  value={formData.sector}
+                  onChange={(e) => setFormData(prev => ({ ...prev, sector: e.target.value }))}
+                  placeholder="Ex: Agroalimentaire, BTP, Services..."
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">Centres d'intérêt</label>
+                <div className="flex flex-wrap gap-2">
+                  {INTERESTS.map(interest => (
+                    <button
+                      key={interest.value}
+                      type="button"
+                      onClick={() => toggleInterest(interest.value)}
+                      className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+                        formData.interests.includes(interest.value)
+                          ? 'bg-emerald-100 border-emerald-200 text-emerald-800'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {interest.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </section>

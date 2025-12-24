@@ -9,12 +9,22 @@ interface ExtractedHeadline {
   title: string;
   page: number;
   confidence: number;
+  category?: string;
 }
 
 interface ExtractionResult {
   headlines: ExtractedHeadline[];
   tags: string[];
 }
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  ECONOMIE: ["économie", "finance", "marché", "bourse", "entreprise", "business", "budget", "impôt", "banque", "commerce", "industrie", "pib", "croissance"],
+  POLITIQUE: ["politique", "gouvernement", "ministre", "loi", "décret", "élection", "parlement", "diplomatie", "président", "état", "administration"],
+  TECH: ["tech", "numérique", "digital", "innovation", "startup", "internet", "ia", "intelligence artificielle", "cybersécurité", "logiciel", "app", "télécom"],
+  SOCIETE: ["société", "culture", "santé", "art", "musique", "cinéma", "livre", "religion", "justice", "fait divers", "social", "population", "femme", "jeunesse"],
+  EDUCATION: ["éducation", "école", "université", "recherche", "formation", "enseignement", "étudiant", "académique", "pédagogie"],
+  SPORT: ["sport", "football", "match", "coupe", "championnat", "athlète", "stade", "lion", "indomptable", "ligue"]
+};
 
 export class PdfExtractor {
   
@@ -108,13 +118,28 @@ export class PdfExtractor {
       });
     }
 
-    // 3. Generate Tags from all text
+    // 3. Categorize Headlines
+    headlines.forEach(h => {
+      h.category = this.guessCategory(h.title);
+    });
+
+    // 4. Generate Tags from all text
     const tags = this.generateTags(allText.join(" "));
 
     // Sort headlines by page
     headlines.sort((a, b) => a.page - b.page);
 
     return { headlines, tags };
+  }
+
+  private guessCategory(text: string): string | undefined {
+    const lowerText = text.toLowerCase();
+    for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+      if (keywords.some(k => lowerText.includes(k))) {
+        return category;
+      }
+    }
+    return undefined;
   }
 
   private async extractFromSommairePage(page: any, pageNum: number): Promise<ExtractedHeadline[]> {

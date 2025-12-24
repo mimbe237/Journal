@@ -6,6 +6,8 @@ import { PdfExtractor } from "@/lib/pdf/pdfExtractor";
 import fs from "fs/promises";
 import path from "path";
 
+export const runtime = "nodejs";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

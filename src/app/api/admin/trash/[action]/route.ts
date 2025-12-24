@@ -110,8 +110,8 @@ async function handleRestore(type: TrashableEntity, id: string, userId: string) 
       await restoreJournalType(id, userId);
       break;
     case "subscription":
-      const { prisma } = await import("@/lib/config/prisma");
-      await prisma.subscription.update({
+      const { prisma: prismaSub } = await import("@/lib/config/prisma");
+      await prismaSub.subscription.update({
         where: { id },
         data: { deletedAt: null, trashedUntil: null },
       });
@@ -134,8 +134,8 @@ async function handlePermanentDelete(type: TrashableEntity, id: string, userId: 
       await permanentlyDeleteJournalType(id, userId);
       break;
     case "subscription":
-      const { prisma } = await import("@/lib/config/prisma");
-      await prisma.subscription.delete({ where: { id } });
+      const { prisma: prismaDel } = await import("@/lib/config/prisma");
+      await prismaDel.subscription.delete({ where: { id } });
       break;
   }
 }

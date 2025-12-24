@@ -12,7 +12,7 @@ interface SearchResult {
   titre: string;
   datePublication: string;
   cheminImageUne: string | null;
-  headlines: { title: string; page: number }[] | null;
+  headlines: { title: string; page: number; category?: string }[] | null;
   tags: string[];
 }
 
@@ -98,9 +98,14 @@ function SearchResults() {
                         .map((h, i) => (
                           <div key={i} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2">
                             <span className="text-emerald-500 mt-1.5 text-[10px]">●</span>
-                            <span className="bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">
-                              {h.title}
-                            </span>
+                            <div className="flex flex-col">
+                              <span className="bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">
+                                {h.title}
+                              </span>
+                              {h.category && (
+                                <span className="text-[10px] text-slate-500 uppercase font-semibold mt-0.5">{h.category}</span>
+                              )}
+                            </div>
                           </div>
                         ))}
                     </div>

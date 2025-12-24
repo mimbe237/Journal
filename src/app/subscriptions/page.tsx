@@ -115,7 +115,7 @@ function SubscriptionsContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           planId: plan.id,
-          subscriptionType: plan.durationMonths === 1 ? "MENSUEL" : plan.durationMonths === 12 ? "ANNUEL" : "AUTRE",
+          subscriptionType: plan.durationMonths === 1 ? "MENSUEL" : plan.durationMonths === 3 ? "TRIMESTRIEL" : plan.durationMonths === 12 ? "ANNUEL" : "AUTRE",
           amount: plan.calculatedPrice,
           currency: plan.currency,
           durationDays: plan.durationMonths * 30
