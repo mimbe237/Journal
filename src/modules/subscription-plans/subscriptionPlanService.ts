@@ -1,5 +1,5 @@
 import { Prisma, PlanTargetAudience } from "@prisma/client";
-import { prisma } from "@/lib/config/prisma";
+import { prisma, prismaRuntimeReady } from "@/lib/config/prisma";
 
 // Types
 export type SubscriptionPlanWithJournalTypes = Prisma.SubscriptionPlanGetPayload<{
@@ -40,9 +40,7 @@ function generateSlug(nom: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-import { prisma, prismaRuntimeReady } from "@/lib/config/prisma";
 
-// ... existing code ...
 
 /**
  * Liste tous les plans d'abonnement actifs et publics (pour les utilisateurs).
