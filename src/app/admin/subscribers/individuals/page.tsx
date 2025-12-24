@@ -127,12 +127,12 @@ export default async function IndividualSubscribersPage({ searchParams }: { sear
   const formatDate = (d: Date) => new Date(d).toLocaleDateString("fr-FR");
 
   // Build pagination URL
-  const buildUrl = (newPage: number) => {
+  const buildUrl = (newPage: number): `/admin/subscribers/individuals${string}` => {
     const urlParams = new URLSearchParams();
     if (q) urlParams.set("q", q);
     if (statusFilter && statusFilter !== "all") urlParams.set("status", statusFilter);
     urlParams.set("page", String(newPage));
-    return `?${urlParams.toString()}`;
+    return `/admin/subscribers/individuals?${urlParams.toString()}`;
   };
 
   return (
