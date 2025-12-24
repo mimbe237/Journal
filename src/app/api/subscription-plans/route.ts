@@ -56,7 +56,10 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json(formattedPlans);
+    const response = NextResponse.json(formattedPlans);
+    // Cache publique pendant 1 heure pour réduire la charge DB
+    response.headers.set("Cache-Control", "public, max-age=3600, s-maxage=3600");
+    return response;
   } catch (error: any) {
     console.error("GET /api/subscription-plans error:", error);
     return NextResponse.json({ error: error.message || "Erreur serveur" }, { status: 500 });

@@ -40,11 +40,16 @@ function generateSlug(nom: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+import { prisma, prismaRuntimeReady } from "@/lib/config/prisma";
+
+// ... existing code ...
+
 /**
  * Liste tous les plans d'abonnement actifs et publics (pour les utilisateurs).
  * @param audience - Filtrer par audience (INDIVIDUAL, ENTERPRISE, ou tous)
  */
 export async function listPublicPlans(audience?: PlanTargetAudience): Promise<SubscriptionPlanWithJournalTypes[]> {
+  await prismaRuntimeReady;
   return prisma.subscriptionPlan.findMany({
     where: { 
       isActive: true, 
