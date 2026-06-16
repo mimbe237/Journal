@@ -334,25 +334,26 @@ export function DemoEditionReader() {
     return () => el.removeEventListener("scroll", handler);
   });
 
-  // ── Mobile detection + auto-orientation ───────────────────────────────────
+  // ── Mobile detection (isMobile state only — no mode side-effect) ──────────
+  useEffect(() => {
+    const update = () => setIsMobile(window.innerWidth < 640);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  // ── Auto-orientation (runs once on mount + on device flip only) ───────────
   useEffect(() => {
     const check = () => {
-      const narrow = window.innerWidth < 640;
-      setIsMobile(narrow);
-      if (narrow) {
-        // Force continu on narrow screens — double spread is unusable in portrait
+      if (window.innerWidth < 640) {
         setReadMode("continu");
       } else if (window.innerWidth >= 768 && window.matchMedia("(orientation: landscape)").matches) {
         setReadMode("livre");
       }
     };
     check();
-    window.addEventListener("resize", check);
     window.addEventListener("orientationchange", check);
-    return () => {
-      window.removeEventListener("resize", check);
-      window.removeEventListener("orientationchange", check);
-    };
+    return () => window.removeEventListener("orientationchange", check);
   }, []);
 
   // ── Preload adjacent pages ─────────────────────────────────────────────────
@@ -764,14 +765,7 @@ export function DemoEditionReader() {
             ))}
           </div>
         ) : (
-          /*
-           * Mode Livre : DOUBLE PAGE (spread) + flip 3D 180°
-           *   Left side  = pages paires
-           *   Right side = pages impaires (ou page 1 seule)
-           *   Spine au milieu
-           *   Animation : la page DROITE tourne vers la gauche (fwd),
-           *               la page GAUCHE tourne vers la droite (bwd)
-           */
+          /* Mode Livre : page unique sur mobile, double spread sur desktop */
           <div className="relative flex justify-center w-full min-h-full"
             style={{
               alignItems: zoom > 1 ? "flex-start" : "flex-end",
@@ -780,62 +774,66 @@ export function DemoEditionReader() {
               transition: panDragRef.current.active ? "none" : "transform 0.1s ease-out",
             }}>
 
-            {/* ── Spread statique ── */}
-            <div className="flex items-end justify-center" style={{ width: "100%" }}>
-              {/* PAGE GAUCHE */}
-              <div className="flex items-end justify-end" style={{ width: "calc(50% - 4px)" }}>
-                {(flipState ? flipState.bgLeft : leftPage) != null ? (
-                  <img
-                    key={`left-${flipState ? flipState.bgLeft : leftPage}`}
-                    src={imgUrl(edition.id, (flipState ? flipState.bgLeft : leftPage)!)}
-                    alt="page gauche"
-                    className="rounded-l-sm shadow-2xl block"
-                    style={{
-                      maxWidth: `calc((50vw - 8px) * ${zoom})`,
-                      maxHeight: `calc((96vh - 60px) * ${zoom})`,
-                      width: "auto", height: "auto",
-                    }}
-                    draggable={false}
-                  />
-                ) : (
-                  <div style={{ width: `calc((50vw - 8px) * ${zoom})`, height: `calc((96vh - 60px) * ${zoom})` }} />
-                )}
+            {isMobile ? (
+              /* ── Mobile : page unique pleine largeur ── */
+              <img
+                key={`mob-${rightPage}`}
+                src={imgUrl(edition.id, rightPage)}
+                alt={`Page ${rightPage}`}
+                className="rounded-sm shadow-2xl block"
+                style={{ maxWidth: `calc(92vw * ${zoom})`, maxHeight: `calc((92vh - 60px) * ${zoom})`, width: "auto", height: "auto" }}
+                draggable={false}
+              />
+            ) : (
+              /* ── Desktop : double-page spread ── */
+              <div className="flex items-end justify-center" style={{ width: "100%" }}>
+                {/* PAGE GAUCHE */}
+                <div className="flex items-end justify-end" style={{ width: "calc(50% - 4px)" }}>
+                  {(flipState ? flipState.bgLeft : leftPage) != null ? (
+                    <img
+                      key={`left-${flipState ? flipState.bgLeft : leftPage}`}
+                      src={imgUrl(edition.id, (flipState ? flipState.bgLeft : leftPage)!)}
+                      alt="page gauche"
+                      className="rounded-l-sm shadow-2xl block"
+                      style={{ maxWidth: `calc((50vw - 8px) * ${zoom})`, maxHeight: `calc((96vh - 60px) * ${zoom})`, width: "auto", height: "auto" }}
+                      draggable={false}
+                    />
+                  ) : (
+                    <div style={{ width: `calc((50vw - 8px) * ${zoom})`, height: `calc((96vh - 60px) * ${zoom})` }} />
+                  )}
+                </div>
+
+                {/* SPINE */}
+                <div className="shrink-0 self-stretch"
+                  style={{ width: "8px", background: "linear-gradient(to right, rgba(0,0,0,0.18), rgba(255,255,255,0.7) 50%, rgba(0,0,0,0.15))", boxShadow: "inset 0 0 6px rgba(0,0,0,0.12)" }} />
+
+                {/* PAGE DROITE */}
+                <div className="flex items-end justify-start" style={{ width: "calc(50% - 4px)" }}>
+                  {(flipState ? flipState.bgRight : rightPage) != null ? (
+                    <img
+                      key={`right-${flipState ? flipState.bgRight : rightPage}`}
+                      src={imgUrl(edition.id, (flipState ? flipState.bgRight : rightPage)!)}
+                      alt="page droite"
+                      className="rounded-r-sm shadow-2xl block"
+                      style={{ maxWidth: `calc((50vw - 8px) * ${zoom})`, maxHeight: `calc((96vh - 60px) * ${zoom})`, width: "auto", height: "auto" }}
+                      draggable={false}
+                    />
+                  ) : (
+                    <div style={{ width: `calc((50vw - 8px) * ${zoom})`, height: `calc((96vh - 60px) * ${zoom})` }} />
+                  )}
+                </div>
               </div>
+            )}
 
-              {/* SPINE */}
-              <div className="shrink-0 self-stretch"
-                style={{ width: "8px", background: "linear-gradient(to right, rgba(0,0,0,0.18), rgba(255,255,255,0.7) 50%, rgba(0,0,0,0.15))", boxShadow: "inset 0 0 6px rgba(0,0,0,0.12)" }} />
-
-              {/* PAGE DROITE */}
-              <div className="flex items-end justify-start" style={{ width: "calc(50% - 4px)" }}>
-                {(flipState ? flipState.bgRight : rightPage) != null ? (
-                  <img
-                    key={`right-${flipState ? flipState.bgRight : rightPage}`}
-                    src={imgUrl(edition.id, (flipState ? flipState.bgRight : rightPage)!)}
-                    alt="page droite"
-                    className="rounded-r-sm shadow-2xl block"
-                    style={{
-                      maxWidth: `calc((50vw - 8px) * ${zoom})`,
-                      maxHeight: `calc((96vh - 60px) * ${zoom})`,
-                      width: "auto", height: "auto",
-                    }}
-                    draggable={false}
-                  />
-                ) : (
-                  <div style={{ width: `calc((50vw - 8px) * ${zoom})`, height: `calc((96vh - 60px) * ${zoom})` }} />
-                )}
-              </div>
-            </div>
-
-            {/* ── Carte flip 3D (perspective 70vw = proportionnelle à la page) ── */}
+            {/* ── Carte flip 3D : mobile = pleine largeur, desktop = demi-largeur ── */}
             {flipState && (
-              <div className="absolute inset-0 pointer-events-none" style={{ perspective: "70vw" }}>
-                {/* Ombre portée SUR LE FOND — ancre la page en rotation sur la table */}
+              <div className="absolute inset-0 pointer-events-none" style={{ perspective: isMobile ? "90vw" : "70vw" }}>
+                {/* Ombre portée sur le fond */}
                 <div style={{
                   position: "absolute",
                   top: 0, bottom: 0,
-                  width: "calc(50% - 4px)",
-                  ...(flipState.dir === "fwd" ? { right: 0 } : { left: 0 }),
+                  width: isMobile ? "100%" : "calc(50% - 4px)",
+                  ...(!isMobile && (flipState.dir === "fwd" ? { right: 0 } : { left: 0 })),
                   background: "rgba(0,0,0,0.18)",
                   animation: "castShadow 700ms ease-in-out forwards",
                   borderRadius: "2px",
@@ -845,10 +843,11 @@ export function DemoEditionReader() {
                 <div style={{
                   position: "absolute",
                   top: 0, bottom: 0,
-                  width: "calc(50% - 4px)",
+                  width: isMobile ? "100%" : "calc(50% - 4px)",
+                  ...(!isMobile && (flipState.dir === "fwd" ? { right: 0 } : { left: 0 })),
                   ...(flipState.dir === "fwd"
-                    ? { right: 0, transformOrigin: "left bottom" }
-                    : { left: 0, transformOrigin: "right bottom" }
+                    ? { transformOrigin: "left bottom" }
+                    : { transformOrigin: "right bottom" }
                   ),
                   transformStyle: "preserve-3d",
                   animation: `bookFlip${flipState.dir === "fwd" ? "Fwd" : "Bwd"} 700ms cubic-bezier(0.45, 0, 0.55, 1) forwards`,
@@ -856,25 +855,23 @@ export function DemoEditionReader() {
                   {/* Face AVANT : page qui s'en va */}
                   <div className="absolute inset-0 flex items-end"
                     style={{
-                      justifyContent: flipState.dir === "fwd" ? "flex-start" : "flex-end",
+                      justifyContent: isMobile ? "center" : (flipState.dir === "fwd" ? "flex-start" : "flex-end"),
                       backfaceVisibility: "hidden",
                       WebkitBackfaceVisibility: "hidden",
                     }}>
                     <img src={imgUrl(edition.id, flipState.frontPage)} alt=""
                       style={{
-                        maxWidth: `calc((50vw - 8px) * ${zoom})`,
+                        maxWidth: isMobile ? `calc(92vw * ${zoom})` : `calc((50vw - 8px) * ${zoom})`,
                         maxHeight: `calc((96vh - 60px) * ${zoom})`,
                         width: "auto", height: "auto",
                       }}
                       className="shadow-2xl" draggable={false} />
-                    {/* Ombre de courbure : du bord EXTÉRIEUR vers la spine, peak à 50% */}
                     <div className="absolute inset-0 pointer-events-none" style={{
                       background: flipState.dir === "fwd"
                         ? "linear-gradient(to left, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.08) 60%, transparent 100%)"
                         : "linear-gradient(to right, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.08) 60%, transparent 100%)",
                       animation: "curlShadow 700ms ease-in-out forwards",
                     }} />
-                    {/* Reflet lumineux au point de pliure (ligne brillante) */}
                     <div className="absolute inset-0 pointer-events-none" style={{
                       background: flipState.dir === "fwd"
                         ? "linear-gradient(to right, transparent 55%, rgba(255,255,255,0.18) 65%, transparent 75%)"
@@ -885,20 +882,19 @@ export function DemoEditionReader() {
                   {/* Face ARRIÈRE : nouvelle page */}
                   <div className="absolute inset-0 flex items-end"
                     style={{
-                      justifyContent: flipState.dir === "fwd" ? "flex-start" : "flex-end",
+                      justifyContent: isMobile ? "center" : (flipState.dir === "fwd" ? "flex-start" : "flex-end"),
                       backfaceVisibility: "hidden",
                       WebkitBackfaceVisibility: "hidden",
                       transform: "rotateY(180deg)",
                     }}>
                     <img src={imgUrl(edition.id, flipState.backPage)} alt=""
                       style={{
-                        maxWidth: `calc((50vw - 8px) * ${zoom})`,
+                        maxWidth: isMobile ? `calc(92vw * ${zoom})` : `calc((50vw - 8px) * ${zoom})`,
                         maxHeight: `calc((96vh - 60px) * ${zoom})`,
                         width: "auto", height: "auto",
                         transform: "scaleX(-1)",
                       }}
                       className="shadow-2xl" draggable={false} />
-                    {/* Ombre d'atterrissage : s'efface en arrivant */}
                     <div className="absolute inset-0 pointer-events-none" style={{
                       background: "rgba(0,0,0,0.25)",
                       animation: "landShadow 700ms ease-in-out forwards",
@@ -931,22 +927,12 @@ export function DemoEditionReader() {
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
                 Continu
               </button>
-              {isMobile ? (
-                <div className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium bg-gray-50 text-gray-300 cursor-not-allowed">
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M4 4h7v16H4z"/><path d="M13 4h7v16h-7z"/></svg>
-                  Livre
-                </div>
-              ) : (
-                <button onClick={() => { setReadMode("livre"); setShowMobileMenu(false); }}
-                  className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${readMode === "livre" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M4 4h7v16H4z"/><path d="M13 4h7v16h-7z"/></svg>
-                  Livre
-                </button>
-              )}
+              <button onClick={() => { setReadMode("livre"); setShowMobileMenu(false); }}
+                className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${readMode === "livre" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M4 4h7v16H4z"/><path d="M13 4h7v16h-7z"/></svg>
+                Livre
+              </button>
             </div>
-            {isMobile && (
-              <p className="text-xs text-gray-400 mb-3">Le mode Livre est disponible sur tablette ou ordinateur.</p>
-            )}
             <p className="text-xs font-bold tracking-widest text-gray-400 mb-3">ZOOM</p>
             <div className="flex items-center gap-3 mb-5">
               <button onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))} className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold text-lg">−</button>
