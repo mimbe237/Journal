@@ -575,9 +575,23 @@ export function DemoEditionReader() {
           </>
         )}
 
+        {/* Click zones gauche / droite */}
+        {currentPage > 1 && (
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1/4 z-10 cursor-w-resize"
+            onClick={goBack}
+          />
+        )}
+        {currentPage < totalPages && (
+          <div
+            className="absolute right-0 top-0 bottom-0 w-1/4 z-10 cursor-e-resize"
+            onClick={goNext}
+          />
+        )}
+
         {/* Page image */}
         <div
-          className="transition-transform duration-200 ease-out"
+          className="transition-transform duration-200 ease-out relative z-20"
           style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
         >
           {readMode === "livre" ? (
