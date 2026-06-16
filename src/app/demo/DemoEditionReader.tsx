@@ -297,13 +297,18 @@ export function DemoEditionReader() {
   const [showOffline,    setShowOffline]    = useState(false);
   const [toast,          setToast]          = useState<string | null>(null);
 
+  // Image loading
+  const [imgLoading, setImgLoading] = useState(true);
+
   // Refs
   const containerRef      = useRef<HTMLDivElement>(null);
+  const contentRef        = useRef<HTMLDivElement>(null);
   const touchStartRef     = useRef<{ x: number; y: number; time: number } | null>(null);
   const pinchDistRef      = useRef<number | null>(null);
   const pinchZoomRef      = useRef<number>(1);
   const lastTapRef        = useRef<{ time: number; x: number; y: number } | null>(null);
   const preloadedRef      = useRef<Set<number>>(new Set());
+  const autoZoomedRef     = useRef(false);
 
   const totalPages = edition?.nombrePages ?? 0;
 
@@ -322,6 +327,22 @@ export function DemoEditionReader() {
       .catch(() => setError("Erreur de connexion."))
       .finally(() => setLoading(false));
   }, []);
+
+  // ── Auto-zoom pour remplir la largeur disponible ──────────────────────────
+  useEffect(() => {
+    if (!edition || autoZoomedRef.current) return;
+    const img = new Image();
+    img.src = imgUrl(edition.id, 1);
+    img.onload = () => {
+      const container = contentRef.current;
+      if (!container) return;
+      const availW = container.clientWidth - 32;
+      const pagesWide = readMode === "livre" ? 2 : 1;
+      const z = availW / (img.naturalWidth * pagesWide);
+      setZoom(+(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)).toFixed(2)));
+      autoZoomedRef.current = true;
+    };
+  }, [edition, readMode]);
 
   // ── Auto offline cache (background, 3s after load) ────────────────────────
   useEffect(() => {
@@ -578,45 +599,77 @@ export function DemoEditionReader() {
       <ProgressBar current={currentPage} total={totalPages} onClick={goTo} />
 
       {/* ── CONTENT ─────────────────────────────────────────────────────── */}
-      <div className={`flex-1 overflow-auto flex items-start justify-center py-8 px-4 ${bgContent} relative`}
+      <div
+        ref={contentRef}
+        className={`flex-1 overflow-auto flex items-start justify-center ${readMode === "continu" ? "p-0" : "py-6 px-4"} ${bgContent} relative`}
         style={{ touchAction: "pan-y pinch-zoom" }}
+        onClick={(e) => {
+          if (readMode === "continu") return;
+          const t = e.target as HTMLElement;
+          if (t.closest("button,a,select")) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          const rel  = (e.clientX - rect.left) / rect.width;
+          if (rel < 0.3) goBack();
+          else if (rel > 0.7) goNext();
+        }}
       >
-        {/* Click zones gauche / droite */}
-        {currentPage > 1 && (
+        {readMode === "continu" ? (
+          /* ── Mode Continu : toutes les pages empilées, scroll vertical ── */
           <div
-            className="absolute left-0 top-0 bottom-0 w-1/4 z-10 cursor-w-resize"
-            onClick={goBack}
-          />
-        )}
-        {currentPage < totalPages && (
+            className="w-full"
+            style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
+          >
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <img
+                key={p}
+                src={imgUrl(edition.id, p)}
+                alt={`Page ${p}`}
+                className="w-full block"
+                loading={p <= 3 ? "eager" : "lazy"}
+                draggable={false}
+              />
+            ))}
+          </div>
+        ) : (
+          /* ── Mode Livre : une ou deux pages côte à côte ── */
           <div
-            className="absolute right-0 top-0 bottom-0 w-1/4 z-10 cursor-e-resize"
-            onClick={goNext}
-          />
-        )}
-
-        {/* Page image */}
-        <div
-          className="transition-transform duration-200 ease-out relative z-20"
-          style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
-        >
-          {readMode === "livre" ? (
-            <div className={`flex shadow-2xl transition-opacity duration-400 ${isFlipping ? "opacity-50" : "opacity-100"}`}>
-              {currentPage > 1 && (
-                <img src={imgUrl(edition.id, currentPage - 1)} alt={`Page ${currentPage - 1}`}
-                  className="max-h-[80vh] w-auto rounded-l-sm" style={{ maxWidth: "42vw" }} draggable={false} />
+            className={`transition-opacity duration-300 ${isFlipping ? "opacity-40" : "opacity-100"}`}
+            style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
+          >
+            {/* Skeleton pendant le chargement */}
+            {imgLoading && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-30 pointer-events-none">
+                <div className="w-48 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-400 rounded-full animate-[loading_1.2s_ease-in-out_infinite]" />
+                </div>
+                <p className="text-xs text-gray-400">Chargement de la page…</p>
+              </div>
+            )}
+            <div className={`flex shadow-2xl ${currentPage > 1 && readMode === "livre" ? "" : ""}`}>
+              {readMode === "livre" && currentPage > 1 && (
+                <img
+                  src={imgUrl(edition.id, currentPage - 1)}
+                  alt={`Page ${currentPage - 1}`}
+                  className="w-auto rounded-l-sm"
+                  style={{ maxHeight: "85vh", maxWidth: "48vw" }}
+                  draggable={false}
+                />
               )}
-              <img src={imgUrl(edition.id, currentPage)} alt={`Page ${currentPage}`}
-                className={`max-h-[80vh] w-auto shadow-2xl ${currentPage > 1 ? "rounded-r-sm" : "rounded-sm"}`}
-                style={{ maxWidth: currentPage > 1 ? "42vw" : "82vw" }} draggable={false} />
+              <img
+                src={imgUrl(edition.id, currentPage)}
+                alt={`Page ${currentPage}`}
+                className={`w-auto shadow-2xl ${readMode === "livre" && currentPage > 1 ? "rounded-r-sm" : "rounded-sm"}`}
+                style={{
+                  maxHeight: "85vh",
+                  maxWidth: readMode === "livre" && currentPage > 1 ? "48vw" : "96vw",
+                }}
+                draggable={false}
+                onLoadStart={() => setImgLoading(true)}
+                onLoad={() => setImgLoading(false)}
+              />
             </div>
-          ) : (
-            <img src={imgUrl(edition.id, currentPage)} alt={`Page ${currentPage}`}
-              className="shadow-2xl rounded-sm"
-              style={{ maxWidth: "88vw" }}
-              draggable={false} />
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
 
@@ -629,6 +682,7 @@ export function DemoEditionReader() {
       <style jsx global>{`
         @keyframes fade-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
         .animate-fade-in { animation: fade-in 0.2s ease-out; }
+        @keyframes loading { 0% { width: 0%; margin-left: 0; } 50% { width: 60%; margin-left: 20%; } 100% { width: 0%; margin-left: 100%; } }
       `}</style>
     </div>
   );
