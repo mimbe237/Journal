@@ -614,7 +614,7 @@ export function DemoEditionReader() {
           ) : (
             <img src={imgUrl(edition.id, currentPage)} alt={`Page ${currentPage}`}
               className="shadow-2xl rounded-sm"
-              style={{ maxHeight: "82vh", maxWidth: "88vw" }}
+              style={{ maxWidth: "88vw" }}
               draggable={false} />
           )}
         </div>
