@@ -211,8 +211,14 @@ export function DemoEditionReader() {
   const [zoom,          setZoom]          = useState(1);
   const [readMode,      setReadMode]      = useState<ReadMode>("continu");
   const [theme]                           = useState<Theme>("clair");
-  // null = pas d'animation ; sinon décrit le flip en cours
-  const [flipState, setFlipState] = useState<{ dir: "fwd" | "bwd"; from: number; to: number } | null>(null);
+  // null = pas d'animation ; sinon décrit le flip en cours (double-page spread)
+  const [flipState, setFlipState] = useState<{
+    dir: "fwd" | "bwd";
+    frontPage: number;       // face avant de la carte animée
+    backPage: number;        // face arrière (nouvelle page)
+    bgLeft: number | null;   // arrière-plan gauche pendant l'animation
+    bgRight: number | null;  // arrière-plan droite pendant l'animation
+  } | null>(null);
   const [showThumbnails,setShowThumbnails]= useState(false);
   const [showSearch,    setShowSearch]    = useState(false);
   const [showOffline,   setShowOffline]   = useState(false);
@@ -231,6 +237,14 @@ export function DemoEditionReader() {
   const lastScrollY   = useRef(0);
 
   const totalPages = edition?.nombrePages ?? 0;
+
+  // ── Spread computation (mode Livre) ───────────────────────────────────────
+  // Pages impaires = côté droit, pages paires = côté gauche (convention livre occidental)
+  const rightPage = useMemo(() => {
+    if (!totalPages || currentPage <= 1) return 1;
+    return currentPage % 2 === 1 ? currentPage : Math.min(currentPage + 1, totalPages);
+  }, [currentPage, totalPages]);
+  const leftPage: number | null = useMemo(() => rightPage > 1 ? rightPage - 1 : null, [rightPage]);
 
   // ── Fetch edition ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -317,22 +331,62 @@ export function DemoEditionReader() {
   }, [currentPage, edition, totalPages]);
 
   // ── Navigation ─────────────────────────────────────────────────────────────
-  const goTo = useCallback((p: number) => {
-    if (!edition || p < 1 || p > totalPages || p === currentPage) return;
+  const goTo = useCallback((raw: number) => {
+    if (!edition || raw < 1 || raw > totalPages) return;
     if (navigator.vibrate) navigator.vibrate(20);
-    if (readMode === "livre" && !flipState) {
-      const dir: "fwd" | "bwd" = p > currentPage ? "fwd" : "bwd";
-      setFlipState({ dir, from: currentPage, to: p });
-      // La page logique change immédiatement : la face arrière montre déjà la bonne page
-      setCurrentPage(p);
-      setTimeout(() => setFlipState(null), 450);
-    } else if (readMode !== "livre") {
-      setCurrentPage(p);
-    }
-  }, [edition, totalPages, readMode, currentPage, flipState]);
 
-  const goNext = useCallback(() => goTo(currentPage + 1), [currentPage, goTo]);
-  const goBack = useCallback(() => goTo(currentPage - 1), [currentPage, goTo]);
+    if (readMode === "livre" && !flipState) {
+      // Cible = page droite du spread cible
+      const target = raw <= 1 ? 1 : raw % 2 === 1 ? raw : Math.min(raw + 1, totalPages);
+      if (target === rightPage) return;
+      const dir: "fwd" | "bwd" = target > rightPage ? "fwd" : "bwd";
+
+      // Un seul spread d'écart → animation flip
+      const newRight = target;
+      const newLeft: number | null = newRight > 1 ? newRight - 1 : null;
+      const isSingleStep = Math.abs(newRight - rightPage) <= 2;
+
+      if (isSingleStep) {
+        if (dir === "fwd") {
+          // La page DROITE actuelle (rightPage) se retourne vers la gauche
+          setFlipState({
+            dir,
+            frontPage: rightPage,               // face avant = page droite qui part
+            backPage: Math.min(rightPage + 1, totalPages), // face arrière = nouvelle page gauche
+            bgLeft: leftPage,                   // arrière-plan gauche = ancienne page gauche
+            bgRight: newRight <= totalPages ? newRight : null, // arrière-plan droite = nouvelle page droite
+          });
+        } else {
+          // La page GAUCHE actuelle se retourne vers la droite
+          if (leftPage === null) return;
+          setFlipState({
+            dir,
+            frontPage: leftPage,                // face avant = page gauche qui part
+            backPage: Math.max(1, leftPage - 1), // face arrière = nouvelle page droite
+            bgLeft: newLeft,                    // arrière-plan gauche = nouvelle page gauche
+            bgRight: rightPage,                 // arrière-plan droite = ancienne page droite
+          });
+        }
+        setCurrentPage(target);
+        setTimeout(() => setFlipState(null), 450);
+      } else {
+        // Grand saut → pas d'animation
+        setCurrentPage(target);
+      }
+    } else if (readMode !== "livre") {
+      setCurrentPage(raw);
+    }
+  }, [edition, totalPages, readMode, rightPage, leftPage, flipState]);
+
+  const goNext = useCallback(() => {
+    if (readMode === "livre") goTo(Math.min(rightPage + 2, totalPages));
+    else goTo(currentPage + 1);
+  }, [currentPage, rightPage, totalPages, readMode, goTo]);
+
+  const goBack = useCallback(() => {
+    if (readMode === "livre") goTo(Math.max(1, rightPage - 2));
+    else goTo(currentPage - 1);
+  }, [currentPage, rightPage, readMode, goTo]);
 
   // ── Keyboard ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -595,77 +649,109 @@ export function DemoEditionReader() {
           </div>
         ) : (
           /*
-           * Mode Livre : flip 180° avec preserve-3d
-           * Face AVANT = page de départ (backfaceVisibility hidden)
-           * Face ARRIÈRE = page d'arrivée, retournée puis re-miroir (scaleX(-1))
-           * Pivot bord GAUCHE (spine) en avant, bord DROIT en arrière
+           * Mode Livre : DOUBLE PAGE (spread) + flip 3D 180°
+           *   Left side  = pages paires
+           *   Right side = pages impaires (ou page 1 seule)
+           *   Spine au milieu
+           *   Animation : la page DROITE tourne vers la gauche (fwd),
+           *               la page GAUCHE tourne vers la droite (bwd)
            */
-          <div className="relative flex items-center justify-center w-full h-full" style={{ perspective: "2000px" }}>
-            <div
-              style={{
-                position: "relative",
-                transformStyle: "preserve-3d",
-                transformOrigin: flipState
-                  ? (flipState.dir === "fwd" ? "left center" : "right center")
-                  : "center center",
-                animation: flipState
-                  ? `bookFlip${flipState.dir === "fwd" ? "Fwd" : "Bwd"} 450ms cubic-bezier(.4,0,.2,1) forwards`
-                  : "none",
-              }}
-            >
-              {/* FACE AVANT : page qu'on quitte */}
-              <img
-                src={imgUrl(edition.id, flipState ? flipState.from : currentPage)}
-                alt="page"
-                className="rounded-sm shadow-2xl block"
-                style={{
-                  maxHeight: `calc((100vh - 60px) * ${zoom})`,
-                  maxWidth: `${zoom * 96}vw`,
-                  width: "auto",
-                  height: "auto",
-                  backfaceVisibility: "hidden",
-                  WebkitBackfaceVisibility: "hidden",
-                }}
-                draggable={false}
-              />
+          <div className="relative flex items-stretch justify-center w-full h-full overflow-hidden"
+            style={{ perspective: "2400px" }}>
 
-              {/* FACE ARRIÈRE : page d'arrivée */}
-              {flipState && (
-                <div style={{
-                  position: "absolute", inset: 0,
-                  transform: "rotateY(180deg)",
-                  backfaceVisibility: "hidden",
-                  WebkitBackfaceVisibility: "hidden",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
+            {/* ── Spread statique (affiché hors animation OU en arrière-plan) ── */}
+            <div className="flex items-stretch justify-center w-full h-full">
+              {/* PAGE GAUCHE */}
+              <div className="flex items-center justify-end overflow-hidden"
+                style={{ width: "calc(50% - 4px)", maxHeight: "calc(100vh - 60px)" }}>
+                {(flipState ? flipState.bgLeft : leftPage) != null ? (
                   <img
-                    src={imgUrl(edition.id, flipState.to)}
-                    alt="page verso"
-                    className="rounded-sm shadow-2xl block"
-                    style={{
-                      maxHeight: `calc((100vh - 60px) * ${zoom})`,
-                      maxWidth: `${zoom * 96}vw`,
-                      width: "auto",
-                      height: "auto",
-                      transform: "scaleX(-1)", /* annule le miroir de la face arrière */
-                    }}
+                    key={`left-${flipState ? flipState.bgLeft : leftPage}`}
+                    src={imgUrl(edition.id, (flipState ? flipState.bgLeft : leftPage)!)}
+                    alt="page gauche"
+                    className="rounded-l-sm shadow-2xl block"
+                    style={{ maxWidth: "100%", maxHeight: "calc(100vh - 60px)", width: "auto", height: "auto" }}
                     draggable={false}
                   />
-                </div>
-              )}
+                ) : (
+                  <div style={{ width: "100%", height: "calc(100vh - 60px)" }} />
+                )}
+              </div>
 
-              {/* Ombre de courbure sur la face avant */}
-              {flipState && (
-                <div style={{
-                  position: "absolute", inset: 0, pointerEvents: "none", borderRadius: "2px",
-                  backfaceVisibility: "hidden",
-                  WebkitBackfaceVisibility: "hidden",
-                  background: flipState.dir === "fwd"
-                    ? "linear-gradient(to left, transparent 55%, rgba(0,0,0,0.18) 100%)"
-                    : "linear-gradient(to right, transparent 55%, rgba(0,0,0,0.18) 100%)",
-                }} />
-              )}
+              {/* SPINE */}
+              <div className="shrink-0 self-stretch"
+                style={{ width: "8px", background: "linear-gradient(to right, rgba(0,0,0,0.18), rgba(255,255,255,0.7) 50%, rgba(0,0,0,0.15))", boxShadow: "inset 0 0 6px rgba(0,0,0,0.12)" }} />
+
+              {/* PAGE DROITE */}
+              <div className="flex items-center justify-start overflow-hidden"
+                style={{ width: "calc(50% - 4px)", maxHeight: "calc(100vh - 60px)" }}>
+                {(flipState ? flipState.bgRight : rightPage) != null ? (
+                  <img
+                    key={`right-${flipState ? flipState.bgRight : rightPage}`}
+                    src={imgUrl(edition.id, (flipState ? flipState.bgRight : rightPage)!)}
+                    alt="page droite"
+                    className="rounded-r-sm shadow-2xl block"
+                    style={{ maxWidth: "100%", maxHeight: "calc(100vh - 60px)", width: "auto", height: "auto" }}
+                    draggable={false}
+                  />
+                ) : (
+                  <div style={{ width: "100%", height: "calc(100vh - 60px)" }} />
+                )}
+              </div>
             </div>
+
+            {/* ── Carte flip 3D (superposée pendant l'animation) ── */}
+            {flipState && (
+              <div className="absolute inset-0 pointer-events-none" style={{ perspective: "2400px" }}>
+                <div style={{
+                  position: "absolute",
+                  top: 0, bottom: 0,
+                  width: "calc(50% - 4px)",
+                  /* Pour aller en avant, la carte est sur la droite et pivote à gauche */
+                  /* Pour reculer, la carte est sur la gauche et pivote à droite */
+                  ...(flipState.dir === "fwd"
+                    ? { right: 0, transformOrigin: "left center" }
+                    : { left: 0, transformOrigin: "right center" }
+                  ),
+                  transformStyle: "preserve-3d",
+                  animation: `bookFlip${flipState.dir === "fwd" ? "Fwd" : "Bwd"} 450ms cubic-bezier(.4,0,.2,1) forwards`,
+                }}>
+                  {/* Face AVANT : page qui s'en va */}
+                  <div className="absolute inset-0 flex items-center"
+                    style={{
+                      justifyContent: flipState.dir === "fwd" ? "flex-start" : "flex-end",
+                      backfaceVisibility: "hidden",
+                      WebkitBackfaceVisibility: "hidden",
+                    }}>
+                    <img src={imgUrl(edition.id, flipState.frontPage)} alt=""
+                      style={{ maxWidth: "100%", maxHeight: "calc(100vh - 60px)", width: "auto", height: "auto" }}
+                      className="shadow-2xl" draggable={false} />
+                    {/* Ombre de courbure */}
+                    <div className="absolute inset-0" style={{
+                      background: flipState.dir === "fwd"
+                        ? "linear-gradient(to left, transparent 40%, rgba(0,0,0,0.18) 100%)"
+                        : "linear-gradient(to right, transparent 40%, rgba(0,0,0,0.18) 100%)",
+                      pointerEvents: "none",
+                    }} />
+                  </div>
+                  {/* Face ARRIÈRE : nouvelle page (scaleX(-1) compense le miroir) */}
+                  <div className="absolute inset-0 flex items-center"
+                    style={{
+                      justifyContent: flipState.dir === "fwd" ? "flex-start" : "flex-end",
+                      backfaceVisibility: "hidden",
+                      WebkitBackfaceVisibility: "hidden",
+                      transform: "rotateY(180deg)",
+                    }}>
+                    <img src={imgUrl(edition.id, flipState.backPage)} alt=""
+                      style={{
+                        maxWidth: "100%", maxHeight: "calc(100vh - 60px)", width: "auto", height: "auto",
+                        transform: "scaleX(-1)",
+                      }}
+                      className="shadow-2xl" draggable={false} />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
