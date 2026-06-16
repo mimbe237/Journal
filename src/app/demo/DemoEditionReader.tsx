@@ -514,7 +514,7 @@ export function DemoEditionReader() {
           </a>
           {/* Title */}
           <div className="hidden sm:block min-w-0">
-            <p className={`font-bold text-sm leading-tight truncate ${textMain}`}>{edition.titre}</p>
+            <p className={`font-bold text-sm leading-tight truncate ${textMain}`}>Édition Démo</p>
             <p className={`text-xs leading-tight ${textSub}`}>{fmtDate(edition.datePublication)} · DÉMO PUBLIQUE — SOPECAM</p>
           </div>
         </div>
