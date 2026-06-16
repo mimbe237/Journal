@@ -16,10 +16,13 @@ type ReadMode = "mini" | "continu" | "livre";
 type Theme    = "clair" | "sepia" | "sombre";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const ZOOM_STEP = 0.1;
-const ZOOM_MIN  = 0.3;
-const ZOOM_MAX  = 4;
-const PRELOAD   = 3;
+const ZOOM_STEP          = 0.1;
+const ZOOM_MIN           = 0.3;
+const ZOOM_MAX           = 4;
+const PRELOAD            = 3;
+const CACHE_NAME         = "demo-editions-v1";
+const MAX_CACHED         = 5;
+const CACHE_META_KEY     = "demo-offline-editions";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const imgUrl = (id: string, page: number) =>
@@ -27,6 +30,48 @@ const imgUrl = (id: string, page: number) =>
 
 const fmtDate = (s: string) =>
   new Date(s).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+// ─── Offline cache helpers ─────────────────────────────────────────────────────
+interface CachedMeta { id: string; titre: string; pages: number; cachedAt: number }
+
+function getCacheMeta(): CachedMeta[] {
+  try { return JSON.parse(localStorage.getItem(CACHE_META_KEY) ?? "[]"); } catch { return []; }
+}
+function saveCacheMeta(list: CachedMeta[]) {
+  localStorage.setItem(CACHE_META_KEY, JSON.stringify(list));
+}
+
+async function pruneOldEditions() {
+  if (!("caches" in window)) return;
+  const list = getCacheMeta();
+  if (list.length <= MAX_CACHED) return;
+  const sorted  = [...list].sort((a, b) => b.cachedAt - a.cachedAt);
+  const toKeep  = sorted.slice(0, MAX_CACHED);
+  const toNuke  = sorted.slice(MAX_CACHED);
+  const cache   = await caches.open(CACHE_NAME);
+  for (const ed of toNuke) {
+    for (let p = 1; p <= ed.pages; p++) await cache.delete(imgUrl(ed.id, p));
+  }
+  saveCacheMeta(toKeep);
+}
+
+async function cacheEditionBackground(edition: Edition) {
+  if (!("caches" in window)) return;
+  const list = getCacheMeta();
+  if (list.find((e) => e.id === edition.id)) return; // already cached
+  const cache = await caches.open(CACHE_NAME);
+  for (let p = 1; p <= edition.nombrePages; p++) {
+    try {
+      const url = imgUrl(edition.id, p);
+      if (!(await cache.match(url))) {
+        const res = await fetch(url);
+        if (res.ok) await cache.put(url, res);
+      }
+    } catch { /* réseau indisponible, on réessaiera à la prochaine ouverture */ }
+  }
+  saveCacheMeta([...list, { id: edition.id, titre: edition.titre, pages: edition.nombrePages, cachedAt: Date.now() }]);
+  await pruneOldEditions();
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -277,6 +322,13 @@ export function DemoEditionReader() {
       .catch(() => setError("Erreur de connexion."))
       .finally(() => setLoading(false));
   }, []);
+
+  // ── Auto offline cache (background, 3s after load) ────────────────────────
+  useEffect(() => {
+    if (!edition) return;
+    const t = setTimeout(() => cacheEditionBackground(edition), 3000);
+    return () => clearTimeout(t);
+  }, [edition]);
 
   // ── Save page progress ─────────────────────────────────────────────────────
   useEffect(() => {
