@@ -331,17 +331,22 @@ export function DemoEditionReader() {
   // ── Auto-zoom pour remplir la largeur disponible ──────────────────────────
   useEffect(() => {
     if (!edition || autoZoomedRef.current) return;
-    const img = new Image();
-    img.src = imgUrl(edition.id, 1);
-    img.onload = () => {
-      const container = contentRef.current;
-      if (!container) return;
-      const availW = container.clientWidth - 32;
-      const pagesWide = readMode === "livre" ? 2 : 1;
-      const z = availW / (img.naturalWidth * pagesWide);
-      setZoom(+(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)).toFixed(2)));
-      autoZoomedRef.current = true;
+    const compute = () => {
+      const img = new Image();
+      img.src = imgUrl(edition.id, 1);
+      const run = () => {
+        const availW = window.innerWidth - 16;
+        const pagesWide = readMode === "livre" ? 2 : 1;
+        const z = availW / (img.naturalWidth * pagesWide);
+        setZoom(+(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)).toFixed(2)));
+        autoZoomedRef.current = true;
+      };
+      if (img.complete && img.naturalWidth) run();
+      else img.onload = run;
     };
+    // Laisser le DOM se stabiliser avant de mesurer
+    const t = setTimeout(compute, 100);
+    return () => clearTimeout(t);
   }, [edition, readMode]);
 
   // ── Auto offline cache (background, 3s after load) ────────────────────────
@@ -601,7 +606,7 @@ export function DemoEditionReader() {
       {/* ── CONTENT ─────────────────────────────────────────────────────── */}
       <div
         ref={contentRef}
-        className={`flex-1 overflow-auto flex items-start justify-center ${readMode === "continu" ? "p-0" : "py-6 px-4"} ${bgContent} relative`}
+        className={`flex-1 overflow-auto flex items-start justify-center ${readMode === "continu" ? "p-0 overflow-x-hidden" : "py-6 px-4"} ${bgContent} relative`}
         style={{ touchAction: "pan-y pinch-zoom" }}
         onClick={(e) => {
           if (readMode === "continu") return;
@@ -614,10 +619,13 @@ export function DemoEditionReader() {
         }}
       >
         {readMode === "continu" ? (
-          /* ── Mode Continu : toutes les pages empilées, scroll vertical ── */
+          /* ── Mode Continu : toutes les pages empilées, width réelle (pas transform) ── */
           <div
-            className="w-full"
-            style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
+            style={{
+              width: `${Math.round(zoom * 100)}%`,
+              minWidth: `${Math.round(zoom * 100)}%`,
+              margin: "0 auto",
+            }}
           >
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
               <img
