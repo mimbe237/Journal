@@ -726,14 +726,20 @@ export function DemoEditionReader() {
         ref={contentRef}
         className={`flex-1 overflow-auto flex items-center justify-center ${readMode === "continu" ? "p-0 items-start" : ""} ${bgContent}`}
         style={{
-          touchAction: zoom > 1 ? "none" : "pan-y pinch-zoom",
-          cursor: zoom > 1 ? (panDragRef.current.active ? "grabbing" : "grab") : "default",
+          /* En continu : le scroll natif (vertical + horizontal) gère tout.
+             En livre   : on bloque le scroll natif quand zoomé pour gérer le pan nous-mêmes. */
+          touchAction: readMode === "continu" ? "pan-x pan-y pinch-zoom"
+                      : zoom > 1             ? "none"
+                                             : "pan-y pinch-zoom",
+          cursor: readMode !== "continu" && zoom > 1
+                    ? (panDragRef.current.active ? "grabbing" : "grab")
+                    : "default",
           userSelect: "none",
         }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onMouseDown={readMode !== "continu" ? handleMouseDown : undefined}
+        onMouseMove={readMode !== "continu" ? handleMouseMove : undefined}
+        onMouseUp={readMode !== "continu" ? handleMouseUp : undefined}
+        onMouseLeave={readMode !== "continu" ? handleMouseUp : undefined}
         onClick={(e) => {
           if (readMode === "continu") return;
           if (zoom > 1) return;
@@ -745,12 +751,8 @@ export function DemoEditionReader() {
         }}
       >
         {readMode === "continu" ? (
-          <div style={{
-            width: zoom === 1 ? "100%" : `${zoom * 100}%`,
-            margin: "0 auto",
-            transform: `translateX(${panOffset.x}px)`,
-            transition: panDragRef.current.active ? "none" : "transform 0.1s ease-out",
-          }}>
+          /* width: % augmente la taille réelle → le conteneur overflow-auto scroll nativement */
+          <div style={{ width: zoom === 1 ? "100%" : `${zoom * 100}%`, margin: "0 auto" }}>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
               <img key={p} src={imgUrl(edition.id, p)} alt={`Page ${p}`}
                 className="w-full block" loading={p <= 3 ? "eager" : "lazy"} draggable={false} />
