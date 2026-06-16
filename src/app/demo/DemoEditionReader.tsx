@@ -478,14 +478,6 @@ export function DemoEditionReader() {
 
         {/* Right */}
         <div className="flex items-center gap-1">
-          {/* Search */}
-          <button onClick={() => setShowSearch(true)} className={`p-2 rounded-full transition-colors ${btnHover}`} title="Rechercher">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          </button>
-          {/* Share */}
-          <button onClick={handleShare} className={`p-2 rounded-full transition-colors hidden sm:flex ${btnHover}`} title="Partager">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
-          </button>
           {/* Zoom */}
           <div className={`hidden sm:flex items-center gap-1 px-2 py-1 rounded-full border ${theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200"}`}>
             <button onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))} disabled={zoom <= ZOOM_MIN} className={`p-1 rounded disabled:opacity-30 transition-colors ${btnHover}`}>
@@ -551,26 +543,6 @@ export function DemoEditionReader() {
                 ))}
               </div>
 
-              {/* Optimiser Offline */}
-              <button onClick={() => { setShowSettings(false); setShowOffline(true); }}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-colors mb-2 ${theme === "sombre" ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}>
-                Optimiser lecture Offline
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-              </button>
-
-              {/* Rechercher + Plein écran */}
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => { setShowSettings(false); setShowSearch(true); }}
-                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium ${theme === "sombre" ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                  Rechercher
-                </button>
-                <button onClick={() => { setShowSettings(false); containerRef.current?.requestFullscreen(); }}
-                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium ${theme === "sombre" ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
-                  Plein écran
-                </button>
-              </div>
             </div>
           </>
         )}
@@ -640,10 +612,6 @@ export function DemoEditionReader() {
           MODE DEMO PUBLIC
         </span>
 
-        {/* Share mobile */}
-        <button onClick={handleShare} className={`p-1.5 rounded-full sm:hidden transition-colors ${btnHover}`} title="Partager">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
-        </button>
       </div>
 
       {/* ── PANELS ──────────────────────────────────────────────────────── */}
