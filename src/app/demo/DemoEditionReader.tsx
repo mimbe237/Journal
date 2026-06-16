@@ -227,6 +227,8 @@ export function DemoEditionReader() {
   const [topBarVisible, setTopBarVisible] = useState(true);
   const [loadPct,       setLoadPct]       = useState(0);
 
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+
   const containerRef  = useRef<HTMLDivElement>(null);
   const contentRef    = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -235,6 +237,10 @@ export function DemoEditionReader() {
   const lastTapRef    = useRef<{ time: number; x: number; y: number } | null>(null);
   const preloadedRef  = useRef<Set<number>>(new Set());
   const lastScrollY   = useRef(0);
+  // Drag-to-pan (souris)
+  const panDragRef    = useRef({ active: false, x0: 0, y0: 0, px0: 0, py0: 0 });
+  // Pan tactile (doigt unique quand zoom > 1)
+  const panTouchRef   = useRef<{ x: number; y: number } | null>(null);
 
   const totalPages = edition?.nombrePages ?? 0;
 
@@ -277,6 +283,10 @@ export function DemoEditionReader() {
 
   // ── Reset zoom on mode change ──────────────────────────────────────────────
   useEffect(() => { setZoom(1); }, [readMode]);
+
+  // ── Reset pan when zoom returns to 1 or page/mode changes ─────────────────
+  useEffect(() => { setPanOffset({ x: 0, y: 0 }); }, [currentPage, readMode]);
+  useEffect(() => { if (zoom === 1) setPanOffset({ x: 0, y: 0 }); }, [zoom]);
 
   // ── Auto offline cache ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -411,24 +421,47 @@ export function DemoEditionReader() {
       pinchDistRef.current  = Math.sqrt(dx * dx + dy * dy);
       pinchZoomRef.current  = zoom;
       touchStartRef.current = null;
+      panTouchRef.current   = null;
     } else {
       touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: Date.now() };
       pinchDistRef.current  = null;
+      // Activer le pan tactile quand zoomé
+      if (zoom > 1) panTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      else panTouchRef.current = null;
     }
   }, [zoom]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    // Pinch to zoom
     if (e.touches.length === 2 && pinchDistRef.current !== null) {
       e.preventDefault();
       const dx   = e.touches[0].clientX - e.touches[1].clientX;
       const dy   = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       setZoom(+Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, pinchZoomRef.current * (dist / pinchDistRef.current))).toFixed(2));
+      return;
     }
-  }, []);
+    // Pan tactile quand zoom > 1 (un seul doigt)
+    if (zoom > 1 && e.touches.length === 1 && panTouchRef.current) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - panTouchRef.current.x;
+      const dy = e.touches[0].clientY - panTouchRef.current.y;
+      panTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      setPanOffset(prev => {
+        const maxX = (window.innerWidth  * (zoom - 1)) / 2;
+        const maxY = (window.innerHeight * (zoom - 1)) / 2;
+        return {
+          x: Math.max(-maxX, Math.min(maxX, prev.x + dx)),
+          y: Math.max(-maxY, Math.min(maxY, prev.y + dy)),
+        };
+      });
+    }
+  }, [zoom]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     pinchDistRef.current = null;
+    panTouchRef.current  = null;
+
     if (!touchStartRef.current) return;
     const { x, y, time } = touchStartRef.current;
     const ex = e.changedTouches[0].clientX;
@@ -437,7 +470,23 @@ export function DemoEditionReader() {
     const dy = ey - y;
     const dt = Date.now() - time;
 
-    // Horizontal swipe
+    // Quand zoomé : seul le double-tap (dézoom) est autorisé, pas de navigation
+    if (zoom > 1) {
+      if (Math.abs(dx) < 15 && Math.abs(dy) < 15 && dt < 300) {
+        const now = Date.now();
+        if (lastTapRef.current && now - lastTapRef.current.time < 350 &&
+            Math.abs(ex - lastTapRef.current.x) < 40 && Math.abs(ey - lastTapRef.current.y) < 40) {
+          setZoom(1);
+          lastTapRef.current = null;
+        } else {
+          lastTapRef.current = { time: now, x: ex, y: ey };
+        }
+      }
+      touchStartRef.current = null;
+      return;
+    }
+
+    // Horizontal swipe (zoom = 1)
     if (dt < 350 && Math.abs(dx) > 50 && Math.abs(dy) < 80) {
       dx > 0 ? goBack() : goNext();
       touchStartRef.current = null;
@@ -461,17 +510,39 @@ export function DemoEditionReader() {
         Math.abs(ex - lastTapRef.current.x) < 40 &&
         Math.abs(ey - lastTapRef.current.y) < 40
       ) {
-        // Double tap → zoom
         setZoom((z) => z > 1.2 ? 1 : 2);
         lastTapRef.current = null;
       } else {
         lastTapRef.current = { time: now, x: ex, y: ey };
-        // Single center tap → toggle top bar
         if (isCenterX) setTopBarVisible((v) => !v);
       }
     }
     touchStartRef.current = null;
-  }, [goNext, goBack, readMode]);
+  }, [goNext, goBack, readMode, zoom]);
+
+  // ── Mouse drag-to-pan (desktop) ───────────────────────────────────────────
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    if ((e.target as HTMLElement).closest("button,a,select,option")) return;
+    panDragRef.current = { active: true, x0: e.clientX, y0: e.clientY, px0: panOffset.x, py0: panOffset.y };
+    e.preventDefault();
+  }, [zoom, panOffset.x, panOffset.y]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!panDragRef.current.active) return;
+    const dx   = e.clientX - panDragRef.current.x0;
+    const dy   = e.clientY - panDragRef.current.y0;
+    const maxX = (window.innerWidth  * (zoom - 1)) / 2;
+    const maxY = (window.innerHeight * (zoom - 1)) / 2;
+    setPanOffset({
+      x: Math.max(-maxX, Math.min(maxX, panDragRef.current.px0 + dx)),
+      y: Math.max(-maxY, Math.min(maxY, panDragRef.current.py0 + dy)),
+    });
+  }, [zoom]);
+
+  const handleMouseUp = useCallback(() => {
+    panDragRef.current.active = false;
+  }, []);
 
   // ── Theme classes ──────────────────────────────────────────────────────────
   const bgMain    = theme === "sombre" ? "bg-gray-900"  : theme === "sepia" ? "bg-amber-50"  : "bg-white";
@@ -630,9 +701,18 @@ export function DemoEditionReader() {
       <div
         ref={contentRef}
         className={`flex-1 overflow-auto flex items-center justify-center ${readMode === "continu" ? "p-0 items-start" : ""} ${bgContent}`}
-        style={{ touchAction: "pan-y pinch-zoom" }}
+        style={{
+          touchAction: zoom > 1 ? "none" : "pan-y pinch-zoom",
+          cursor: zoom > 1 ? (panDragRef.current.active ? "grabbing" : "grab") : "default",
+          userSelect: "none",
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
         onClick={(e) => {
           if (readMode === "continu") return;
+          if (zoom > 1) return;
           if ((e.target as HTMLElement).closest("button,a,select")) return;
           const rect = e.currentTarget.getBoundingClientRect();
           const rel  = (e.clientX - rect.left) / rect.width;
@@ -641,7 +721,12 @@ export function DemoEditionReader() {
         }}
       >
         {readMode === "continu" ? (
-          <div style={{ width: zoom === 1 ? "100%" : `${zoom * 100}%`, margin: "0 auto" }}>
+          <div style={{
+            width: zoom === 1 ? "100%" : `${zoom * 100}%`,
+            margin: "0 auto",
+            transform: `translateX(${panOffset.x}px)`,
+            transition: panDragRef.current.active ? "none" : "transform 0.1s ease-out",
+          }}>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
               <img key={p} src={imgUrl(edition.id, p)} alt={`Page ${p}`}
                 className="w-full block" loading={p <= 3 ? "eager" : "lazy"} draggable={false} />
@@ -657,7 +742,12 @@ export function DemoEditionReader() {
            *               la page GAUCHE tourne vers la droite (bwd)
            */
           <div className="relative flex justify-center w-full min-h-full"
-            style={{ alignItems: zoom > 1 ? "flex-start" : "flex-end", paddingBottom: zoom > 1 ? 0 : "2vh" }}>
+            style={{
+              alignItems: zoom > 1 ? "flex-start" : "flex-end",
+              paddingBottom: zoom > 1 ? 0 : "2vh",
+              transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+              transition: panDragRef.current.active ? "none" : "transform 0.1s ease-out",
+            }}>
 
             {/* ── Spread statique ── */}
             <div className="flex items-end justify-center" style={{ width: "100%" }}>
