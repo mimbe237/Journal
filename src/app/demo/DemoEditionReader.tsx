@@ -521,10 +521,30 @@ export function DemoEditionReader() {
 
         {/* Right — mode de lecture + zoom */}
         <div className="flex items-center gap-2">
+          {/* Navigation pages */}
+          <div className="flex items-center gap-1">
+            <button onClick={goBack} disabled={currentPage <= 1}
+              className={`p-1.5 rounded-full transition-colors disabled:opacity-30 ${btnHover}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full border ${theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}`}>
+              <input
+                type="number" min={1} max={totalPages} value={pageInput}
+                onChange={(e) => setPageInput(e.target.value)}
+                onBlur={() => { const v = parseInt(pageInput); if (v >= 1 && v <= totalPages) goTo(v); else setPageInput(String(currentPage)); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { const v = parseInt(pageInput); if (v >= 1 && v <= totalPages) goTo(v); else setPageInput(String(currentPage)); (e.target as HTMLInputElement).blur(); } }}
+                className={`w-10 text-center text-sm font-semibold bg-transparent outline-none ${theme === "sombre" ? "text-white" : "text-gray-900"}`}
+              />
+              <span className={`text-sm ${textSub}`}>/ {totalPages}</span>
+            </div>
+            <button onClick={goNext} disabled={currentPage >= totalPages}
+              className={`p-1.5 rounded-full transition-colors disabled:opacity-30 ${btnHover}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
           {/* Mode de lecture */}
           <div className={`hidden sm:flex items-center gap-1 p-1 rounded-xl border ${theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"}`}>
             {([
-              { value: "mini"    as ReadMode, label: "Mini",    icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="7" y="3" width="10" height="18" rx="1"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="14" x2="12" y2="14"/></svg> },
               { value: "continu" as ReadMode, label: "Continu", icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg> },
               { value: "livre"   as ReadMode, label: "Livre",   icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M4 4h7v16H4z"/><path d="M13 4h7v16h-7z"/></svg> },
             ]).map((m) => (
@@ -594,40 +614,12 @@ export function DemoEditionReader() {
           ) : (
             <img src={imgUrl(edition.id, currentPage)} alt={`Page ${currentPage}`}
               className="shadow-2xl rounded-sm"
-              style={{ maxHeight: readMode === "mini" ? "60vh" : "82vh", maxWidth: readMode === "mini" ? "50vw" : "88vw" }}
+              style={{ maxHeight: "82vh", maxWidth: "88vw" }}
               draggable={false} />
           )}
         </div>
       </div>
 
-      {/* ── BOTTOM BAR ──────────────────────────────────────────────────── */}
-      <div className={`flex items-center justify-center gap-4 px-6 py-3 border-t ${bgBar} shrink-0`}>
-        <button onClick={goBack} disabled={currentPage <= 1}
-          className={`p-1.5 rounded-full transition-colors disabled:opacity-30 ${btnHover}`}>
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-        </button>
-
-        <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full border ${theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}`}>
-          <input
-            type="number" min={1} max={totalPages} value={pageInput}
-            onChange={(e) => setPageInput(e.target.value)}
-            onBlur={() => { const v = parseInt(pageInput); if (v >= 1 && v <= totalPages) goTo(v); else setPageInput(String(currentPage)); }}
-            onKeyDown={(e) => { if (e.key === "Enter") { const v = parseInt(pageInput); if (v >= 1 && v <= totalPages) goTo(v); else setPageInput(String(currentPage)); (e.target as HTMLInputElement).blur(); } }}
-            className={`w-10 text-center text-sm font-semibold bg-transparent outline-none ${theme === "sombre" ? "text-white" : "text-gray-900"}`}
-          />
-          <span className={`text-sm ${textSub}`}>/ {totalPages}</span>
-        </div>
-
-        <button onClick={goNext} disabled={currentPage >= totalPages}
-          className={`p-1.5 rounded-full transition-colors disabled:opacity-30 ${btnHover}`}>
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-        </button>
-
-        <span className="px-3 py-1.5 rounded-full border border-amber-400 bg-amber-50 text-amber-600 text-xs font-bold tracking-wide">
-          MODE DEMO PUBLIC
-        </span>
-
-      </div>
 
       {/* ── PANELS ──────────────────────────────────────────────────────── */}
       {showThumbnails && <ThumbnailPanel edition={edition} current={currentPage} onSelect={goTo} onClose={() => setShowThumbnails(false)} theme={theme} />}
