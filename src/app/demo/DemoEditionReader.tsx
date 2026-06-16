@@ -211,9 +211,8 @@ export function DemoEditionReader() {
   const [zoom,          setZoom]          = useState(1);
   const [readMode,      setReadMode]      = useState<ReadMode>("continu");
   const [theme]                           = useState<Theme>("clair");
-  const [flipAnim,      setFlipAnim]      = useState<"none" | "out" | "in">("none");
-  const [flipDir,       setFlipDir]       = useState<"fwd" | "bwd">("fwd");
-  const [flipFromPage,  setFlipFromPage]  = useState(1);
+  // null = pas d'animation ; sinon décrit le flip en cours
+  const [flipState, setFlipState] = useState<{ dir: "fwd" | "bwd"; from: number; to: number } | null>(null);
   const [showThumbnails,setShowThumbnails]= useState(false);
   const [showSearch,    setShowSearch]    = useState(false);
   const [showOffline,   setShowOffline]   = useState(false);
@@ -319,22 +318,18 @@ export function DemoEditionReader() {
 
   // ── Navigation ─────────────────────────────────────────────────────────────
   const goTo = useCallback((p: number) => {
-    if (!edition || p < 1 || p > totalPages) return;
+    if (!edition || p < 1 || p > totalPages || p === currentPage) return;
     if (navigator.vibrate) navigator.vibrate(20);
-    if (readMode === "livre" && flipAnim === "none") {
+    if (readMode === "livre" && !flipState) {
       const dir: "fwd" | "bwd" = p > currentPage ? "fwd" : "bwd";
-      setFlipDir(dir);
-      setFlipFromPage(currentPage);
-      setFlipAnim("out");
-      setTimeout(() => {
-        setCurrentPage(p);
-        setFlipAnim("in");
-        setTimeout(() => setFlipAnim("none"), 220);
-      }, 220);
+      setFlipState({ dir, from: currentPage, to: p });
+      // La page logique change immédiatement : la face arrière montre déjà la bonne page
+      setCurrentPage(p);
+      setTimeout(() => setFlipState(null), 450);
     } else if (readMode !== "livre") {
       setCurrentPage(p);
     }
-  }, [edition, totalPages, readMode, currentPage, flipAnim]);
+  }, [edition, totalPages, readMode, currentPage, flipState]);
 
   const goNext = useCallback(() => goTo(currentPage + 1), [currentPage, goTo]);
   const goBack = useCallback(() => goTo(currentPage - 1), [currentPage, goTo]);
@@ -599,48 +594,78 @@ export function DemoEditionReader() {
             ))}
           </div>
         ) : (
-          /* ── Mode Livre : page centrée + animation flip 3D réaliste ── */
-          <div className="relative flex items-center justify-center w-full h-full" style={{ perspective: "1800px" }}>
-            {/* Page de fond (nouvelle page qui se dévoile) */}
-            <img
-              key={`bg-${currentPage}`}
-              src={imgUrl(edition.id, currentPage)}
-              alt={`Page ${currentPage}`}
-              className="shadow-2xl rounded-sm"
-              style={{ maxHeight: `calc(100vh - 60px)`, maxWidth: "100%", width: "auto", height: "auto", transform: `scale(${zoom})`, transformOrigin: "center center" }}
-              draggable={false}
-            />
-            {/* Page animée qui tourne (comme une vraie page de livre) */}
-            {flipAnim !== "none" && (
-              <div
-                className="absolute inset-0 flex items-center justify-center"
-                style={{ perspective: "1800px" }}
-              >
+          /*
+           * Mode Livre : flip 180° avec preserve-3d
+           * Face AVANT = page de départ (backfaceVisibility hidden)
+           * Face ARRIÈRE = page d'arrivée, retournée puis re-miroir (scaleX(-1))
+           * Pivot bord GAUCHE (spine) en avant, bord DROIT en arrière
+           */
+          <div className="relative flex items-center justify-center w-full h-full" style={{ perspective: "2000px" }}>
+            <div
+              style={{
+                position: "relative",
+                transformStyle: "preserve-3d",
+                transformOrigin: flipState
+                  ? (flipState.dir === "fwd" ? "left center" : "right center")
+                  : "center center",
+                animation: flipState
+                  ? `bookFlip${flipState.dir === "fwd" ? "Fwd" : "Bwd"} 450ms cubic-bezier(.4,0,.2,1) forwards`
+                  : "none",
+              }}
+            >
+              {/* FACE AVANT : page qu'on quitte */}
+              <img
+                src={imgUrl(edition.id, flipState ? flipState.from : currentPage)}
+                alt="page"
+                className="rounded-sm shadow-2xl block"
+                style={{
+                  maxHeight: `calc((100vh - 60px) * ${zoom})`,
+                  maxWidth: `${zoom * 96}vw`,
+                  width: "auto",
+                  height: "auto",
+                  backfaceVisibility: "hidden",
+                  WebkitBackfaceVisibility: "hidden",
+                }}
+                draggable={false}
+              />
+
+              {/* FACE ARRIÈRE : page d'arrivée */}
+              {flipState && (
                 <div style={{
-                  transformOrigin: flipDir === "fwd" ? "left center" : "right center",
-                  animation: flipAnim === "out"
-                    ? `${flipDir === "fwd" ? "bookFlipOutFwd" : "bookFlipOutBwd"} 220ms cubic-bezier(.4,0,.6,1) forwards`
-                    : `${flipDir === "fwd" ? "bookFlipInFwd"  : "bookFlipInBwd"}  220ms cubic-bezier(.4,0,.6,1) forwards`,
-                  position: "relative",
-                  display: "inline-block",
+                  position: "absolute", inset: 0,
+                  transform: "rotateY(180deg)",
+                  backfaceVisibility: "hidden",
+                  WebkitBackfaceVisibility: "hidden",
+                  display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
                   <img
-                    src={imgUrl(edition.id, flipAnim === "out" ? flipFromPage : currentPage)}
-                    alt="page"
-                    className="shadow-2xl rounded-sm"
-                    style={{ maxHeight: `calc(100vh - 60px)`, maxWidth: "100%", width: "auto", height: "auto", transform: `scale(${zoom})`, transformOrigin: "center center", display: "block" }}
+                    src={imgUrl(edition.id, flipState.to)}
+                    alt="page verso"
+                    className="rounded-sm shadow-2xl block"
+                    style={{
+                      maxHeight: `calc((100vh - 60px) * ${zoom})`,
+                      maxWidth: `${zoom * 96}vw`,
+                      width: "auto",
+                      height: "auto",
+                      transform: "scaleX(-1)", /* annule le miroir de la face arrière */
+                    }}
                     draggable={false}
                   />
-                  {/* Ombre qui simule la courbure de la page */}
-                  <div style={{
-                    position: "absolute", inset: 0, pointerEvents: "none", borderRadius: "2px",
-                    background: flipDir === "fwd"
-                      ? "linear-gradient(to left, rgba(0,0,0,0) 60%, rgba(0,0,0,0.22) 100%)"
-                      : "linear-gradient(to right, rgba(0,0,0,0) 60%, rgba(0,0,0,0.22) 100%)"
-                  }} />
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* Ombre de courbure sur la face avant */}
+              {flipState && (
+                <div style={{
+                  position: "absolute", inset: 0, pointerEvents: "none", borderRadius: "2px",
+                  backfaceVisibility: "hidden",
+                  WebkitBackfaceVisibility: "hidden",
+                  background: flipState.dir === "fwd"
+                    ? "linear-gradient(to left, transparent 55%, rgba(0,0,0,0.18) 100%)"
+                    : "linear-gradient(to right, transparent 55%, rgba(0,0,0,0.18) 100%)",
+                }} />
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -695,25 +720,15 @@ export function DemoEditionReader() {
         @keyframes fade-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
         .animate-fade-in { animation: fade-in 0.2s ease-out; }
 
-        @keyframes bookFlipOutFwd {
-          0%   { transform: rotateY(0deg);   box-shadow: 0 0 0 rgba(0,0,0,0); }
-          60%  { box-shadow: -18px 0 28px rgba(0,0,0,0.25); }
-          100% { transform: rotateY(-90deg); box-shadow: 0 0 0 rgba(0,0,0,0); }
+        /* Aller en avant : pivot bord gauche (spine), page part vers la gauche */
+        @keyframes bookFlipFwd {
+          0%   { transform: rotateY(0deg);    }
+          100% { transform: rotateY(-180deg); }
         }
-        @keyframes bookFlipInFwd {
-          0%   { transform: rotateY(90deg);  box-shadow: 0 0 0 rgba(0,0,0,0); }
-          40%  { box-shadow: -18px 0 28px rgba(0,0,0,0.2); }
-          100% { transform: rotateY(0deg);   box-shadow: 0 0 0 rgba(0,0,0,0); }
-        }
-        @keyframes bookFlipOutBwd {
-          0%   { transform: rotateY(0deg);   box-shadow: 0 0 0 rgba(0,0,0,0); }
-          60%  { box-shadow: 18px 0 28px rgba(0,0,0,0.25); }
-          100% { transform: rotateY(90deg);  box-shadow: 0 0 0 rgba(0,0,0,0); }
-        }
-        @keyframes bookFlipInBwd {
-          0%   { transform: rotateY(-90deg); box-shadow: 0 0 0 rgba(0,0,0,0); }
-          40%  { box-shadow: 18px 0 28px rgba(0,0,0,0.2); }
-          100% { transform: rotateY(0deg);   box-shadow: 0 0 0 rgba(0,0,0,0); }
+        /* Reculer : pivot bord droit, page part vers la droite */
+        @keyframes bookFlipBwd {
+          0%   { transform: rotateY(0deg);   }
+          100% { transform: rotateY(180deg); }
         }
       `}</style>
     </div>
