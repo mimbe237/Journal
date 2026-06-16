@@ -332,6 +332,12 @@ export function DemoEditionReader() {
   useEffect(() => {
     if (!edition || autoZoomedRef.current) return;
     const compute = () => {
+      // En mode continu, les images sont w-full => zoom 1 = pleine largeur
+      if (readMode === "continu") {
+        setZoom(1);
+        autoZoomedRef.current = true;
+        return;
+      }
       const img = new Image();
       img.src = imgUrl(edition.id, 1);
       const run = () => {
@@ -609,7 +615,7 @@ export function DemoEditionReader() {
       {/* ── CONTENT ─────────────────────────────────────────────────────── */}
       <div
         ref={contentRef}
-        className={`flex-1 overflow-auto flex items-start justify-center ${readMode === "continu" ? "p-0 overflow-x-hidden" : "py-6 px-4"} ${bgContent} relative`}
+        className={`flex-1 overflow-auto flex items-start justify-center ${readMode === "continu" ? "p-0" : "py-6 px-4"} ${bgContent} relative`}
         style={{ touchAction: "pan-y pinch-zoom" }}
         onClick={(e) => {
           if (readMode === "continu") return;
