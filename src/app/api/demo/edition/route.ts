@@ -24,6 +24,8 @@ export async function GET() {
         datePublication: edition.datePublication,
         type: edition.type,
         nombrePages: edition.nombrePages,
+        headlines: edition.headlines ?? [],
+        tags: edition.tags ?? [],
       },
     });
   } catch (error: any) {
