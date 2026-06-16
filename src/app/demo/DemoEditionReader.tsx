@@ -752,8 +752,8 @@ export function DemoEditionReader() {
           if ((e.target as HTMLElement).closest("button,a,select")) return;
           const rect = e.currentTarget.getBoundingClientRect();
           const rel  = (e.clientX - rect.left) / rect.width;
-          if (rel < 0.3) goBack();
-          else if (rel > 0.7) goNext();
+          if (rel < 0.5) goBack();
+          else goNext();
         }}
       >
         {readMode === "continu" ? (
