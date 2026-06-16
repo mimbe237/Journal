@@ -656,14 +656,13 @@ export function DemoEditionReader() {
            *   Animation : la page DROITE tourne vers la gauche (fwd),
            *               la page GAUCHE tourne vers la droite (bwd)
            */
-          <div className="relative flex items-center justify-center w-full min-h-full"
-            style={{ alignItems: zoom > 1 ? "flex-start" : "center" }}>
+          <div className="relative flex justify-center w-full min-h-full"
+            style={{ alignItems: zoom > 1 ? "flex-start" : "flex-end", paddingBottom: zoom > 1 ? 0 : "2vh" }}>
 
-            {/* ── Spread statique (affiché hors animation OU en arrière-plan) ── */}
-            <div className="flex items-stretch justify-center" style={{ width: "100%" }}>
+            {/* ── Spread statique ── */}
+            <div className="flex items-end justify-center" style={{ width: "100%" }}>
               {/* PAGE GAUCHE */}
-              <div className="flex items-center justify-end"
-                style={{ width: "calc(50% - 4px)" }}>
+              <div className="flex items-end justify-end" style={{ width: "calc(50% - 4px)" }}>
                 {(flipState ? flipState.bgLeft : leftPage) != null ? (
                   <img
                     key={`left-${flipState ? flipState.bgLeft : leftPage}`}
@@ -672,13 +671,13 @@ export function DemoEditionReader() {
                     className="rounded-l-sm shadow-2xl block"
                     style={{
                       maxWidth: `calc((50vw - 8px) * ${zoom})`,
-                      maxHeight: `calc((100vh - 60px) * ${zoom})`,
+                      maxHeight: `calc((96vh - 60px) * ${zoom})`,
                       width: "auto", height: "auto",
                     }}
                     draggable={false}
                   />
                 ) : (
-                  <div style={{ width: `calc((50vw - 8px) * ${zoom})`, height: `calc((100vh - 60px) * ${zoom})` }} />
+                  <div style={{ width: `calc((50vw - 8px) * ${zoom})`, height: `calc((96vh - 60px) * ${zoom})` }} />
                 )}
               </div>
 
@@ -687,8 +686,7 @@ export function DemoEditionReader() {
                 style={{ width: "8px", background: "linear-gradient(to right, rgba(0,0,0,0.18), rgba(255,255,255,0.7) 50%, rgba(0,0,0,0.15))", boxShadow: "inset 0 0 6px rgba(0,0,0,0.12)" }} />
 
               {/* PAGE DROITE */}
-              <div className="flex items-center justify-start"
-                style={{ width: "calc(50% - 4px)" }}>
+              <div className="flex items-end justify-start" style={{ width: "calc(50% - 4px)" }}>
                 {(flipState ? flipState.bgRight : rightPage) != null ? (
                   <img
                     key={`right-${flipState ? flipState.bgRight : rightPage}`}
@@ -697,33 +695,45 @@ export function DemoEditionReader() {
                     className="rounded-r-sm shadow-2xl block"
                     style={{
                       maxWidth: `calc((50vw - 8px) * ${zoom})`,
-                      maxHeight: `calc((100vh - 60px) * ${zoom})`,
+                      maxHeight: `calc((96vh - 60px) * ${zoom})`,
                       width: "auto", height: "auto",
                     }}
                     draggable={false}
                   />
                 ) : (
-                  <div style={{ width: `calc((50vw - 8px) * ${zoom})`, height: `calc((100vh - 60px) * ${zoom})` }} />
+                  <div style={{ width: `calc((50vw - 8px) * ${zoom})`, height: `calc((96vh - 60px) * ${zoom})` }} />
                 )}
               </div>
             </div>
 
-            {/* ── Carte flip 3D (superposée pendant l'animation) ── */}
+            {/* ── Carte flip 3D (perspective 70vw = proportionnelle à la page) ── */}
             {flipState && (
-              <div className="absolute inset-0 pointer-events-none" style={{ perspective: "600px" }}>
+              <div className="absolute inset-0 pointer-events-none" style={{ perspective: "70vw" }}>
+                {/* Ombre portée SUR LE FOND — ancre la page en rotation sur la table */}
+                <div style={{
+                  position: "absolute",
+                  top: 0, bottom: 0,
+                  width: "calc(50% - 4px)",
+                  ...(flipState.dir === "fwd" ? { right: 0 } : { left: 0 }),
+                  background: "rgba(0,0,0,0.18)",
+                  animation: "castShadow 700ms ease-in-out forwards",
+                  borderRadius: "2px",
+                }} />
+
+                {/* Carte principale */}
                 <div style={{
                   position: "absolute",
                   top: 0, bottom: 0,
                   width: "calc(50% - 4px)",
                   ...(flipState.dir === "fwd"
-                    ? { right: 0, transformOrigin: "left center" }
-                    : { left: 0, transformOrigin: "right center" }
+                    ? { right: 0, transformOrigin: "left bottom" }
+                    : { left: 0, transformOrigin: "right bottom" }
                   ),
                   transformStyle: "preserve-3d",
-                  animation: `bookFlip${flipState.dir === "fwd" ? "Fwd" : "Bwd"} 700ms ease-in-out forwards`,
+                  animation: `bookFlip${flipState.dir === "fwd" ? "Fwd" : "Bwd"} 700ms cubic-bezier(0.45, 0, 0.55, 1) forwards`,
                 }}>
                   {/* Face AVANT : page qui s'en va */}
-                  <div className="absolute inset-0 flex items-center"
+                  <div className="absolute inset-0 flex items-end"
                     style={{
                       justifyContent: flipState.dir === "fwd" ? "flex-start" : "flex-end",
                       backfaceVisibility: "hidden",
@@ -732,20 +742,27 @@ export function DemoEditionReader() {
                     <img src={imgUrl(edition.id, flipState.frontPage)} alt=""
                       style={{
                         maxWidth: `calc((50vw - 8px) * ${zoom})`,
-                        maxHeight: `calc((100vh - 60px) * ${zoom})`,
+                        maxHeight: `calc((96vh - 60px) * ${zoom})`,
                         width: "auto", height: "auto",
                       }}
                       className="shadow-2xl" draggable={false} />
-                    {/* Ombre de courbure animée — peak à 50% de l'animation */}
+                    {/* Ombre de courbure : du bord EXTÉRIEUR vers la spine, peak à 50% */}
                     <div className="absolute inset-0 pointer-events-none" style={{
                       background: flipState.dir === "fwd"
-                        ? "linear-gradient(to left, transparent 30%, rgba(0,0,0,0.32) 100%)"
-                        : "linear-gradient(to right, transparent 30%, rgba(0,0,0,0.32) 100%)",
+                        ? "linear-gradient(to left, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.08) 60%, transparent 100%)"
+                        : "linear-gradient(to right, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.08) 60%, transparent 100%)",
                       animation: "curlShadow 700ms ease-in-out forwards",
                     }} />
+                    {/* Reflet lumineux au point de pliure (ligne brillante) */}
+                    <div className="absolute inset-0 pointer-events-none" style={{
+                      background: flipState.dir === "fwd"
+                        ? "linear-gradient(to right, transparent 55%, rgba(255,255,255,0.18) 65%, transparent 75%)"
+                        : "linear-gradient(to left, transparent 55%, rgba(255,255,255,0.18) 65%, transparent 75%)",
+                      animation: "foldHighlight 700ms ease-in-out forwards",
+                    }} />
                   </div>
-                  {/* Face ARRIÈRE : nouvelle page (scaleX(-1) compense le miroir) */}
-                  <div className="absolute inset-0 flex items-center"
+                  {/* Face ARRIÈRE : nouvelle page */}
+                  <div className="absolute inset-0 flex items-end"
                     style={{
                       justifyContent: flipState.dir === "fwd" ? "flex-start" : "flex-end",
                       backfaceVisibility: "hidden",
@@ -755,16 +772,14 @@ export function DemoEditionReader() {
                     <img src={imgUrl(edition.id, flipState.backPage)} alt=""
                       style={{
                         maxWidth: `calc((50vw - 8px) * ${zoom})`,
-                        maxHeight: `calc((100vh - 60px) * ${zoom})`,
+                        maxHeight: `calc((96vh - 60px) * ${zoom})`,
                         width: "auto", height: "auto",
                         transform: "scaleX(-1)",
                       }}
                       className="shadow-2xl" draggable={false} />
-                    {/* Légère ombre d'atterrissage sur la face arrière */}
+                    {/* Ombre d'atterrissage : s'efface en arrivant */}
                     <div className="absolute inset-0 pointer-events-none" style={{
-                      background: flipState.dir === "fwd"
-                        ? "linear-gradient(to right, transparent 30%, rgba(0,0,0,0.22) 100%)"
-                        : "linear-gradient(to left, transparent 30%, rgba(0,0,0,0.22) 100%)",
+                      background: "rgba(0,0,0,0.25)",
                       animation: "landShadow 700ms ease-in-out forwards",
                       transform: "scaleX(-1)",
                     }} />
@@ -826,29 +841,41 @@ export function DemoEditionReader() {
         @keyframes fade-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
         .animate-fade-in { animation: fade-in 0.2s ease-out; }
 
+        /* Règle 3 : pas de scaleX — la perspective gère seule la compression */
         @keyframes bookFlipFwd {
-          0%   { transform: rotateY(0deg)    scaleX(1);    box-shadow: none; }
-          20%  { transform: rotateY(-30deg)  scaleX(0.97); box-shadow: -6px 2px 18px rgba(0,0,0,0.18); }
-          50%  { transform: rotateY(-90deg)  scaleX(0.82); box-shadow: -20px 4px 48px rgba(0,0,0,0.40); }
-          80%  { transform: rotateY(-150deg) scaleX(0.97); box-shadow: -6px 2px 18px rgba(0,0,0,0.18); }
-          100% { transform: rotateY(-180deg) scaleX(1);    box-shadow: none; }
+          0%   { transform: rotateY(0deg);    }
+          100% { transform: rotateY(-180deg); }
         }
         @keyframes bookFlipBwd {
-          0%   { transform: rotateY(0deg)   scaleX(1);    box-shadow: none; }
-          20%  { transform: rotateY(30deg)  scaleX(0.97); box-shadow: 6px 2px 18px rgba(0,0,0,0.18); }
-          50%  { transform: rotateY(90deg)  scaleX(0.82); box-shadow: 20px 4px 48px rgba(0,0,0,0.40); }
-          80%  { transform: rotateY(150deg) scaleX(0.97); box-shadow: 6px 2px 18px rgba(0,0,0,0.18); }
-          100% { transform: rotateY(180deg) scaleX(1);    box-shadow: none; }
+          0%   { transform: rotateY(0deg);   }
+          100% { transform: rotateY(180deg); }
+        }
+        /* Règle 4 : ombre portée sur le fond — ancre la page en rotation */
+        @keyframes castShadow {
+          0%   { opacity: 0; }
+          15%  { opacity: 1; }
+          85%  { opacity: 1; }
+          100% { opacity: 0; }
         }
         /* Ombre de courbure sur la face avant : invisible → forte → invisible */
         @keyframes curlShadow {
-          0%, 100% { opacity: 0; }
-          40%, 60% { opacity: 1; }
+          0%   { opacity: 0; }
+          30%  { opacity: 1; }
+          70%  { opacity: 1; }
+          100% { opacity: 0; }
         }
-        /* Ombre d'atterrissage sur la face arrière : inverse */
+        /* Reflet lumineux à la ligne de pliure : apparaît en debut de rotation */
+        @keyframes foldHighlight {
+          0%   { opacity: 0; }
+          20%  { opacity: 1; }
+          50%  { opacity: 0; }
+          100% { opacity: 0; }
+        }
+        /* Ombre d'atterrissage sur la face arrière : s'efface en atterrissant */
         @keyframes landShadow {
-          0%, 100% { opacity: 0; }
-          40%, 60% { opacity: 0.7; }
+          0%   { opacity: 0.8; }
+          70%  { opacity: 0.8; }
+          100% { opacity: 0; }
         }
       `}</style>
     </div>
