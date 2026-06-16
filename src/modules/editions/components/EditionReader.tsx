@@ -420,7 +420,8 @@ function SettingsPanel({
   viewMode,
   setViewMode,
   isOpen,
-  onClose
+  onClose,
+  isMobile,
 }: {
   theme: ThemeMode;
   setTheme: (t: ThemeMode) => void;
@@ -428,6 +429,7 @@ function SettingsPanel({
   setViewMode: (m: ViewMode) => void;
   isOpen: boolean;
   onClose: () => void;
+  isMobile: boolean;
 }) {
   if (!isOpen) return null;
 
@@ -478,38 +480,52 @@ function SettingsPanel({
         {/* View Mode */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mode d'affichage</label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setViewMode("flip")}
-              className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
-                viewMode === "flip"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-            >
-              📖 Feuilleter
-            </button>
-            <button
-              onClick={() => setViewMode("single")}
-              className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
-                viewMode === "single"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-            >
-              Simple
-            </button>
-            <button
-              onClick={() => setViewMode("double")}
-              className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
-                viewMode === "double"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-              }`}
-            >
-              Double
-            </button>
-          </div>
+          {isMobile ? (
+            <>
+              <div className="flex gap-2 mb-2">
+                <button
+                  onClick={() => setViewMode("single")}
+                  className="flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all bg-blue-500 text-white"
+                >
+                  Simple
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Les modes Feuilleter et Double page nécessitent un écran plus large (tablette ou ordinateur).</p>
+            </>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setViewMode("flip")}
+                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
+                  viewMode === "flip"
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                📖 Feuilleter
+              </button>
+              <button
+                onClick={() => setViewMode("single")}
+                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
+                  viewMode === "single"
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                Simple
+              </button>
+              <button
+                onClick={() => setViewMode("double")}
+                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
+                  viewMode === "double"
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                Double
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1132,7 +1148,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
             onClick={() => setShowGoToPage(true)}
             className="text-sm font-medium whitespace-nowrap"
           >
-            <span className="sm:hidden">{currentPage}/{totalPages}</span>
+            <span className="sm:hidden">{pageLabel}</span>
             <span className="hidden sm:inline">{pageLabel}</span>
           </button>
           <button 
@@ -1481,6 +1497,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
         setViewMode={setViewMode}
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
+        isMobile={isMobile}
       />
     </div>
   );

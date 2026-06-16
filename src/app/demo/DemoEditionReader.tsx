@@ -228,6 +228,7 @@ export function DemoEditionReader() {
   const [loadPct,       setLoadPct]       = useState(0);
 
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState(false);
 
   const containerRef  = useRef<HTMLDivElement>(null);
   const contentRef    = useRef<HTMLDivElement>(null);
@@ -333,15 +334,25 @@ export function DemoEditionReader() {
     return () => el.removeEventListener("scroll", handler);
   });
 
-  // ── Auto-orientation (tablette paysage → livre) ────────────────────────────
+  // ── Mobile detection + auto-orientation ───────────────────────────────────
   useEffect(() => {
     const check = () => {
-      if (window.innerWidth >= 768 && window.matchMedia("(orientation: landscape)").matches)
+      const narrow = window.innerWidth < 640;
+      setIsMobile(narrow);
+      if (narrow) {
+        // Force continu on narrow screens — double spread is unusable in portrait
+        setReadMode("continu");
+      } else if (window.innerWidth >= 768 && window.matchMedia("(orientation: landscape)").matches) {
         setReadMode("livre");
+      }
     };
     check();
+    window.addEventListener("resize", check);
     window.addEventListener("orientationchange", check);
-    return () => window.removeEventListener("orientationchange", check);
+    return () => {
+      window.removeEventListener("resize", check);
+      window.removeEventListener("orientationchange", check);
+    };
   }, []);
 
   // ── Preload adjacent pages ─────────────────────────────────────────────────
@@ -643,12 +654,6 @@ export function DemoEditionReader() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </button>
             </div>
-            <button onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))} className={`p-1.5 rounded-full shrink-0 ${btnHover}`}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
-            </button>
-            <button onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))} className={`p-1.5 rounded-full shrink-0 ${btnHover}`}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-            </button>
             <button onClick={() => setShowMobileMenu(true)} className="p-1.5 rounded-full border border-gray-200 bg-white shadow-sm shrink-0 text-gray-600 hover:bg-gray-50">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -920,17 +925,28 @@ export function DemoEditionReader() {
           <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl p-5 pb-8 sm:hidden">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
             <p className="text-xs font-bold tracking-widest text-gray-400 mb-3">MODE DE LECTURE</p>
-            <div className="grid grid-cols-2 gap-2 mb-5">
-              {([
-                { value: "continu" as ReadMode, label: "Continu", icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg> },
-                { value: "livre"   as ReadMode, label: "Livre",   icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M4 4h7v16H4z"/><path d="M13 4h7v16h-7z"/></svg> },
-              ]).map((m) => (
-                <button key={m.value} onClick={() => { setReadMode(m.value); setShowMobileMenu(false); }}
-                  className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${readMode === m.value ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
-                  {m.icon}{m.label}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <button onClick={() => { setReadMode("continu"); setShowMobileMenu(false); }}
+                className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${readMode === "continu" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+                Continu
+              </button>
+              {isMobile ? (
+                <div className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium bg-gray-50 text-gray-300 cursor-not-allowed">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M4 4h7v16H4z"/><path d="M13 4h7v16h-7z"/></svg>
+                  Livre
+                </div>
+              ) : (
+                <button onClick={() => { setReadMode("livre"); setShowMobileMenu(false); }}
+                  className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${readMode === "livre" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M4 4h7v16H4z"/><path d="M13 4h7v16h-7z"/></svg>
+                  Livre
                 </button>
-              ))}
+              )}
             </div>
+            {isMobile && (
+              <p className="text-xs text-gray-400 mb-3">Le mode Livre est disponible sur tablette ou ordinateur.</p>
+            )}
             <p className="text-xs font-bold tracking-widest text-gray-400 mb-3">ZOOM</p>
             <div className="flex items-center gap-3 mb-5">
               <button onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))} className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold text-lg">−</button>
