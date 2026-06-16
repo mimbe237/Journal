@@ -295,7 +295,13 @@ export function DemoEditionReader() {
   const [showThumbnails, setShowThumbnails] = useState(false);
   const [showSearch,     setShowSearch]     = useState(false);
   const [showOffline,    setShowOffline]    = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [toast,          setToast]          = useState<string | null>(null);
+
+  // Loading progress (effet jeu vidéo)
+  const [loadPct,    setLoadPct]    = useState(0);
+  const [loadDone,   setLoadDone]   = useState(false);
+  const [loadVisible,setLoadVisible]= useState(true);
 
   // Image loading
   const [imgLoading, setImgLoading] = useState(true);
@@ -327,6 +333,21 @@ export function DemoEditionReader() {
       .catch(() => setError("Erreur de connexion."))
       .finally(() => setLoading(false));
   }, []);
+
+  // ── Progression simulée (effet jeu vidéo) ─────────────────────────────────
+  useEffect(() => {
+    const steps: [number, number][] = [[25,200],[50,500],[70,900],[85,1400],[92,2000]];
+    const timers = steps.map(([pct, delay]) => setTimeout(() => setLoadPct(pct), delay));
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    setLoadPct(100);
+    const t1 = setTimeout(() => setLoadDone(true), 600);
+    const t2 = setTimeout(() => setLoadVisible(false), 1100);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [loading]);
 
   // Remettre zoom=1 quand on change de mode (base naturelle)
   useEffect(() => { setZoom(1); }, [readMode]);
@@ -478,17 +499,37 @@ export function DemoEditionReader() {
   const btnHover  = theme === "sombre" ? "hover:bg-gray-800 text-gray-300" : "hover:bg-gray-100 text-gray-600";
 
   // ── Loading / Error ────────────────────────────────────────────────────────
-  if (loading) return (
-    <div className="flex flex-col items-center justify-center h-screen bg-white gap-4">
-      <div className="w-64 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-        <div className="h-full bg-amber-400 rounded-full animate-[loading_1.4s_ease-in-out_infinite]" />
-      </div>
-      <p className="text-xs text-gray-400 tracking-wide">Chargement de l'édition…</p>
+  if (error && !edition) return (
+    <div className="flex items-center justify-center h-screen bg-white">
+      <p className="text-red-500 text-sm">{error}</p>
     </div>
   );
-  if (error || !edition) return (
-    <div className="flex items-center justify-center h-screen bg-white">
-      <p className="text-red-500 text-sm">{error || "Édition introuvable"}</p>
+
+  // L'écran de chargement overlay s'affiche pendant que edition est null
+  if (!edition) return (
+    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-8"
+      style={{ background: "linear-gradient(135deg, #0d3320 0%, #1a5c35 40%, #237a46 70%, #1a5c35 100%)" }}>
+      <div className="text-center">
+        <p className="text-white/60 text-xs tracking-[0.3em] uppercase mb-2">Cameroon Tribune</p>
+        <h1 className="text-white text-3xl font-bold tracking-wide drop-shadow-lg">Édition Numérique</h1>
+        <p className="text-white/50 text-sm mt-1">Chargement en cours…</p>
+      </div>
+      <div className="w-72 relative">
+        <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${loadPct}%`, background: "linear-gradient(90deg,#f59e0b,#fbbf24,#fde68a)", boxShadow: "0 0 12px #f59e0b88" }} />
+        </div>
+        <div className="flex justify-between mt-2">
+          <span className="text-white/40 text-xs">Initialisation</span>
+          <span className="text-amber-300 text-xs font-semibold">{loadPct}%</span>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        {[0,1,2,3].map((i) => (
+          <div key={i} className="w-2 h-2 rounded-full bg-white/30"
+            style={{ animation: `pulse 1.2s ease-in-out ${i*0.2}s infinite` }} />
+        ))}
+      </div>
     </div>
   );
 
@@ -500,86 +541,102 @@ export function DemoEditionReader() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      {/* Fondu de sortie du loading screen une fois l'édition prête */}
+      {loadVisible && (
+        <div className="fixed inset-0 z-[200] pointer-events-none"
+          style={{ background: "linear-gradient(135deg,#0d3320,#1a5c35,#237a46)", opacity: loadDone ? 0 : 1, transition: "opacity 0.5s ease-in-out" }} />
+      )}
       {/* ── TOP BAR ─────────────────────────────────────────────────────── */}
       <div className={`flex items-center justify-between px-4 py-2.5 border-b ${bgBar} shadow-sm z-20 shrink-0`}>
 
-        {/* Left */}
-        <div className="flex items-center gap-2 min-w-0">
-          {/* Miniatures */}
-          <button
-            onClick={() => setShowThumbnails(true)}
-            title="Miniatures des pages"
-            className={`p-2 rounded-full transition-colors shrink-0 ${btnHover}`}
-          >
+        {/* ── MOBILE : pagination + offres + menu ⋮ ── */}
+        <div className="flex sm:hidden items-center gap-2 w-full">
+          {/* Voir les offres */}
+          <a href="https://www.offresopecam.online/" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full border-2 border-amber-500 text-amber-600 font-semibold text-xs hover:bg-amber-50 transition-colors shrink-0">
+            Voir les offres <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </a>
+          {/* Navigation pages */}
+          <div className="flex items-center gap-1 flex-1 justify-center">
+            <button onClick={goBack} disabled={currentPage <= 1} className={`p-1.5 rounded-full disabled:opacity-30 ${btnHover}`}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <select value={currentPage} onChange={(e) => goTo(Number(e.target.value))}
+              className={`px-2 py-1 rounded-full border text-xs font-semibold outline-none cursor-pointer ${theme === "sombre" ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-900"}`}>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <option key={p} value={p}>P.{p}/{totalPages}</option>
+              ))}
+            </select>
+            <button onClick={goNext} disabled={currentPage >= totalPages} className={`p-1.5 rounded-full disabled:opacity-30 ${btnHover}`}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+          {/* Zoom mobile — + */}
+          <button onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))} className={`p-1.5 rounded-full shrink-0 ${btnHover}`}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
+          </button>
+          <button onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))} className={`p-1.5 rounded-full shrink-0 ${btnHover}`}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          </button>
+          {/* Icône engrenage dans cercle → ouvre menu */}
+          <button onClick={() => setShowMobileMenu(true)} className="p-1.5 rounded-full border border-gray-200 bg-white shadow-sm shrink-0 text-gray-600 hover:bg-gray-50">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+        </div>
+
+        {/* ── DESKTOP : barre complète ── */}
+        <div className="hidden sm:flex items-center gap-2 min-w-0">
+          <button onClick={() => setShowThumbnails(true)} title="Miniatures" className={`p-2 rounded-full shrink-0 ${btnHover}`}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
           </button>
-          {/* Voir les offres */}
-          <a
-            href="https://www.offresopecam.online/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full border-2 border-amber-500 text-amber-600 font-semibold text-sm hover:bg-amber-50 transition-colors shrink-0"
-          >
-            Voir les offres
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          <a href="https://www.offresopecam.online/" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full border-2 border-amber-500 text-amber-600 font-semibold text-sm hover:bg-amber-50 transition-colors shrink-0">
+            Voir les offres <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </a>
-          {/* Title */}
-          <div className="hidden sm:block min-w-0">
+          <div className="min-w-0 flex-1">
             <p className={`font-bold text-sm leading-tight truncate ${textMain}`}>Édition Démo</p>
             <p className={`text-xs leading-tight ${textSub}`}>{fmtDate(edition.datePublication)} · DÉMO PUBLIQUE — SOPECAM</p>
           </div>
         </div>
-
-        {/* Right — mode de lecture + zoom */}
-        <div className="flex items-center gap-2">
-          {/* Navigation pages */}
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
           <div className="flex items-center gap-1">
-            <button onClick={goBack} disabled={currentPage <= 1}
-              className={`p-1.5 rounded-full transition-colors disabled:opacity-30 ${btnHover}`}>
+            <button onClick={goBack} disabled={currentPage <= 1} className={`p-1.5 rounded-full disabled:opacity-30 ${btnHover}`}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
-            <select
-              value={currentPage}
-              onChange={(e) => goTo(Number(e.target.value))}
-              className={`px-3 py-1.5 rounded-full border text-sm font-semibold outline-none cursor-pointer ${theme === "sombre" ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-900"}`}
-            >
+            <select value={currentPage} onChange={(e) => goTo(Number(e.target.value))}
+              className={`px-3 py-1.5 rounded-full border text-sm font-semibold outline-none cursor-pointer ${theme === "sombre" ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-900"}`}>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                 <option key={p} value={p}>Page {p} / {totalPages}</option>
               ))}
             </select>
-            <button onClick={goNext} disabled={currentPage >= totalPages}
-              className={`p-1.5 rounded-full transition-colors disabled:opacity-30 ${btnHover}`}>
+            <button onClick={goNext} disabled={currentPage >= totalPages} className={`p-1.5 rounded-full disabled:opacity-30 ${btnHover}`}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </button>
           </div>
-          {/* Mode de lecture */}
-          <div className={`hidden sm:flex items-center gap-1 p-1 rounded-xl border ${theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"}`}>
+          <div className={`flex items-center gap-1 p-1 rounded-xl border ${theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"}`}>
             {([
               { value: "continu" as ReadMode, label: "Continu", icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg> },
               { value: "livre"   as ReadMode, label: "Livre",   icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M4 4h7v16H4z"/><path d="M13 4h7v16h-7z"/></svg> },
             ]).map((m) => (
               <button key={m.value} onClick={() => setReadMode(m.value)} title={m.label}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${readMode === m.value ? "bg-gray-900 text-white" : theme === "sombre" ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"}`}>
-                {m.icon}<span className="hidden md:inline">{m.label}</span>
+                {m.icon}<span>{m.label}</span>
               </button>
             ))}
           </div>
-          {/* Zoom */}
-          <div className={`hidden sm:flex items-center gap-1 px-2 py-1 rounded-full border ${theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200"}`}>
-            <button onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))} disabled={zoom <= ZOOM_MIN} className={`p-1 rounded disabled:opacity-30 transition-colors ${btnHover}`}>
+          <div className={`flex items-center gap-1 px-2 py-1 rounded-full border ${theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200"}`}>
+            <button onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))} disabled={zoom <= ZOOM_MIN} className={`p-1 rounded disabled:opacity-30 ${btnHover}`}>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
             </button>
             <span className={`text-sm font-medium w-12 text-center ${theme === "sombre" ? "text-gray-200" : "text-gray-700"}`}>{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))} disabled={zoom >= ZOOM_MAX} className={`p-1 rounded disabled:opacity-30 transition-colors ${btnHover}`}>
+            <button onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))} disabled={zoom >= ZOOM_MAX} className={`p-1 rounded disabled:opacity-30 ${btnHover}`}>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             </button>
           </div>
-          {/* Plein écran */}
-          <button
-            onClick={() => containerRef.current?.requestFullscreen()}
-            title="Plein écran"
-            className={`p-2 rounded-full transition-colors ${btnHover}`}
-          >
+          <button onClick={() => containerRef.current?.requestFullscreen()} title="Plein écran" className={`p-2 rounded-full ${btnHover}`}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
           </button>
         </div>
@@ -655,6 +712,46 @@ export function DemoEditionReader() {
       {showSearch     && <SearchPanel   edition={edition} onGo={(p) => { goTo(p); }} onClose={() => setShowSearch(false)} theme={theme} />}
       {showOffline    && <OfflinePanel  edition={edition} onClose={() => setShowOffline(false)} theme={theme} />}
       {toast          && <Toast msg={toast} onHide={() => setToast(null)} />}
+
+      {/* ── MOBILE MENU DRAWER ─────────────────────────────────────────── */}
+      {showMobileMenu && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowMobileMenu(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl p-5 pb-8 sm:hidden">
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+            <p className="text-xs font-bold tracking-widest text-gray-400 mb-3">MODE DE LECTURE</p>
+            <div className="grid grid-cols-2 gap-2 mb-5">
+              {([
+                { value: "continu" as ReadMode, label: "Continu", icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg> },
+                { value: "livre"   as ReadMode, label: "Livre",   icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M4 4h7v16H4z"/><path d="M13 4h7v16h-7z"/></svg> },
+              ]).map((m) => (
+                <button key={m.value} onClick={() => { setReadMode(m.value); setShowMobileMenu(false); }}
+                  className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${readMode === m.value ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
+                  {m.icon}{m.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs font-bold tracking-widest text-gray-400 mb-3">ZOOM</p>
+            <div className="flex items-center gap-3 mb-5">
+              <button onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))} className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold text-lg">−</button>
+              <span className="w-16 text-center text-sm font-semibold text-gray-900">{Math.round(zoom * 100)}%</span>
+              <button onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))} className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold text-lg">+</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => { setShowThumbnails(true); setShowMobileMenu(false); }}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                Miniatures
+              </button>
+              <button onClick={() => { containerRef.current?.requestFullscreen(); setShowMobileMenu(false); }}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                Plein écran
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <style jsx global>{`
         @keyframes fade-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
