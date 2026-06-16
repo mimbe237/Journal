@@ -22,6 +22,14 @@ type ViewMode = "single" | "double" | "flip";
 type ThemeMode = "light" | "dark" | "sepia";
 type FlipDirection = "none" | "next" | "prev";
 
+interface FlipState {
+  dir: "fwd" | "bwd";
+  frontPage: number;
+  backPage: number;
+  bgLeft: number | null;
+  bgRight: number | null;
+}
+
 interface Bookmark {
   page: number;
   createdAt: number;
@@ -141,6 +149,35 @@ function formatTime(seconds: number): string {
 
 function getImageUrl(editionId: string, page: number): string {
   return `/api/editions/${editionId}/pages/${page}/image`;
+}
+
+interface BookSpread {
+  left: number | null;
+  right: number | null;
+}
+
+function getBookSpread(page: number, total: number): BookSpread {
+  if (total <= 0) return { left: null, right: null };
+  if (page <= 1) return { left: null, right: 1 };
+  if (page % 2 === 0) {
+    return {
+      left: page,
+      right: page + 1 <= total ? page + 1 : null,
+    };
+  }
+  return { left: page - 1, right: page };
+}
+
+function getNextBookPage(spread: BookSpread, total: number): number | null {
+  if (total <= 0) return null;
+  if (spread.right !== null && spread.right < total) return spread.right + 1;
+  return null;
+}
+
+function getPreviousBookPage(spread: BookSpread): number | null {
+  if (spread.left === null) return null;
+  if (spread.left <= 2) return 1;
+  return spread.left - 2;
 }
 
 // ============================================================================
@@ -551,8 +588,8 @@ export function EditionReader({ editionId }: EditionReaderProps) {
   const [theme, setTheme] = useLocalStorage<ThemeMode>(`reader-theme`, "dark");
   const [viewMode, setViewMode] = useLocalStorage<ViewMode>(`reader-viewmode`, "flip");
   const [showThumbnails, setShowThumbnails] = useState(false);
-  const [flipDirection, setFlipDirection] = useState<FlipDirection>("none");
-  const [isFlipping, setIsFlipping] = useState(false);
+  const [flipState, setFlipState] = useState<FlipState | null>(null);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [showGoToPage, setShowGoToPage] = useState(false);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -598,12 +635,23 @@ export function EditionReader({ editionId }: EditionReaderProps) {
   }, [editionId, currentPage, sessionId]);
 
   // Refs
-  const containerRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
+  const containerRef   = useRef<HTMLDivElement>(null);
+  const imageRef       = useRef<HTMLImageElement>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const touchStartRef  = useRef<{ x: number; y: number; time: number } | null>(null);
+  const panDragRef     = useRef({ active: false, x0: 0, y0: 0, px0: 0, py0: 0 });
+  const panTouchRef    = useRef<{ x: number; y: number } | null>(null);
 
   const totalPages = edition?.nombrePages ?? 0;
+  const isBookMode = effectiveViewMode === "flip" || effectiveViewMode === "double";
+  const bookSpread = useMemo(() => getBookSpread(currentPage, totalPages), [currentPage, totalPages]);
+  const nextBookPage = useMemo(() => getNextBookPage(bookSpread, totalPages), [bookSpread, totalPages]);
+  const previousBookPage = useMemo(() => getPreviousBookPage(bookSpread), [bookSpread]);
+  const pageLabel = useMemo(() => {
+    if (!isBookMode) return `Page ${currentPage} / ${totalPages}`;
+    if (bookSpread.left && bookSpread.right) return `Pages ${bookSpread.left}-${bookSpread.right} / ${totalPages}`;
+    return `Page ${bookSpread.left ?? bookSpread.right ?? currentPage} / ${totalPages}`;
+  }, [bookSpread, currentPage, isBookMode, totalPages]);
 
   // Fetch edition data
   useEffect(() => {
@@ -665,44 +713,24 @@ export function EditionReader({ editionId }: EditionReaderProps) {
     });
   }, [currentPage, editionId, totalPages, loadedImages]);
 
+  // Reset pan when zoom returns to 1 or page changes
+  useEffect(() => { if (zoom === 1) setPanOffset({ x: 0, y: 0 }); }, [zoom]);
+  useEffect(() => { setPanOffset({ x: 0, y: 0 }); }, [currentPage, effectiveViewMode]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (showGoToPage || isFlipping) return;
+      if (showGoToPage || !!flipState) return;
 
       switch (e.key) {
         case "ArrowRight":
         case " ":
           e.preventDefault();
-          if (currentPage < totalPages) {
-            if (effectiveViewMode === "flip") {
-              setFlipDirection("next");
-              setIsFlipping(true);
-              setTimeout(() => {
-                setCurrentPage((p) => p + 1);
-                setFlipDirection("none");
-                setIsFlipping(false);
-              }, 600);
-            } else {
-              setCurrentPage((p) => p + 1);
-            }
-          }
+          goToNextPage();
           break;
         case "ArrowLeft":
           e.preventDefault();
-          if (currentPage > 1) {
-            if (effectiveViewMode === "flip") {
-              setFlipDirection("prev");
-              setIsFlipping(true);
-              setTimeout(() => {
-                setCurrentPage((p) => p - 1);
-                setFlipDirection("none");
-                setIsFlipping(false);
-              }, 600);
-            } else {
-              setCurrentPage((p) => p - 1);
-            }
-          }
+          goToPrevPage();
           break;
         case "Home":
           e.preventDefault();
@@ -765,7 +793,8 @@ export function EditionReader({ editionId }: EditionReaderProps) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentPage, totalPages, showGoToPage, isFlipping, viewMode, bookmarks, setBookmarks]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showGoToPage, flipState, currentPage, totalPages, bookmarks, setBookmarks]);
 
   // Fullscreen change
   useEffect(() => {
@@ -798,43 +827,49 @@ export function EditionReader({ editionId }: EditionReaderProps) {
   // ============================================================================
 
   const goToPage = useCallback((page: number) => {
-    if (page >= 1 && page <= totalPages && !isFlipping) {
+    if (page >= 1 && page <= totalPages && !flipState) {
       setCurrentPage(page);
       setFetchState("loading");
     }
-  }, [totalPages, isFlipping]);
+  }, [totalPages, flipState]);
 
   const goToNextPage = useCallback(() => {
-    if (currentPage < totalPages && !isFlipping) {
-      if (effectiveViewMode === "flip") {
-        setFlipDirection("next");
-        setIsFlipping(true);
-        setTimeout(() => {
-          setCurrentPage((p) => p + 1);
-          setFlipDirection("none");
-          setIsFlipping(false);
-        }, 600);
-      } else {
-        setCurrentPage((p) => p + 1);
-      }
+    if (flipState) return;
+    if (effectiveViewMode === "flip" && isBookMode && nextBookPage !== null && bookSpread.right !== null) {
+      const newSpread = getBookSpread(nextBookPage, totalPages);
+      setFlipState({
+        dir: "fwd",
+        frontPage: bookSpread.right,
+        backPage: newSpread.left ?? newSpread.right!,
+        bgLeft: bookSpread.left,
+        bgRight: newSpread.right,
+      });
+      setCurrentPage(nextBookPage);
+      setTimeout(() => setFlipState(null), 700);
+      return;
     }
-  }, [currentPage, totalPages, isFlipping, viewMode]);
+    const target = isBookMode ? nextBookPage : currentPage < totalPages ? currentPage + 1 : null;
+    if (target !== null) setCurrentPage(target);
+  }, [effectiveViewMode, isBookMode, bookSpread, nextBookPage, totalPages, currentPage, flipState]);
 
   const goToPrevPage = useCallback(() => {
-    if (currentPage > 1 && !isFlipping) {
-      if (effectiveViewMode === "flip") {
-        setFlipDirection("prev");
-        setIsFlipping(true);
-        setTimeout(() => {
-          setCurrentPage((p) => p - 1);
-          setFlipDirection("none");
-          setIsFlipping(false);
-        }, 600);
-      } else {
-        setCurrentPage((p) => p - 1);
-      }
+    if (flipState) return;
+    if (effectiveViewMode === "flip" && isBookMode && previousBookPage !== null && bookSpread.left !== null) {
+      const newSpread = getBookSpread(previousBookPage, totalPages);
+      setFlipState({
+        dir: "bwd",
+        frontPage: bookSpread.left,
+        backPage: newSpread.right ?? 1,
+        bgLeft: newSpread.left,
+        bgRight: bookSpread.right,
+      });
+      setCurrentPage(previousBookPage);
+      setTimeout(() => setFlipState(null), 700);
+      return;
     }
-  }, [currentPage, isFlipping, viewMode]);
+    const target = isBookMode ? previousBookPage : currentPage > 1 ? currentPage - 1 : null;
+    if (target !== null) setCurrentPage(target);
+  }, [effectiveViewMode, isBookMode, bookSpread, previousBookPage, totalPages, currentPage, flipState]);
 
   const handleZoomIn = useCallback(() => {
     setZoom((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP));
@@ -870,33 +905,58 @@ export function EditionReader({ editionId }: EditionReaderProps) {
     setFetchState("error");
   }, []);
 
-  // Touch handlers for swipe
+  // Touch handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartRef.current = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
-      time: Date.now(),
-    };
-  }, []);
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: Date.now() };
+    if (zoom > 1) panTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    else panTouchRef.current = null;
+  }, [zoom]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (zoom > 1 && panTouchRef.current && e.touches.length === 1) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - panTouchRef.current.x;
+      const dy = e.touches[0].clientY - panTouchRef.current.y;
+      panTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      setPanOffset(prev => {
+        const maxX = (window.innerWidth  * (zoom - 1)) / 2;
+        const maxY = (window.innerHeight * (zoom - 1)) / 2;
+        return { x: Math.max(-maxX, Math.min(maxX, prev.x + dx)), y: Math.max(-maxY, Math.min(maxY, prev.y + dy)) };
+      });
+    }
+  }, [zoom]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!touchStartRef.current || isFlipping) return;
-
+    panTouchRef.current = null;
+    if (!touchStartRef.current || !!flipState) return;
     const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x;
     const deltaY = e.changedTouches[0].clientY - touchStartRef.current.y;
     const deltaTime = Date.now() - touchStartRef.current.time;
-
-    // Swipe detection
+    if (zoom > 1) { touchStartRef.current = null; return; }
     if (deltaTime < 300 && Math.abs(deltaX) > 50 && Math.abs(deltaY) < 100) {
-      if (deltaX > 0) {
-        goToPrevPage();
-      } else if (deltaX < 0) {
-        goToNextPage();
-      }
+      deltaX > 0 ? goToPrevPage() : goToNextPage();
     }
-
     touchStartRef.current = null;
-  }, [isFlipping, goToNextPage, goToPrevPage]);
+  }, [flipState, zoom, goToNextPage, goToPrevPage]);
+
+  // Mouse drag-to-pan
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (zoom <= 1 || (e.target as HTMLElement).closest("button,a,select")) return;
+    panDragRef.current = { active: true, x0: e.clientX, y0: e.clientY, px0: panOffset.x, py0: panOffset.y };
+    e.preventDefault();
+  }, [zoom, panOffset.x, panOffset.y]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!panDragRef.current.active) return;
+    const maxX = (window.innerWidth  * (zoom - 1)) / 2;
+    const maxY = (window.innerHeight * (zoom - 1)) / 2;
+    setPanOffset({
+      x: Math.max(-maxX, Math.min(maxX, panDragRef.current.px0 + e.clientX - panDragRef.current.x0)),
+      y: Math.max(-maxY, Math.min(maxY, panDragRef.current.py0 + e.clientY - panDragRef.current.y0)),
+    });
+  }, [zoom]);
+
+  const handleMouseUp = useCallback(() => { panDragRef.current.active = false; }, []);
 
   const handleDownloadPage = useCallback(async () => {
     if (!edition) return;
@@ -1061,7 +1121,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
         <div className="flex items-center gap-1 sm:gap-3">
           <button 
             onClick={goToPrevPage} 
-            disabled={currentPage <= 1 || isFlipping}
+            disabled={(isBookMode ? previousBookPage === null : currentPage <= 1) || !!flipState}
             className="p-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 sm:p-1 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 rounded disabled:opacity-40 active:bg-gray-300 dark:active:bg-gray-600"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1073,11 +1133,11 @@ export function EditionReader({ editionId }: EditionReaderProps) {
             className="text-sm font-medium whitespace-nowrap"
           >
             <span className="sm:hidden">{currentPage}/{totalPages}</span>
-            <span className="hidden sm:inline">Page {currentPage} / {totalPages}</span>
+            <span className="hidden sm:inline">{pageLabel}</span>
           </button>
           <button 
             onClick={goToNextPage} 
-            disabled={currentPage >= totalPages || isFlipping}
+            disabled={(isBookMode ? nextBookPage === null : currentPage >= totalPages) || !!flipState}
             className="p-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 sm:p-1 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 rounded disabled:opacity-40 active:bg-gray-300 dark:active:bg-gray-600"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1145,157 +1205,185 @@ export function EditionReader({ editionId }: EditionReaderProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 relative">
+      <div
+        className="flex-1 overflow-auto flex items-end justify-center p-2 sm:p-4 relative"
+        style={{
+          touchAction: zoom > 1 ? "none" : "pan-y",
+          cursor: zoom > 1 ? (panDragRef.current.active ? "grabbing" : "grab") : "default",
+        }}
+        onTouchMove={handleTouchMove}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
         {/* Mobile side tap zones */}
         <button
           onClick={goToPrevPage}
-          disabled={currentPage <= 1 || isFlipping}
+          disabled={(isBookMode ? previousBookPage === null : currentPage <= 1) || !!flipState}
           className="absolute left-0 top-0 bottom-0 w-1/4 z-10 sm:hidden disabled:opacity-0"
           aria-label="Page précédente"
         />
         <button
           onClick={goToNextPage}
-          disabled={currentPage >= totalPages || isFlipping}
+          disabled={(isBookMode ? nextBookPage === null : currentPage >= totalPages) || !!flipState}
           className="absolute right-0 top-0 bottom-0 w-1/4 z-10 sm:hidden disabled:opacity-0"
           aria-label="Page suivante"
         />
-        
+
         <div
-          className="relative transition-transform duration-300 ease-out"
+          className="relative"
           style={{
-            transform: `scale(${zoom}) rotate(${rotation}deg)`,
-            transformOrigin: "center center",
+            transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom}) rotate(${rotation}deg)`,
+            transformOrigin: "center bottom",
+            transition: panDragRef.current.active ? "none" : "transform 0.1s ease-out",
           }}
         >
           {fetchState === "loading" && <PageSkeleton />}
-          
+
           {effectiveViewMode === "flip" ? (
-            /* Mode feuilletage - Book-like flip animation */
-            <div className="flip-book-container perspective-1500">
-              <div className="relative flex">
-                {/* Page gauche (précédente ou page courante si page 1) */}
-                <div className="page-left relative">
-                  {currentPage > 1 ? (
+            /* Mode feuilletage 3D — double-page spread avec flip preserve-3d */
+            <div className="relative flex items-end" style={{ paddingBottom: "1vh" }}>
+              {/* ── Spread statique (arrière-plan) ── */}
+              <div className="flex items-end">
+                {/* Page gauche */}
+                <div className="flex items-end justify-end" style={{ width: "calc(45vw)" }}>
+                  {(flipState ? flipState.bgLeft : bookSpread.left) != null ? (
                     <img
-                      src={getImageUrl(editionId, currentPage - 1)}
-                      alt={`Page ${currentPage - 1}`}
-                      className="max-h-[calc(100vh-12rem)] w-auto shadow-xl rounded-l-sm"
+                      src={getImageUrl(editionId, (flipState ? flipState.bgLeft : bookSpread.left)!)}
+                      alt="page gauche"
+                      className="max-h-[calc(100vh-12rem)] w-auto shadow-xl rounded-l-sm block"
                       style={{ maxWidth: "45vw" }}
+                      onLoad={handleImageLoad}
                       draggable={false}
                     />
                   ) : (
-                    /* Page 1: afficher la une à gauche aussi */
+                    <div className="rounded-l-sm" style={{ width: "min(45vw,38rem)", aspectRatio: "3/4" }} />
+                  )}
+                </div>
+                {/* Spine */}
+                <div className="shrink-0 self-stretch" style={{ width: "6px", background: "linear-gradient(to right,rgba(0,0,0,0.18),rgba(255,255,255,0.7) 50%,rgba(0,0,0,0.15))", boxShadow: "inset 0 0 5px rgba(0,0,0,0.12)" }} />
+                {/* Page droite */}
+                <div className="flex items-end justify-start" style={{ width: "calc(45vw)" }}>
+                  {(flipState ? flipState.bgRight : bookSpread.right) != null ? (
                     <img
-                      src={getImageUrl(editionId, 1)}
-                      alt="Page 1"
-                      className="max-h-[calc(100vh-12rem)] w-auto shadow-xl rounded-l-sm opacity-30"
+                      ref={imageRef}
+                      src={getImageUrl(editionId, (flipState ? flipState.bgRight : bookSpread.right)!)}
+                      alt="page droite"
+                      className="max-h-[calc(100vh-12rem)] w-auto shadow-xl rounded-r-sm block"
                       style={{ maxWidth: "45vw" }}
+                      onLoad={handleImageLoad}
+                      onError={handleImageError}
                       draggable={false}
                     />
+                  ) : (
+                    <div className="rounded-r-sm" style={{ width: "min(45vw,38rem)", aspectRatio: "3/4" }} />
                   )}
-                </div>
-
-                {/* Page qui tourne */}
-                <div 
-                  className={`page-flip absolute left-1/2 origin-left ${
-                    isFlipping ? (flipDirection === "next" ? "animate-flip-next" : "animate-flip-prev") : ""
-                  }`}
-                  style={{ 
-                    transformStyle: "preserve-3d",
-                    zIndex: isFlipping ? 10 : 1
-                  }}
-                >
-                  {isFlipping && (
-                    <>
-                      {/* Face avant de la page qui tourne */}
-                      <div className="page-front absolute inset-0 backface-hidden">
-                        <img
-                          src={getImageUrl(editionId, flipDirection === "next" ? currentPage : currentPage - 1)}
-                          alt="Page tournante"
-                          className="max-h-[calc(100vh-12rem)] w-auto shadow-2xl"
-                          style={{ maxWidth: "45vw" }}
-                          draggable={false}
-                        />
-                      </div>
-                      {/* Face arrière de la page qui tourne */}
-                      <div className="page-back absolute inset-0 backface-hidden rotate-y-180">
-                        <img
-                          src={getImageUrl(editionId, flipDirection === "next" ? currentPage + 1 : currentPage)}
-                          alt="Page tournante verso"
-                          className="max-h-[calc(100vh-12rem)] w-auto shadow-2xl"
-                          style={{ maxWidth: "45vw", transform: "scaleX(-1)" }}
-                          draggable={false}
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Page droite (actuelle) */}
-                <div className="page-right relative">
-                  <img
-                    ref={imageRef}
-                    src={getImageUrl(editionId, currentPage)}
-                    alt={`Page ${currentPage}`}
-                    className={`max-h-[calc(100vh-12rem)] w-auto shadow-xl rounded-r-sm transition-opacity duration-300 ${
-                      isFlipping ? "opacity-50" : "opacity-100"
-                    }`}
-                    style={{ maxWidth: "45vw" }}
-                    onLoad={handleImageLoad}
-                    onError={handleImageError}
-                    draggable={false}
-                  />
-                  {/* Zone cliquable pour page suivante */}
-                  <button
-                    onClick={goToNextPage}
-                    disabled={currentPage >= totalPages || isFlipping}
-                    className="absolute right-0 top-0 bottom-0 w-1/3 cursor-pointer opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-l from-black/10 to-transparent disabled:cursor-default disabled:opacity-0"
-                    aria-label="Page suivante"
-                  />
-                  {/* Zone cliquable pour page précédente */}
-                  <button
-                    onClick={goToPrevPage}
-                    disabled={currentPage <= 1 || isFlipping}
-                    className="absolute left-0 top-0 bottom-0 w-1/3 cursor-pointer opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-r from-black/10 to-transparent disabled:cursor-default disabled:opacity-0"
-                    aria-label="Page précédente"
-                  />
                 </div>
               </div>
-              {/* Reliure centrale */}
-              <div className="absolute left-1/2 top-0 bottom-0 w-2 -translate-x-1/2 bg-gradient-to-r from-gray-400 via-gray-300 to-gray-400 dark:from-gray-600 dark:via-gray-500 dark:to-gray-600 shadow-inner" />
+
+              {/* ── Carte flip 3D ── */}
+              {flipState && (
+                <div className="absolute inset-0 pointer-events-none" style={{ perspective: "70vw" }}>
+                  {/* Ombre portée sur le fond */}
+                  <div style={{
+                    position: "absolute", top: 0, bottom: 0,
+                    width: "45vw",
+                    ...(flipState.dir === "fwd" ? { right: 0 } : { left: 0 }),
+                    background: "rgba(0,0,0,0.18)",
+                    animation: "erCastShadow 700ms ease-in-out forwards",
+                  }} />
+                  {/* Carte principale */}
+                  <div style={{
+                    position: "absolute", top: 0, bottom: 0,
+                    width: "45vw",
+                    ...(flipState.dir === "fwd"
+                      ? { right: 0, transformOrigin: "left bottom" }
+                      : { left: 0, transformOrigin: "right bottom" }
+                    ),
+                    transformStyle: "preserve-3d",
+                    animation: `erFlip${flipState.dir === "fwd" ? "Fwd" : "Bwd"} 700ms cubic-bezier(0.45,0,0.55,1) forwards`,
+                  }}>
+                    {/* Face avant */}
+                    <div className="absolute inset-0 flex items-end"
+                      style={{
+                        justifyContent: flipState.dir === "fwd" ? "flex-start" : "flex-end",
+                        backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
+                      }}>
+                      <img src={getImageUrl(editionId, flipState.frontPage)} alt=""
+                        className="max-h-[calc(100vh-12rem)] w-auto shadow-2xl" style={{ maxWidth: "45vw" }} draggable={false} />
+                      <div className="absolute inset-0 pointer-events-none" style={{
+                        background: flipState.dir === "fwd"
+                          ? "linear-gradient(to left,rgba(0,0,0,0.4) 0%,rgba(0,0,0,0.06) 60%,transparent 100%)"
+                          : "linear-gradient(to right,rgba(0,0,0,0.4) 0%,rgba(0,0,0,0.06) 60%,transparent 100%)",
+                        animation: "erCurlShadow 700ms ease-in-out forwards",
+                      }} />
+                    </div>
+                    {/* Face arrière */}
+                    <div className="absolute inset-0 flex items-end"
+                      style={{
+                        justifyContent: flipState.dir === "fwd" ? "flex-start" : "flex-end",
+                        backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
+                        transform: "rotateY(180deg)",
+                      }}>
+                      <img src={getImageUrl(editionId, flipState.backPage)} alt=""
+                        className="max-h-[calc(100vh-12rem)] w-auto shadow-2xl"
+                        style={{ maxWidth: "45vw", transform: "scaleX(-1)" }} draggable={false} />
+                      <div className="absolute inset-0 pointer-events-none" style={{
+                        background: "rgba(0,0,0,0.22)",
+                        animation: "erLandShadow 700ms ease-in-out forwards",
+                        transform: "scaleX(-1)",
+                      }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Zones cliquables desktop */}
+              <button onClick={goToPrevPage} disabled={previousBookPage === null || !!flipState}
+                className="absolute left-0 top-0 bottom-0 w-1/4 hidden sm:block opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-r from-black/10 to-transparent disabled:opacity-0 disabled:cursor-default" />
+              <button onClick={goToNextPage} disabled={nextBookPage === null || !!flipState}
+                className="absolute right-0 top-0 bottom-0 w-1/4 hidden sm:block opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-l from-black/10 to-transparent disabled:opacity-0 disabled:cursor-default" />
             </div>
-          ) : effectiveViewMode === "single" ? (
+          ) : effectiveViewMode === "double" ? (
+            <div className="flex gap-1 items-end">
+              {bookSpread.left ? (
+                <img
+                  ref={bookSpread.right ? undefined : imageRef}
+                  src={getImageUrl(editionId, bookSpread.left)}
+                  alt={`Page ${bookSpread.left}`}
+                  className="max-h-[calc(100vh-12rem)] w-auto shadow-2xl rounded-sm"
+                  onLoad={bookSpread.right ? undefined : handleImageLoad}
+                  onError={bookSpread.right ? undefined : handleImageError}
+                  draggable={false}
+                />
+              ) : (
+                <div className="max-h-[calc(100vh-12rem)] rounded-sm bg-white/70 shadow-inner" style={{ width: "min(45vw,38rem)", aspectRatio: "3/4" }} aria-hidden="true" />
+              )}
+              {bookSpread.right ? (
+                <img
+                  ref={imageRef}
+                  src={getImageUrl(editionId, bookSpread.right)}
+                  alt={`Page ${bookSpread.right}`}
+                  className="max-h-[calc(100vh-12rem)] w-auto shadow-2xl rounded-sm"
+                  onLoad={handleImageLoad}
+                  onError={handleImageError}
+                  draggable={false}
+                />
+              ) : (
+                <div className="max-h-[calc(100vh-12rem)] rounded-sm bg-white/70 shadow-inner" style={{ width: "min(45vw,38rem)", aspectRatio: "3/4" }} aria-hidden="true" />
+              )}
+            </div>
+          ) : (
             <img
               ref={imageRef}
               src={getImageUrl(editionId, currentPage)}
               alt={`Page ${currentPage}`}
-              className={`max-h-[calc(100vh-12rem)] w-auto shadow-2xl rounded-sm transition-opacity duration-300 ${
-                fetchState === "loading" ? "opacity-0" : "opacity-100"
-              }`}
+              className={`max-h-[calc(100vh-12rem)] w-auto shadow-2xl rounded-sm transition-opacity duration-300 ${fetchState === "loading" ? "opacity-0" : "opacity-100"}`}
               onLoad={handleImageLoad}
               onError={handleImageError}
               draggable={false}
             />
-          ) : (
-            <div className="flex gap-1">
-              {currentPage > 1 && (
-                <img
-                  src={getImageUrl(editionId, currentPage - 1)}
-                  alt={`Page ${currentPage - 1}`}
-                  className="max-h-[calc(100vh-12rem)] w-auto shadow-2xl rounded-sm"
-                  draggable={false}
-                />
-              )}
-              <img
-                ref={imageRef}
-                src={getImageUrl(editionId, currentPage)}
-                alt={`Page ${currentPage}`}
-                className="max-h-[calc(100vh-12rem)] w-auto shadow-2xl rounded-sm"
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-                draggable={false}
-              />
-            </div>
           )}
 
           {fetchState === "error" && (
@@ -1360,59 +1448,28 @@ export function EditionReader({ editionId }: EditionReaderProps) {
           animation: shimmer 1.5s infinite;
         }
         
-        /* Page flip animations */
-        .perspective-1500 {
-          perspective: 1500px;
+        @keyframes erFlipFwd {
+          0%   { transform: rotateY(0deg); }
+          100% { transform: rotateY(-180deg); }
         }
-        
-        .backface-hidden {
-          backface-visibility: hidden;
+        @keyframes erFlipBwd {
+          0%   { transform: rotateY(0deg); }
+          100% { transform: rotateY(180deg); }
         }
-        
-        .rotate-y-180 {
-          transform: rotateY(180deg);
+        @keyframes erCastShadow {
+          0%,100% { opacity: 0; }
+          15%,85% { opacity: 1; }
         }
-        
-        @keyframes flipNext {
-          0% {
-            transform: rotateY(0deg);
-          }
-          100% {
-            transform: rotateY(-180deg);
-          }
+        @keyframes erCurlShadow {
+          0%   { opacity: 0; }
+          30%  { opacity: 1; }
+          70%  { opacity: 1; }
+          100% { opacity: 0; }
         }
-        
-        @keyframes flipPrev {
-          0% {
-            transform: rotateY(-180deg);
-          }
-          100% {
-            transform: rotateY(0deg);
-          }
-        }
-        
-        .animate-flip-next {
-          animation: flipNext 0.6s ease-in-out forwards;
-        }
-        
-        .animate-flip-prev {
-          animation: flipPrev 0.6s ease-in-out forwards;
-        }
-        
-        .page-flip {
-          transform-style: preserve-3d;
-        }
-        
-        .page-front, .page-back {
-          backface-visibility: hidden;
-        }
-        
-        .page-back {
-          transform: rotateY(180deg);
-        }
-        
-        .flip-book-container {
-          user-select: none;
+        @keyframes erLandShadow {
+          0%   { opacity: 0.75; }
+          70%  { opacity: 0.75; }
+          100% { opacity: 0; }
         }
       `}</style>
 

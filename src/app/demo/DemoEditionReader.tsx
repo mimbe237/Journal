@@ -209,7 +209,7 @@ export function DemoEditionReader() {
   const [error,         setError]         = useState<string | null>(null);
   const [currentPage,   setCurrentPage]   = useState(1);
   const [zoom,          setZoom]          = useState(1);
-  const [readMode,      setReadMode]      = useState<ReadMode>("continu");
+  const [readMode,      setReadMode]      = useState<ReadMode>("livre");
   const [theme]                           = useState<Theme>("clair");
   // null = pas d'animation ; sinon décrit le flip en cours (double-page spread)
   const [flipState, setFlipState] = useState<{
@@ -251,6 +251,23 @@ export function DemoEditionReader() {
     return currentPage % 2 === 1 ? currentPage : Math.min(currentPage + 1, totalPages);
   }, [currentPage, totalPages]);
   const leftPage: number | null = useMemo(() => rightPage > 1 ? rightPage - 1 : null, [rightPage]);
+
+  // Options du sélecteur en mode livre : spreads logiques (couverture seule, puis 2-3, 4-5…)
+  const spreadOptions = useMemo(() => {
+    if (!totalPages) return [];
+    const opts: { value: number; label: string }[] = [{ value: 1, label: "Page 1" }];
+    for (let r = 3; r <= totalPages; r += 2) {
+      const l = r - 1;
+      opts.push({ value: r, label: `Pages ${l}-${Math.min(r, totalPages)}` });
+    }
+    return opts;
+  }, [totalPages]);
+
+  const pageLabel = useMemo(() => {
+    if (readMode !== "livre") return `Page ${currentPage} / ${totalPages}`;
+    if (leftPage && rightPage) return `Pages ${leftPage}-${rightPage} / ${totalPages}`;
+    return `Page ${leftPage ?? rightPage} / ${totalPages}`;
+  }, [currentPage, leftPage, readMode, rightPage, totalPages]);
 
   // ── Fetch edition ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -322,6 +339,7 @@ export function DemoEditionReader() {
       if (window.innerWidth >= 768 && window.matchMedia("(orientation: landscape)").matches)
         setReadMode("livre");
     };
+    check();
     window.addEventListener("orientationchange", check);
     return () => window.removeEventListener("orientationchange", check);
   }, []);
@@ -612,11 +630,14 @@ export function DemoEditionReader() {
               <button onClick={goBack} disabled={currentPage <= 1} className={`p-1.5 rounded-full disabled:opacity-30 ${btnHover}`}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
-              <select value={currentPage} onChange={(e) => goTo(Number(e.target.value))}
+              <select
+                value={readMode === "livre" ? rightPage : currentPage}
+                onChange={(e) => goTo(Number(e.target.value))}
                 className={`px-2 py-1 rounded-full border text-xs font-semibold outline-none cursor-pointer ${theme === "sombre" ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-900"}`}>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <option key={p} value={p}>P.{p}/{totalPages}</option>
-                ))}
+                {readMode === "livre"
+                  ? spreadOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
+                  : Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => <option key={p} value={p}>P.{p}/{totalPages}</option>)
+                }
               </select>
               <button onClick={goNext} disabled={currentPage >= totalPages} className={`p-1.5 rounded-full disabled:opacity-30 ${btnHover}`}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -657,11 +678,14 @@ export function DemoEditionReader() {
               <button onClick={goBack} disabled={currentPage <= 1} className={`p-1.5 rounded-full disabled:opacity-30 ${btnHover}`}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
               </button>
-              <select value={currentPage} onChange={(e) => goTo(Number(e.target.value))}
+              <select
+                value={readMode === "livre" ? rightPage : currentPage}
+                onChange={(e) => goTo(Number(e.target.value))}
                 className={`px-3 py-1.5 rounded-full border text-sm font-semibold outline-none cursor-pointer ${theme === "sombre" ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-900"}`}>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <option key={p} value={p}>Page {p} / {totalPages}</option>
-                ))}
+                {readMode === "livre"
+                  ? spreadOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
+                  : Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => <option key={p} value={p}>Page {p} / {totalPages}</option>)
+                }
               </select>
               <button onClick={goNext} disabled={currentPage >= totalPages} className={`p-1.5 rounded-full disabled:opacity-30 ${btnHover}`}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
