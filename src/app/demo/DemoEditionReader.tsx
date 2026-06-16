@@ -368,7 +368,7 @@ export function DemoEditionReader() {
           });
         }
         setCurrentPage(target);
-        setTimeout(() => setFlipState(null), 450);
+        setTimeout(() => setFlipState(null), 700);
       } else {
         // Grand saut → pas d'animation
         setCurrentPage(target);
@@ -714,7 +714,7 @@ export function DemoEditionReader() {
                     : { left: 0, transformOrigin: "right center" }
                   ),
                   transformStyle: "preserve-3d",
-                  animation: `bookFlip${flipState.dir === "fwd" ? "Fwd" : "Bwd"} 450ms cubic-bezier(.4,0,.2,1) forwards`,
+                  animation: `bookFlip${flipState.dir === "fwd" ? "Fwd" : "Bwd"} 700ms ease-in-out forwards`,
                 }}>
                   {/* Face AVANT : page qui s'en va */}
                   <div className="absolute inset-0 flex items-center"
@@ -806,15 +806,20 @@ export function DemoEditionReader() {
         @keyframes fade-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
         .animate-fade-in { animation: fade-in 0.2s ease-out; }
 
-        /* Aller en avant : pivot bord gauche (spine), page part vers la gauche */
+        /* Page se soulève doucement, accélère au milieu, se dépose doucement */
         @keyframes bookFlipFwd {
-          0%   { transform: rotateY(0deg);    }
-          100% { transform: rotateY(-180deg); }
+          0%   { transform: rotateY(0deg);     box-shadow: none; }
+          20%  { transform: rotateY(-30deg);   box-shadow: -4px 0 16px rgba(0,0,0,0.12); }
+          50%  { transform: rotateY(-90deg);   box-shadow: -14px 0 32px rgba(0,0,0,0.28); }
+          80%  { transform: rotateY(-150deg);  box-shadow: -4px 0 16px rgba(0,0,0,0.12); }
+          100% { transform: rotateY(-180deg);  box-shadow: none; }
         }
-        /* Reculer : pivot bord droit, page part vers la droite */
         @keyframes bookFlipBwd {
-          0%   { transform: rotateY(0deg);   }
-          100% { transform: rotateY(180deg); }
+          0%   { transform: rotateY(0deg);    box-shadow: none; }
+          20%  { transform: rotateY(30deg);   box-shadow: 4px 0 16px rgba(0,0,0,0.12); }
+          50%  { transform: rotateY(90deg);   box-shadow: 14px 0 32px rgba(0,0,0,0.28); }
+          80%  { transform: rotateY(150deg);  box-shadow: 4px 0 16px rgba(0,0,0,0.12); }
+          100% { transform: rotateY(180deg);  box-shadow: none; }
         }
       `}</style>
     </div>
