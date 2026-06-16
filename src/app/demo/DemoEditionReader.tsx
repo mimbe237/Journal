@@ -527,16 +527,15 @@ export function DemoEditionReader() {
               className={`p-1.5 rounded-full transition-colors disabled:opacity-30 ${btnHover}`}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
-            <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full border ${theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}`}>
-              <input
-                type="number" min={1} max={totalPages} value={pageInput}
-                onChange={(e) => setPageInput(e.target.value)}
-                onBlur={() => { const v = parseInt(pageInput); if (v >= 1 && v <= totalPages) goTo(v); else setPageInput(String(currentPage)); }}
-                onKeyDown={(e) => { if (e.key === "Enter") { const v = parseInt(pageInput); if (v >= 1 && v <= totalPages) goTo(v); else setPageInput(String(currentPage)); (e.target as HTMLInputElement).blur(); } }}
-                className={`w-10 text-center text-sm font-semibold bg-transparent outline-none ${theme === "sombre" ? "text-white" : "text-gray-900"}`}
-              />
-              <span className={`text-sm ${textSub}`}>/ {totalPages}</span>
-            </div>
+            <select
+              value={currentPage}
+              onChange={(e) => goTo(Number(e.target.value))}
+              className={`px-3 py-1.5 rounded-full border text-sm font-semibold outline-none cursor-pointer ${theme === "sombre" ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-900"}`}
+            >
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <option key={p} value={p}>Page {p} / {totalPages}</option>
+              ))}
+            </select>
             <button onClick={goNext} disabled={currentPage >= totalPages}
               className={`p-1.5 rounded-full transition-colors disabled:opacity-30 ${btnHover}`}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
