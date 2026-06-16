@@ -8,6 +8,8 @@ import { GlobalSearch } from "@/components/search/GlobalSearch";
 
 export function Header() {
   const pathname = usePathname();
+
+  if (pathname?.startsWith("/demo")) return null;
   const router = useRouter();
   const [user, setUser] = useState<{ nom: string; email: string; role: string } | null>(null);
   const [loading, setLoading] = useState(true);
