@@ -285,7 +285,7 @@ export function DemoEditionReader() {
   // Reader state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageInput,   setPageInput]   = useState("1");
-  const [zoom,        setZoom]        = useState(1.37);
+  const [zoom,        setZoom]        = useState(1);
   const [readMode,    setReadMode]    = useState<ReadMode>("continu");
   const [theme,       setTheme]       = useState<Theme>("clair");
   const [isFlipping,  setIsFlipping]  = useState(false);
@@ -328,32 +328,8 @@ export function DemoEditionReader() {
       .finally(() => setLoading(false));
   }, []);
 
-  // ── Auto-zoom pour remplir la largeur disponible ──────────────────────────
-  useEffect(() => {
-    if (!edition || autoZoomedRef.current) return;
-    const compute = () => {
-      // En mode continu, les images sont w-full => zoom 1 = pleine largeur
-      if (readMode === "continu") {
-        setZoom(1);
-        autoZoomedRef.current = true;
-        return;
-      }
-      const img = new Image();
-      img.src = imgUrl(edition.id, 1);
-      const run = () => {
-        const availW = window.innerWidth - 16;
-        const pagesWide = readMode === "livre" ? 2 : 1;
-        const z = availW / (img.naturalWidth * pagesWide);
-        setZoom(+(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)).toFixed(2)));
-        autoZoomedRef.current = true;
-      };
-      if (img.complete && img.naturalWidth) run();
-      else img.onload = run;
-    };
-    // Laisser le DOM se stabiliser avant de mesurer
-    const t = setTimeout(compute, 100);
-    return () => clearTimeout(t);
-  }, [edition, readMode]);
+  // Remettre zoom=1 quand on change de mode (base naturelle)
+  useEffect(() => { setZoom(1); }, [readMode]);
 
   // ── Auto offline cache (background, 3s after load) ────────────────────────
   useEffect(() => {
@@ -627,15 +603,16 @@ export function DemoEditionReader() {
           else if (rel > 0.7) goNext();
         }}
       >
+        {/* Barre de progression chargement page */}
+        {imgLoading && readMode !== "continu" && (
+          <div className="absolute inset-x-0 top-0 h-1 z-30 pointer-events-none overflow-hidden">
+            <div className="h-full bg-amber-400 animate-[loading_1.4s_ease-in-out_infinite]" />
+          </div>
+        )}
+
         {readMode === "continu" ? (
-          /* ── Mode Continu : toutes les pages empilées, width réelle (pas transform) ── */
-          <div
-            style={{
-              width: `${Math.round(zoom * 100)}%`,
-              minWidth: `${Math.round(zoom * 100)}%`,
-              margin: "0 auto",
-            }}
-          >
+          /* ── Mode Continu : toutes les pages empilées, zoom = contrôle de la largeur ── */
+          <div style={{ width: zoom === 1 ? "100%" : `${zoom * 100}%`, margin: "0 auto" }}>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
               <img
                 key={p}
@@ -648,40 +625,26 @@ export function DemoEditionReader() {
             ))}
           </div>
         ) : (
-          /* ── Mode Livre : une ou deux pages côte à côte ── */
-          <div
-            className={`transition-opacity duration-300 ${isFlipping ? "opacity-40" : "opacity-100"}`}
-            style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
-          >
-            {/* Barre de progression pendant le chargement de la page */}
-            {imgLoading && (
-              <div className="absolute inset-x-0 top-0 h-1 z-30 pointer-events-none overflow-hidden">
-                <div className="h-full bg-amber-400 animate-[loading_1.4s_ease-in-out_infinite]" />
-              </div>
-            )}
-            <div className={`flex shadow-2xl ${currentPage > 1 && readMode === "livre" ? "" : ""}`}>
-              {readMode === "livre" && currentPage > 1 && (
-                <img
-                  src={imgUrl(edition.id, currentPage - 1)}
-                  alt={`Page ${currentPage - 1}`}
-                  className="w-auto rounded-l-sm"
-                  style={{ maxHeight: "85vh", maxWidth: "48vw" }}
-                  draggable={false}
-                />
-              )}
+          /* ── Mode Livre : pages à hauteur plein écran, largeur auto ── */
+          <div className={`flex transition-opacity duration-300 ${isFlipping ? "opacity-40" : "opacity-100"}`}>
+            {currentPage > 1 && (
               <img
-                src={imgUrl(edition.id, currentPage)}
-                alt={`Page ${currentPage}`}
-                className={`w-auto shadow-2xl ${readMode === "livre" && currentPage > 1 ? "rounded-r-sm" : "rounded-sm"}`}
-                style={{
-                  maxHeight: "85vh",
-                  maxWidth: readMode === "livre" && currentPage > 1 ? "48vw" : "96vw",
-                }}
+                src={imgUrl(edition.id, currentPage - 1)}
+                alt={`Page ${currentPage - 1}`}
+                className="rounded-l-sm shadow-xl"
+                style={{ height: `calc((100vh - 56px) * ${zoom})`, width: "auto" }}
                 draggable={false}
-                onLoadStart={() => setImgLoading(true)}
-                onLoad={() => setImgLoading(false)}
               />
-            </div>
+            )}
+            <img
+              src={imgUrl(edition.id, currentPage)}
+              alt={`Page ${currentPage}`}
+              className={`shadow-2xl ${currentPage > 1 ? "rounded-r-sm" : "rounded-sm"}`}
+              style={{ height: `calc((100vh - 56px) * ${zoom})`, width: "auto" }}
+              draggable={false}
+              onLoadStart={() => setImgLoading(true)}
+              onLoad={() => setImgLoading(false)}
+            />
           </div>
         )}
       </div>
