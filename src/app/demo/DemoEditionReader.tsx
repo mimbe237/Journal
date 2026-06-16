@@ -497,8 +497,11 @@ export function DemoEditionReader() {
 
   // ── Loading / Error ────────────────────────────────────────────────────────
   if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-white">
-      <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+    <div className="flex flex-col items-center justify-center h-screen bg-white gap-4">
+      <div className="w-64 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className="h-full bg-amber-400 rounded-full animate-[loading_1.4s_ease-in-out_infinite]" />
+      </div>
+      <p className="text-xs text-gray-400 tracking-wide">Chargement de l'édition…</p>
     </div>
   );
   if (error || !edition) return (
@@ -644,13 +647,10 @@ export function DemoEditionReader() {
             className={`transition-opacity duration-300 ${isFlipping ? "opacity-40" : "opacity-100"}`}
             style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
           >
-            {/* Skeleton pendant le chargement */}
+            {/* Barre de progression pendant le chargement de la page */}
             {imgLoading && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-30 pointer-events-none">
-                <div className="w-48 h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-400 rounded-full animate-[loading_1.2s_ease-in-out_infinite]" />
-                </div>
-                <p className="text-xs text-gray-400">Chargement de la page…</p>
+              <div className="absolute inset-x-0 top-0 h-1 z-30 pointer-events-none overflow-hidden">
+                <div className="h-full bg-amber-400 animate-[loading_1.4s_ease-in-out_infinite]" />
               </div>
             )}
             <div className={`flex shadow-2xl ${currentPage > 1 && readMode === "livre" ? "" : ""}`}>
