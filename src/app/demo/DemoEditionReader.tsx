@@ -656,25 +656,29 @@ export function DemoEditionReader() {
            *   Animation : la page DROITE tourne vers la gauche (fwd),
            *               la page GAUCHE tourne vers la droite (bwd)
            */
-          <div className="relative flex items-stretch justify-center w-full h-full overflow-hidden"
-            style={{ perspective: "2400px" }}>
+          <div className="relative flex items-center justify-center w-full min-h-full"
+            style={{ perspective: "2400px", alignItems: zoom > 1 ? "flex-start" : "center" }}>
 
             {/* ── Spread statique (affiché hors animation OU en arrière-plan) ── */}
-            <div className="flex items-stretch justify-center w-full h-full">
+            <div className="flex items-stretch justify-center" style={{ width: "100%" }}>
               {/* PAGE GAUCHE */}
-              <div className="flex items-center justify-end overflow-hidden"
-                style={{ width: "calc(50% - 4px)", maxHeight: "calc(100vh - 60px)" }}>
+              <div className="flex items-center justify-end"
+                style={{ width: "calc(50% - 4px)" }}>
                 {(flipState ? flipState.bgLeft : leftPage) != null ? (
                   <img
                     key={`left-${flipState ? flipState.bgLeft : leftPage}`}
                     src={imgUrl(edition.id, (flipState ? flipState.bgLeft : leftPage)!)}
                     alt="page gauche"
                     className="rounded-l-sm shadow-2xl block"
-                    style={{ maxWidth: "100%", maxHeight: "calc(100vh - 60px)", width: "auto", height: "auto" }}
+                    style={{
+                      maxWidth: `calc((50vw - 8px) * ${zoom})`,
+                      maxHeight: `calc((100vh - 60px) * ${zoom})`,
+                      width: "auto", height: "auto",
+                    }}
                     draggable={false}
                   />
                 ) : (
-                  <div style={{ width: "100%", height: "calc(100vh - 60px)" }} />
+                  <div style={{ width: `calc((50vw - 8px) * ${zoom})`, height: `calc((100vh - 60px) * ${zoom})` }} />
                 )}
               </div>
 
@@ -683,19 +687,23 @@ export function DemoEditionReader() {
                 style={{ width: "8px", background: "linear-gradient(to right, rgba(0,0,0,0.18), rgba(255,255,255,0.7) 50%, rgba(0,0,0,0.15))", boxShadow: "inset 0 0 6px rgba(0,0,0,0.12)" }} />
 
               {/* PAGE DROITE */}
-              <div className="flex items-center justify-start overflow-hidden"
-                style={{ width: "calc(50% - 4px)", maxHeight: "calc(100vh - 60px)" }}>
+              <div className="flex items-center justify-start"
+                style={{ width: "calc(50% - 4px)" }}>
                 {(flipState ? flipState.bgRight : rightPage) != null ? (
                   <img
                     key={`right-${flipState ? flipState.bgRight : rightPage}`}
                     src={imgUrl(edition.id, (flipState ? flipState.bgRight : rightPage)!)}
                     alt="page droite"
                     className="rounded-r-sm shadow-2xl block"
-                    style={{ maxWidth: "100%", maxHeight: "calc(100vh - 60px)", width: "auto", height: "auto" }}
+                    style={{
+                      maxWidth: `calc((50vw - 8px) * ${zoom})`,
+                      maxHeight: `calc((100vh - 60px) * ${zoom})`,
+                      width: "auto", height: "auto",
+                    }}
                     draggable={false}
                   />
                 ) : (
-                  <div style={{ width: "100%", height: "calc(100vh - 60px)" }} />
+                  <div style={{ width: `calc((50vw - 8px) * ${zoom})`, height: `calc((100vh - 60px) * ${zoom})` }} />
                 )}
               </div>
             </div>
@@ -707,8 +715,6 @@ export function DemoEditionReader() {
                   position: "absolute",
                   top: 0, bottom: 0,
                   width: "calc(50% - 4px)",
-                  /* Pour aller en avant, la carte est sur la droite et pivote à gauche */
-                  /* Pour reculer, la carte est sur la gauche et pivote à droite */
                   ...(flipState.dir === "fwd"
                     ? { right: 0, transformOrigin: "left center" }
                     : { left: 0, transformOrigin: "right center" }
@@ -724,7 +730,11 @@ export function DemoEditionReader() {
                       WebkitBackfaceVisibility: "hidden",
                     }}>
                     <img src={imgUrl(edition.id, flipState.frontPage)} alt=""
-                      style={{ maxWidth: "100%", maxHeight: "calc(100vh - 60px)", width: "auto", height: "auto" }}
+                      style={{
+                        maxWidth: `calc((50vw - 8px) * ${zoom})`,
+                        maxHeight: `calc((100vh - 60px) * ${zoom})`,
+                        width: "auto", height: "auto",
+                      }}
                       className="shadow-2xl" draggable={false} />
                     {/* Ombre de courbure */}
                     <div className="absolute inset-0" style={{
@@ -744,7 +754,9 @@ export function DemoEditionReader() {
                     }}>
                     <img src={imgUrl(edition.id, flipState.backPage)} alt=""
                       style={{
-                        maxWidth: "100%", maxHeight: "calc(100vh - 60px)", width: "auto", height: "auto",
+                        maxWidth: `calc((50vw - 8px) * ${zoom})`,
+                        maxHeight: `calc((100vh - 60px) * ${zoom})`,
+                        width: "auto", height: "auto",
                         transform: "scaleX(-1)",
                       }}
                       className="shadow-2xl" draggable={false} />
