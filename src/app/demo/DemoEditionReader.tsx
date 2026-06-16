@@ -528,8 +528,21 @@ export function DemoEditionReader() {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
         </a>
 
-        {/* Right */}
-        <div className="flex items-center gap-1">
+        {/* Right — mode de lecture + zoom */}
+        <div className="flex items-center gap-2">
+          {/* Mode de lecture */}
+          <div className={`hidden sm:flex items-center gap-1 p-1 rounded-xl border ${theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"}`}>
+            {([
+              { value: "mini"    as ReadMode, label: "Mini",    icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="7" y="3" width="10" height="18" rx="1"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="14" x2="12" y2="14"/></svg> },
+              { value: "continu" as ReadMode, label: "Continu", icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg> },
+              { value: "livre"   as ReadMode, label: "Livre",   icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M4 4h7v16H4z"/><path d="M13 4h7v16h-7z"/></svg> },
+            ]).map((m) => (
+              <button key={m.value} onClick={() => setReadMode(m.value)} title={m.label}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${readMode === m.value ? "bg-gray-900 text-white" : theme === "sombre" ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"}`}>
+                {m.icon}<span className="hidden md:inline">{m.label}</span>
+              </button>
+            ))}
+          </div>
           {/* Zoom */}
           <div className={`hidden sm:flex items-center gap-1 px-2 py-1 rounded-full border ${theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200"}`}>
             <button onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))} disabled={zoom <= ZOOM_MIN} className={`p-1 rounded disabled:opacity-30 transition-colors ${btnHover}`}>
@@ -540,13 +553,6 @@ export function DemoEditionReader() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             </button>
           </div>
-          {/* Settings */}
-          <button onClick={() => setShowSettings((v) => !v)} className={`p-2 rounded-full transition-colors ${showSettings ? "bg-green-900 text-white" : btnHover}`}>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
         </div>
       </div>
 
@@ -557,48 +563,6 @@ export function DemoEditionReader() {
       <div className={`flex-1 overflow-auto flex items-start justify-center py-8 px-4 ${bgContent} relative`}
         style={{ touchAction: "pan-y pinch-zoom" }}
       >
-        {/* Settings panel */}
-        {showSettings && (
-          <>
-            <div className="fixed inset-0 z-30" onClick={() => setShowSettings(false)} />
-            <div className={`fixed right-4 top-[5rem] w-72 rounded-2xl shadow-2xl z-40 p-5 border ${theme === "sombre" ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-100 text-gray-900"}`}>
-
-              <p className="text-xs font-bold tracking-widest text-gray-400 mb-3">MODE DE LECTURE</p>
-              <div className="grid grid-cols-3 gap-2 mb-5">
-                {([
-                  { value: "mini"    as ReadMode, label: "Mini",    icon: <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="7" y="3" width="10" height="18" rx="1"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="14" x2="12" y2="14"/></svg> },
-                  { value: "continu" as ReadMode, label: "Continu", icon: <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="1.5"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg> },
-                  { value: "livre"   as ReadMode, label: "Livre",   icon: <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M4 4h7v16H4z"/><path d="M13 4h7v16h-7z"/></svg> },
-                ]).map((m) => (
-                  <button key={m.value} onClick={() => setReadMode(m.value)}
-                    className={`flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl text-xs font-medium transition-all ${readMode === m.value ? "bg-green-900 text-white" : theme === "sombre" ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                    {m.icon}{m.label}
-                  </button>
-                ))}
-              </div>
-
-              <p className="text-xs font-bold tracking-widest text-gray-400 mb-3">THÈME VISUEL</p>
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                {([
-                  { value: "clair" as Theme, label: "Clair", preview: "bg-white border-gray-200",   lines: "bg-gray-200" },
-                  { value: "sepia" as Theme, label: "Sépia", preview: "bg-amber-50 border-amber-200", lines: "bg-amber-300" },
-                  { value: "sombre"as Theme, label: "Sombre",preview: "bg-gray-900 border-gray-700", lines: "bg-gray-500" },
-                ]).map((th) => (
-                  <button key={th.value} onClick={() => setTheme(th.value)}
-                    className={`flex flex-col items-center gap-1.5 py-2 px-1 rounded-xl border-2 text-xs font-medium transition-all ${theme === th.value ? theme === "sombre" ? "border-white" : "border-gray-800" : "border-transparent"}`}>
-                    <div className={`w-12 h-9 rounded-lg border flex flex-col justify-center px-2 gap-1.5 ${th.preview}`}>
-                      <div className={`h-1 rounded-full ${th.lines}`} />
-                      <div className={`h-1 rounded-full w-3/4 ${th.lines}`} />
-                    </div>
-                    <span className={theme === "sombre" ? "text-gray-300" : "text-gray-600"}>{th.label}</span>
-                  </button>
-                ))}
-              </div>
-
-            </div>
-          </>
-        )}
-
         {/* Click zones gauche / droite */}
         {currentPage > 1 && (
           <div
