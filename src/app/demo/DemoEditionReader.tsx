@@ -211,7 +211,9 @@ export function DemoEditionReader() {
   const [zoom,          setZoom]          = useState(1);
   const [readMode,      setReadMode]      = useState<ReadMode>("continu");
   const [theme]                           = useState<Theme>("clair");
-  const [isFlipping,    setIsFlipping]    = useState(false);
+  const [flipAnim,      setFlipAnim]      = useState<"none" | "out" | "in">("none");
+  const [flipDir,       setFlipDir]       = useState<"fwd" | "bwd">("fwd");
+  const [flipFromPage,  setFlipFromPage]  = useState(1);
   const [showThumbnails,setShowThumbnails]= useState(false);
   const [showSearch,    setShowSearch]    = useState(false);
   const [showOffline,   setShowOffline]   = useState(false);
@@ -319,13 +321,20 @@ export function DemoEditionReader() {
   const goTo = useCallback((p: number) => {
     if (!edition || p < 1 || p > totalPages) return;
     if (navigator.vibrate) navigator.vibrate(20);
-    if (readMode === "livre" && !isFlipping) {
-      setIsFlipping(true);
-      setTimeout(() => { setCurrentPage(p); setIsFlipping(false); }, 300);
-    } else {
+    if (readMode === "livre" && flipAnim === "none") {
+      const dir: "fwd" | "bwd" = p > currentPage ? "fwd" : "bwd";
+      setFlipDir(dir);
+      setFlipFromPage(currentPage);
+      setFlipAnim("out");
+      setTimeout(() => {
+        setCurrentPage(p);
+        setFlipAnim("in");
+        setTimeout(() => setFlipAnim("none"), 220);
+      }, 220);
+    } else if (readMode !== "livre") {
       setCurrentPage(p);
     }
-  }, [edition, totalPages, readMode, isFlipping]);
+  }, [edition, totalPages, readMode, currentPage, flipAnim]);
 
   const goNext = useCallback(() => goTo(currentPage + 1), [currentPage, goTo]);
   const goBack = useCallback(() => goTo(currentPage - 1), [currentPage, goTo]);
@@ -571,7 +580,7 @@ export function DemoEditionReader() {
       {/* ── CONTENT ─────────────────────────────────────────────────────── */}
       <div
         ref={contentRef}
-        className={`flex-1 overflow-auto flex items-start justify-center ${readMode === "continu" ? "p-0" : "py-6 px-4"} ${bgContent}`}
+        className={`flex-1 overflow-auto flex items-center justify-center ${readMode === "continu" ? "p-0 items-start" : ""} ${bgContent}`}
         style={{ touchAction: "pan-y pinch-zoom" }}
         onClick={(e) => {
           if (readMode === "continu") return;
@@ -590,15 +599,48 @@ export function DemoEditionReader() {
             ))}
           </div>
         ) : (
-          <div className={`flex transition-opacity duration-300 ${isFlipping ? "opacity-40" : "opacity-100"}`}>
-            {currentPage > 1 && (
-              <img src={imgUrl(edition.id, currentPage - 1)} alt={`Page ${currentPage - 1}`}
-                className="rounded-l-sm shadow-xl"
-                style={{ height: `calc((100vh - 56px) * ${zoom})`, width: "auto" }} draggable={false} />
+          /* ── Mode Livre : page centrée + animation flip 3D réaliste ── */
+          <div className="relative flex items-center justify-center w-full h-full" style={{ perspective: "1800px" }}>
+            {/* Page de fond (nouvelle page qui se dévoile) */}
+            <img
+              key={`bg-${currentPage}`}
+              src={imgUrl(edition.id, currentPage)}
+              alt={`Page ${currentPage}`}
+              className="shadow-2xl rounded-sm"
+              style={{ maxHeight: `calc(100vh - 60px)`, maxWidth: "100%", width: "auto", height: "auto", transform: `scale(${zoom})`, transformOrigin: "center center" }}
+              draggable={false}
+            />
+            {/* Page animée qui tourne (comme une vraie page de livre) */}
+            {flipAnim !== "none" && (
+              <div
+                className="absolute inset-0 flex items-center justify-center"
+                style={{ perspective: "1800px" }}
+              >
+                <div style={{
+                  transformOrigin: flipDir === "fwd" ? "left center" : "right center",
+                  animation: flipAnim === "out"
+                    ? `${flipDir === "fwd" ? "bookFlipOutFwd" : "bookFlipOutBwd"} 220ms cubic-bezier(.4,0,.6,1) forwards`
+                    : `${flipDir === "fwd" ? "bookFlipInFwd"  : "bookFlipInBwd"}  220ms cubic-bezier(.4,0,.6,1) forwards`,
+                  position: "relative",
+                  display: "inline-block",
+                }}>
+                  <img
+                    src={imgUrl(edition.id, flipAnim === "out" ? flipFromPage : currentPage)}
+                    alt="page"
+                    className="shadow-2xl rounded-sm"
+                    style={{ maxHeight: `calc(100vh - 60px)`, maxWidth: "100%", width: "auto", height: "auto", transform: `scale(${zoom})`, transformOrigin: "center center", display: "block" }}
+                    draggable={false}
+                  />
+                  {/* Ombre qui simule la courbure de la page */}
+                  <div style={{
+                    position: "absolute", inset: 0, pointerEvents: "none", borderRadius: "2px",
+                    background: flipDir === "fwd"
+                      ? "linear-gradient(to left, rgba(0,0,0,0) 60%, rgba(0,0,0,0.22) 100%)"
+                      : "linear-gradient(to right, rgba(0,0,0,0) 60%, rgba(0,0,0,0.22) 100%)"
+                  }} />
+                </div>
+              </div>
             )}
-            <img src={imgUrl(edition.id, currentPage)} alt={`Page ${currentPage}`}
-              className={`shadow-2xl ${currentPage > 1 ? "rounded-r-sm" : "rounded-sm"}`}
-              style={{ height: `calc((100vh - 56px) * ${zoom})`, width: "auto" }} draggable={false} />
           </div>
         )}
       </div>
@@ -652,6 +694,27 @@ export function DemoEditionReader() {
       <style jsx global>{`
         @keyframes fade-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
         .animate-fade-in { animation: fade-in 0.2s ease-out; }
+
+        @keyframes bookFlipOutFwd {
+          0%   { transform: rotateY(0deg);   box-shadow: 0 0 0 rgba(0,0,0,0); }
+          60%  { box-shadow: -18px 0 28px rgba(0,0,0,0.25); }
+          100% { transform: rotateY(-90deg); box-shadow: 0 0 0 rgba(0,0,0,0); }
+        }
+        @keyframes bookFlipInFwd {
+          0%   { transform: rotateY(90deg);  box-shadow: 0 0 0 rgba(0,0,0,0); }
+          40%  { box-shadow: -18px 0 28px rgba(0,0,0,0.2); }
+          100% { transform: rotateY(0deg);   box-shadow: 0 0 0 rgba(0,0,0,0); }
+        }
+        @keyframes bookFlipOutBwd {
+          0%   { transform: rotateY(0deg);   box-shadow: 0 0 0 rgba(0,0,0,0); }
+          60%  { box-shadow: 18px 0 28px rgba(0,0,0,0.25); }
+          100% { transform: rotateY(90deg);  box-shadow: 0 0 0 rgba(0,0,0,0); }
+        }
+        @keyframes bookFlipInBwd {
+          0%   { transform: rotateY(-90deg); box-shadow: 0 0 0 rgba(0,0,0,0); }
+          40%  { box-shadow: 18px 0 28px rgba(0,0,0,0.2); }
+          100% { transform: rotateY(0deg);   box-shadow: 0 0 0 rgba(0,0,0,0); }
+        }
       `}</style>
     </div>
   );
