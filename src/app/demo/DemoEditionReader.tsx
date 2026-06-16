@@ -657,7 +657,7 @@ export function DemoEditionReader() {
            *               la page GAUCHE tourne vers la droite (bwd)
            */
           <div className="relative flex items-center justify-center w-full min-h-full"
-            style={{ perspective: "2400px", alignItems: zoom > 1 ? "flex-start" : "center" }}>
+            style={{ alignItems: zoom > 1 ? "flex-start" : "center" }}>
 
             {/* ── Spread statique (affiché hors animation OU en arrière-plan) ── */}
             <div className="flex items-stretch justify-center" style={{ width: "100%" }}>
@@ -710,7 +710,7 @@ export function DemoEditionReader() {
 
             {/* ── Carte flip 3D (superposée pendant l'animation) ── */}
             {flipState && (
-              <div className="absolute inset-0 pointer-events-none" style={{ perspective: "2400px" }}>
+              <div className="absolute inset-0 pointer-events-none" style={{ perspective: "600px" }}>
                 <div style={{
                   position: "absolute",
                   top: 0, bottom: 0,
@@ -736,12 +736,12 @@ export function DemoEditionReader() {
                         width: "auto", height: "auto",
                       }}
                       className="shadow-2xl" draggable={false} />
-                    {/* Ombre de courbure */}
-                    <div className="absolute inset-0" style={{
+                    {/* Ombre de courbure animée — peak à 50% de l'animation */}
+                    <div className="absolute inset-0 pointer-events-none" style={{
                       background: flipState.dir === "fwd"
-                        ? "linear-gradient(to left, transparent 40%, rgba(0,0,0,0.18) 100%)"
-                        : "linear-gradient(to right, transparent 40%, rgba(0,0,0,0.18) 100%)",
-                      pointerEvents: "none",
+                        ? "linear-gradient(to left, transparent 30%, rgba(0,0,0,0.32) 100%)"
+                        : "linear-gradient(to right, transparent 30%, rgba(0,0,0,0.32) 100%)",
+                      animation: "curlShadow 700ms ease-in-out forwards",
                     }} />
                   </div>
                   {/* Face ARRIÈRE : nouvelle page (scaleX(-1) compense le miroir) */}
@@ -760,6 +760,14 @@ export function DemoEditionReader() {
                         transform: "scaleX(-1)",
                       }}
                       className="shadow-2xl" draggable={false} />
+                    {/* Légère ombre d'atterrissage sur la face arrière */}
+                    <div className="absolute inset-0 pointer-events-none" style={{
+                      background: flipState.dir === "fwd"
+                        ? "linear-gradient(to right, transparent 30%, rgba(0,0,0,0.22) 100%)"
+                        : "linear-gradient(to left, transparent 30%, rgba(0,0,0,0.22) 100%)",
+                      animation: "landShadow 700ms ease-in-out forwards",
+                      transform: "scaleX(-1)",
+                    }} />
                   </div>
                 </div>
               </div>
@@ -818,20 +826,29 @@ export function DemoEditionReader() {
         @keyframes fade-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
         .animate-fade-in { animation: fade-in 0.2s ease-out; }
 
-        /* Page se soulève doucement, accélère au milieu, se dépose doucement */
         @keyframes bookFlipFwd {
-          0%   { transform: rotateY(0deg);     box-shadow: none; }
-          20%  { transform: rotateY(-30deg);   box-shadow: -4px 0 16px rgba(0,0,0,0.12); }
-          50%  { transform: rotateY(-90deg);   box-shadow: -14px 0 32px rgba(0,0,0,0.28); }
-          80%  { transform: rotateY(-150deg);  box-shadow: -4px 0 16px rgba(0,0,0,0.12); }
-          100% { transform: rotateY(-180deg);  box-shadow: none; }
+          0%   { transform: rotateY(0deg)    scaleX(1);    box-shadow: none; }
+          20%  { transform: rotateY(-30deg)  scaleX(0.97); box-shadow: -6px 2px 18px rgba(0,0,0,0.18); }
+          50%  { transform: rotateY(-90deg)  scaleX(0.82); box-shadow: -20px 4px 48px rgba(0,0,0,0.40); }
+          80%  { transform: rotateY(-150deg) scaleX(0.97); box-shadow: -6px 2px 18px rgba(0,0,0,0.18); }
+          100% { transform: rotateY(-180deg) scaleX(1);    box-shadow: none; }
         }
         @keyframes bookFlipBwd {
-          0%   { transform: rotateY(0deg);    box-shadow: none; }
-          20%  { transform: rotateY(30deg);   box-shadow: 4px 0 16px rgba(0,0,0,0.12); }
-          50%  { transform: rotateY(90deg);   box-shadow: 14px 0 32px rgba(0,0,0,0.28); }
-          80%  { transform: rotateY(150deg);  box-shadow: 4px 0 16px rgba(0,0,0,0.12); }
-          100% { transform: rotateY(180deg);  box-shadow: none; }
+          0%   { transform: rotateY(0deg)   scaleX(1);    box-shadow: none; }
+          20%  { transform: rotateY(30deg)  scaleX(0.97); box-shadow: 6px 2px 18px rgba(0,0,0,0.18); }
+          50%  { transform: rotateY(90deg)  scaleX(0.82); box-shadow: 20px 4px 48px rgba(0,0,0,0.40); }
+          80%  { transform: rotateY(150deg) scaleX(0.97); box-shadow: 6px 2px 18px rgba(0,0,0,0.18); }
+          100% { transform: rotateY(180deg) scaleX(1);    box-shadow: none; }
+        }
+        /* Ombre de courbure sur la face avant : invisible → forte → invisible */
+        @keyframes curlShadow {
+          0%, 100% { opacity: 0; }
+          40%, 60% { opacity: 1; }
+        }
+        /* Ombre d'atterrissage sur la face arrière : inverse */
+        @keyframes landShadow {
+          0%, 100% { opacity: 0; }
+          40%, 60% { opacity: 0.7; }
         }
       `}</style>
     </div>
