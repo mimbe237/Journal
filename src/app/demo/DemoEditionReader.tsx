@@ -220,7 +220,6 @@ export function DemoEditionReader() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <p className="text-red-400">{error || "Édition introuvable"}</p>
-          <a href="/" className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Retour à l'accueil</a>
         </div>
       </div>
     );
@@ -305,7 +304,9 @@ export function DemoEditionReader() {
           </CtrlBtn>
 
           <a
-            href="/auth/register"
+            href="https://www.offresopecam.online/"
+            target="_blank"
+            rel="noopener noreferrer"
             className="hidden sm:flex ml-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
           >
             S'abonner
@@ -407,7 +408,7 @@ export function DemoEditionReader() {
           <span className="hidden sm:inline text-gray-500">— Aperçu démo</span>
         </div>
         <div className="flex items-center gap-3">
-          <a href="/auth/register" className="sm:hidden px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors">
+          <a href="https://www.offresopecam.online/" target="_blank" rel="noopener noreferrer" className="sm:hidden px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors">
             S'abonner
           </a>
           <span className="hidden sm:inline">← → Naviguer · F Plein écran · +/- Zoom</span>
