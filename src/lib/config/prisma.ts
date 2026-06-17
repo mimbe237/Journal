@@ -34,7 +34,8 @@ export const prisma =
 
 const runtimeMigrationsPromise = ensureSubscriptionRuntimeMigrations(prisma).catch((error) => {
   console.error("[prisma] runtime migrations failed", error);
-  throw error;
+  // Ne jamais rejeter : cela bloquerait toutes les APIs qui utilisent prismaRuntimeReady.
+  // Les erreurs sont loggées, le DDL est géré par scripts/ensure-db.js avant le build.
 });
 
 export async function ensurePrismaRuntimeMigrations() {

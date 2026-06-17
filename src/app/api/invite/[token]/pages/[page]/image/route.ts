@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 
-import { prismaRuntimeReady } from "@/lib/config/prisma";
 import { getGuestEditionByToken } from "@/modules/guest-editions/guestEditionService";
 import { fileStorageProvider } from "@/services/fileStorage";
 
@@ -12,7 +11,6 @@ export async function GET(
   { params }: { params: Promise<{ token: string; page: string }> }
 ) {
   try {
-    await prismaRuntimeReady;
 
     const { token, page } = await params;
 

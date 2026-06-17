@@ -1,5 +1,5 @@
 import { GuestEdition, Prisma } from "@prisma/client";
-import { prisma, prismaRuntimeReady } from "@/lib/config/prisma";
+import { prisma } from "@/lib/config/prisma";
 
 const editionSelect = {
   id: true,
@@ -17,8 +17,6 @@ type GuestEditionWithEdition = GuestEdition & {
 };
 
 export async function getAllGuestEditions(): Promise<GuestEditionWithEdition[]> {
-  await prismaRuntimeReady;
-
   return prisma.guestEdition.findMany({
     orderBy: { dayOfWeek: "asc" },
     include: {
@@ -32,8 +30,6 @@ export async function getAllGuestEditions(): Promise<GuestEditionWithEdition[]> 
 export async function getGuestEditionByToken(
   token: string
 ): Promise<GuestEditionWithEdition | null> {
-  await prismaRuntimeReady;
-
   const slot = await prisma.guestEdition.findUnique({
     where: { publicToken: token },
     include: {
@@ -55,8 +51,6 @@ export async function updateGuestEditionSlot(
   id: string,
   editionId: string | null
 ): Promise<GuestEditionWithEdition> {
-  await prismaRuntimeReady;
-
   if (editionId !== null) {
     const edition = await prisma.edition.findUnique({
       where: { id: editionId },
@@ -88,8 +82,6 @@ export async function updateGuestEditionSlot(
 export async function getGuestEditionById(
   id: string
 ): Promise<GuestEdition | null> {
-  await prismaRuntimeReady;
-
   return prisma.guestEdition.findUnique({
     where: { id },
   });

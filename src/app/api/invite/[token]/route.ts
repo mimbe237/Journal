@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { prismaRuntimeReady } from "@/lib/config/prisma";
 import { getGuestEditionByToken } from "@/modules/guest-editions/guestEditionService";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +9,6 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    await prismaRuntimeReady;
-
     const { token } = await params;
 
     const slot = await getGuestEditionByToken(token);
