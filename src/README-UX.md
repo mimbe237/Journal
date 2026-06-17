@@ -1,0 +1,22 @@
+# Design system & UX (version simplifiée)
+
+- Couleurs (utiliser les classes Tailwind proches ou étendre si besoin) :
+  - Primaire : `emerald` (CTA, boutons principaux) → `bg-emerald-500`, `text-emerald-950`.
+  - Secondaire : `slate` clair pour fonds de cartes → `bg-white`, `border-slate-200`.
+  - Fond global : `bg-slate-50`.
+  - Texte principal : `text-slate-900`, texte secondaire : `text-slate-600`.
+  - État succès : `text-emerald-600`, danger : `text-red-600`, info : `text-blue-600`.
+- Typo / hiérarchie :
+  - h1: `text-3xl font-semibold`, h2: `text-2xl font-semibold`, h3: `text-xl font-semibold`.
+  - Paragraphe : `text-slate-700`.
+  - Petits textes / labels : `text-sm text-slate-600`.
+- Espacements : préférer `p-4`, `p-6`, `gap-4`, `gap-6`.
+- Composants UI : `Button`, `Card`, `PageHeader`, `Input/Label/Select`, `LoadingState`, `ErrorState` (cf. `src/components/ui`).
+- UX clés :
+  - Cohérence des marges et alignements.
+  - Contrastes suffisants (fond clair, texte foncé ; ou inverse dans le lecteur sombre).
+  - Feedback clair (loading, erreurs).
+- TODO :
+  - Mode sombre/thèmes.
+  - Templates email/sms alignés sur la charte.
+  - Internationalisation (i18n).

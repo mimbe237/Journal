@@ -1,0 +1,390 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { ButtonPrimary } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { EditionType } from "@prisma/client";
+import { logClientError } from "@/lib/observability/logClientError";
+import { CheckCircleIcon, ExclamationTriangleIcon } from "@heroicons/react/24/solid";
+
+type UploadState = "idle" | "uploading" | "success" | "error";
+type UploadStep = "upload" | "conversion" | "database" | "complete";
+
+interface JournalType {
+  id: string;
+  name: string;
+  frequency: EditionType;
+  unitPrice: number;
+  monthlyPrice?: number;
+  sixMonthPrice?: number;
+  yearlyPrice?: number;
+  titleTemplate?: string | null;
+}
+
+export default function AdminEditionsPage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [titre, setTitre] = useState("");
+  const [type, setType] = useState<EditionType>(EditionType.QUOTIDIEN);
+  const [datePublication, setDatePublication] = useState(new Date().toISOString().split("T")[0]);
+  const [prix, setPrix] = useState<string>("");
+  const [state, setState] = useState<UploadState>("idle");
+  const [currentStep, setCurrentStep] = useState<UploadStep | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [editionId, setEditionId] = useState<string | null>(null);
+  const [hint, setHint] = useState<string | null>(null);
+
+  const [journalTypes, setJournalTypes] = useState<JournalType[]>([]);
+  const [selectedJournalTypeId, setSelectedJournalTypeId] = useState<string>("");
+  const [lastErrorId, setLastErrorId] = useState<string | null>(null);
+  const selectedJournal = journalTypes.find((j) => j.id === selectedJournalTypeId);
+
+  const renderTitle = (template: string | null | undefined, publicationDate: string, journalName: string, frequency?: EditionType) => {
+    if (!template) return titre || "";
+    const d = new Date(publicationDate);
+    const dateShort = d.toLocaleDateString("fr-FR");
+    const dateLong = d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+    return template
+      .replace(/{{journal}}/g, journalName)
+      .replace(/{{date_long}}/g, dateLong)
+      .replace(/{{date}}/g, dateShort)
+      .replace(/{{frequency}}/g, frequency ? String(frequency) : "");
+  };
+
+  useEffect(() => {
+    fetch("/api/admin/journal-types")
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !Array.isArray(data)) {
+          console.error("Failed to fetch journal types", data);
+          setMessage("Impossible de charger les types de journaux (HTTP " + res.status + ")");
+          setJournalTypes([]);
+          return;
+        }
+        setJournalTypes(data);
+        if (data.length > 0) {
+          setSelectedJournalTypeId(data[0].id);
+          setTitre(renderTitle(data[0].titleTemplate, datePublication, data[0].name, data[0].frequency));
+          setType(data[0].frequency);
+          setPrix(data[0].unitPrice?.toString() ?? "");
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch journal types", err);
+        setMessage("Impossible de charger les types de journaux.");
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedJournal) return;
+    setType(selectedJournal.frequency);
+    setPrix(selectedJournal.unitPrice?.toString() ?? "");
+    setTitre(renderTitle(selectedJournal.titleTemplate, datePublication, selectedJournal.name, selectedJournal.frequency));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedJournalTypeId, datePublication]);
+
+  const steps = [
+    { key: "upload" as UploadStep, label: "Téléchargement du PDF" },
+    { key: "conversion" as UploadStep, label: "Conversion en images" },
+    { key: "database" as UploadStep, label: "Création de l'édition" },
+    { key: "complete" as UploadStep, label: "Terminé" },
+  ];
+
+  async function readJsonResponse(response: Response) {
+    const raw = await response.text();
+    if (!raw) {
+      return { data: null, raw, parseError: false } as const;
+    }
+    try {
+      return { data: JSON.parse(raw), raw, parseError: false } as const;
+    } catch (err) {
+      console.warn("Réponse non JSON lors de l'upload de l'édition", err, raw);
+      return { data: null, raw, parseError: true } as const;
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!file || !titre) {
+      setMessage("Fichier et titre requis");
+      return;
+    }
+
+    setHint("Conversion en cours : restez sur la page, cela peut prendre quelques secondes selon la taille du PDF.");
+    setState("uploading");
+    setMessage(null);
+    setEditionId(null);
+    setCurrentStep("upload");
+    setLastErrorId(null);
+
+    try {
+      // 1. Get Presigned URL for PDF
+      setCurrentStep("upload");
+      const presignRes = await fetch("/api/admin/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, contentType: file.type })
+      });
+      const presignData = await presignRes.json();
+      if (!presignRes.ok) throw new Error(presignData.error || "Erreur pré-signature");
+
+      // 2. Upload PDF directly to R2
+      try {
+        const uploadRes = await fetch(presignData.url, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": file.type }
+        });
+        if (!uploadRes.ok) throw new Error("Erreur lors de l'upload vers le stockage");
+      } catch (err: any) {
+        if (err.message === "Failed to fetch") {
+          throw new Error("Erreur CORS : Configurez les règles CORS sur votre bucket R2.");
+        }
+        throw err;
+      }
+
+      // 3. Send metadata to backend for processing
+      setCurrentStep("conversion");
+      const formData = new FormData();
+      formData.append("fileKey", presignData.key); // Send the key, not the file
+      if (coverImage) formData.append("coverImage", coverImage);
+      formData.append("titre", titre);
+      formData.append("type", type);
+      formData.append("datePublication", datePublication);
+      if (prix) formData.append("prix", prix);
+      if (selectedJournalTypeId) formData.append("journalTypeId", selectedJournalTypeId);
+
+      const res = await fetch("/api/admin/editions/upload", {
+        method: "POST",
+        body: formData
+      });
+
+      const { data: json, raw, parseError } = await readJsonResponse(res);
+      if (!res.ok) {
+        const errorDetail =
+          (json && (json.error || json.message)) ||
+          (parseError ? `Réponse non JSON: ${raw?.slice(0, 200) || "vide"}` : "Réponse vide");
+        const statusText = res.statusText || "";
+        throw new Error(
+          `Erreur upload (${res.status}${statusText ? ` ${statusText}` : ""}). ${errorDetail}`.trim()
+        );
+      }
+      if (!json || parseError) {
+        throw new Error("Réponse inattendue du serveur: JSON valide requis.");
+      }
+
+      setCurrentStep("database");
+
+      setCurrentStep("complete");
+      setState("success");
+      setMessage(`Édition créée : ${json.pageCount} pages converties`);
+      setEditionId(json.editionId);
+      setFile(null);
+      setCoverImage(null);
+      setTitre("");
+      setHint(null);
+      
+      // Réinitialiser l'étape après 2 secondes
+      setTimeout(() => setCurrentStep(null), 2000);
+    } catch (err: any) {
+      console.error("Erreur lors de l'upload de l'édition", err);
+      const errorMessage = err?.message ?? "Erreur upload";
+      const errorId = crypto.randomUUID();
+      setState("error");
+      setCurrentStep(null);
+      setMessage(errorMessage);
+      setHint(null);
+      setLastErrorId(errorId);
+      logClientError("Edition upload failed", {
+        errorId,
+        errorMessage,
+        fileName: file?.name,
+        fileSize: file?.size,
+        currentStep,
+      });
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 py-8 px-8">
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">Nouvelle édition</h1>
+              <p className="mt-2 text-slate-600">Uploadez un PDF pour créer une nouvelle édition</p>
+            </div>
+            <Link 
+              href="/admin/editions/list" 
+              className="text-sm text-emerald-600 hover:text-emerald-700 underline"
+            >
+              Voir toutes les éditions →
+            </Link>
+          </div>
+        </div>
+
+        <Card className="space-y-6 bg-white shadow-sm border border-slate-200">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Journal Type */}
+            <div>
+              <label className="block text-sm font-medium text-slate-900 mb-2">Journal / Publication</label>
+              <select
+                value={selectedJournalTypeId}
+                onChange={(e) => setSelectedJournalTypeId(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                required
+              >
+                <option value="" disabled>Sélectionner un journal</option>
+                {journalTypes.map((jt) => (
+                  <option key={jt.id} value={jt.id}>
+                    {jt.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Titre */}
+            <div>
+              <label className="block text-sm font-medium text-slate-900 mb-2">Titre de l'édition</label>
+              <input
+                type="text"
+                value={titre}
+                readOnly
+                placeholder="ex: Journal du 12 décembre"
+                className="w-full rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                required
+              />
+              <p className="mt-1 text-xs text-slate-500">Titre généré automatiquement selon le modèle du type sélectionné.</p>
+            </div>
+
+            {/* Date de publication */}
+            <div>
+              <label className="block text-sm font-medium text-slate-900 mb-2">Date de publication</label>
+              <input
+                type="date"
+                value={datePublication}
+                onChange={(e) => setDatePublication(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              />
+            </div>
+
+            {/* Fichier PDF */}
+            <div>
+              <label className="block text-sm font-medium text-slate-900 mb-2">Fichier PDF</label>
+              <div className="relative">
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="w-full rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600 file:rounded file:border-0 file:bg-emerald-600 file:px-3 file:py-1 file:text-white hover:border-emerald-500"
+                  required
+                />
+                {file && <p className="mt-2 text-sm text-emerald-600">✓ {file.name}</p>}
+              </div>
+            </div>
+
+            {/* Image de Une */}
+            <div>
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Image de Une (optionnel)
+              </label>
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setCoverImage(e.target.files?.[0] ?? null)}
+                  className="w-full rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600 file:rounded file:border-0 file:bg-emerald-600 file:px-3 file:py-1 file:text-white hover:border-emerald-500"
+                />
+                {coverImage && (
+                  <div className="mt-2">
+                    <p className="mb-2 text-sm text-emerald-600">✓ {coverImage.name}</p>
+                    <img 
+                      src={URL.createObjectURL(coverImage)} 
+                      alt="Aperçu" 
+                      className="h-32 w-auto rounded border border-slate-200 shadow-sm"
+                    />
+                  </div>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-slate-400">
+                Si non fournie, la première page du PDF sera utilisée
+              </p>
+            </div>
+
+            {message && (
+              <div
+                className={`rounded-xl border p-4 shadow-sm ${
+                  state === "success"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    : "border-rose-200 bg-rose-50 text-rose-900"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {state === "success" ? (
+                    <CheckCircleIcon className="h-6 w-6 flex-shrink-0 text-emerald-500" />
+                  ) : (
+                    <ExclamationTriangleIcon className="h-6 w-6 flex-shrink-0 text-rose-500" />
+                  )}
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">{message}</p>
+                    {state === "success" && editionId && (
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-emerald-700">
+                        <span>ID de l'édition :</span>
+                        <code className="rounded bg-emerald-100 px-2 py-1 font-mono text-sm text-emerald-800">
+                          {editionId}
+                        </code>
+                        <Link
+                          href="/admin/editions/list"
+                          className="font-medium text-emerald-700 underline-offset-4 hover:underline"
+                        >
+                          Voir la liste
+                        </Link>
+                      </div>
+                    )}
+                    {state === "error" && lastErrorId && (
+                      <p className="text-xs text-rose-600/80">Ref erreur : {lastErrorId}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            {hint && state === "uploading" && (
+              <div className="rounded-lg border border-amber-200 bg-amber-100 px-3 py-2 text-sm text-amber-900">
+                {hint}
+              </div>
+            )}
+
+            {/* Barre de progression */}
+            {state === "uploading" && currentStep && (
+              <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between text-sm text-slate-700">
+                  <span className="font-medium text-slate-900">Progression</span>
+                  <span className="text-slate-600">
+                    {steps.findIndex((s) => s.key === currentStep) + 1} / {steps.length}
+                  </span>
+                </div>
+                
+                {/* Barre de progression visuelle */}
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-400 ease-out"
+                    style={{
+                      width: `${((steps.findIndex((s) => s.key === currentStep) + 1) / steps.length) * 100}%`
+                    }}
+                  />
+                </div>
+
+              </div>
+            )}
+
+            <ButtonPrimary type="submit" disabled={state === "uploading"} className="w-full">
+              {state === "uploading" ? "Upload en cours..." : "Charger l'édition"}
+            </ButtonPrimary>
+          </form>
+
+        </Card>
+      </div>
+    </div>
+  );
+}
