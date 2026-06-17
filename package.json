@@ -1,0 +1,57 @@
+{
+  "name": "digital-journal-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "seed:users": "npx ts-node scripts/seedUsers.js",
+    "seed:journal-types": "npx ts-node scripts/seedJournalTypes.js",
+    "seed:email-templates": "npx ts-node prisma/seeds/seedEmailTemplates.ts",
+    "seed:guest-editions": "npx ts-node prisma/seeds/seedGuestEditions.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.948.0",
+    "@aws-sdk/s3-request-presigner": "^3.948.0",
+    "@heroicons/react": "^2.1.5",
+    "@prisma/client": "^5.22.0",
+    "@types/mime-types": "^3.0.1",
+    "bcrypt": "latest",
+    "clsx": "latest",
+    "date-fns": "latest",
+    "jsonwebtoken": "latest",
+    "lightningcss": "^1.30.2",
+    "lucide-react": "^0.561.0",
+    "mime-types": "^3.0.2",
+    "mjml": "^4.18.0",
+    "next": "^16.0.10",
+    "openai": "^6.15.0",
+    "pdfjs-dist": "^2.16.105",
+    "pg": "^8.16.3",
+    "react": "latest",
+    "react-dom": "latest",
+    "resend": "^6.6.0",
+    "sharp": "^0.34.5",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/bcrypt": "latest",
+    "@types/jsonwebtoken": "latest",
+    "@types/node": "latest",
+    "@types/react": "19.2.7",
+    "autoprefixer": "latest",
+    "eslint": "latest",
+    "postcss": "latest",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "latest"
+  },
+  "optionalDependencies": {
+    "canvas": "^3.2.0"
+  }
+}

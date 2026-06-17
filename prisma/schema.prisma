@@ -1,0 +1,1140 @@
+/// Schéma Prisma complet pour la plateforme d'abonnement du journal numérique.
+/// Convention : noms lisibles côté code, tables en snake_case via @@map pour propreté SQL.
+
+// ----- Générateur & datasource -----
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----- Enums -----
+
+/// Rôles utilisateurs (B2C, admin, et comptes liés à une entreprise).
+enum UserRole {
+  ABONNE
+  UTILISATEUR_ENTREPRISE
+  COMPTE_ENTREPRISE
+  FACTURATION
+  SUPPORT
+  SUPER_ADMIN
+  COMMERCIAL
+}
+
+/// Types d'abonnement disponibles.
+enum SubscriptionType {
+  MENSUEL
+  ANNUEL
+  TRIMESTRIEL
+  AUTRE
+  OFFERT
+  PROMOTIONNEL
+  TEST
+}
+
+/// Statuts d'abonnement.
+enum SubscriptionStatus {
+  ACTIF
+  EXPIRE
+  SUSPENDU
+}
+
+/// Source de l'abonnement (utile pour la BI / reporting).
+enum SubscriptionSource {
+  ONLINE
+  OFFLINE
+  CODE_PROMO
+  PARTENARIAT
+  AUTRE
+}
+
+/// Typologie d'édition du journal.
+enum EditionType {
+  QUOTIDIEN
+  HEBDOMADAIRE
+  MENSUEL
+  HORS_SERIE
+  SPECIAL
+}
+
+/// Type de remise d'un code promotionnel.
+enum DiscountType {
+  POURCENTAGE
+  MONTANT_FIXE
+}
+
+/// Types d'événements système (audit / journalisation).
+enum SystemEventType {
+  CONNEXION
+  LECTURE_EDITION
+  TENTATIVE_TELECHARGEMENT
+  CHANGEMENT_IP
+  REMBOURSEMENT
+  RENOUVELLEMENT_ABONNEMENT
+  CREATION_ABONNEMENT
+  ANNULATION_ABONNEMENT
+  AJUSTEMENT_ABONNEMENT
+  CREATION_COMPTE_ENTREPRISE
+  MODIFICATION_COMPTE_ENTREPRISE
+  AJOUT_UTILISATEUR_ENTREPRISE
+  SUPPRESSION_UTILISATEUR_ENTREPRISE
+  SUSPENSION_UTILISATEUR_ENTREPRISE
+  CHANGEMENT_ROLE_ENTREPRISE
+  INVITATION_ENTREPRISE_ENVOYEE
+  INVITATION_ENTREPRISE_ACCEPTEE
+  ACHAT_LICENCE_ENTREPRISE
+  AJUSTEMENT_LICENCE_ENTREPRISE
+  CREATION_CODE_PROMO
+  MODIFICATION_CODE_PROMO
+  UTILISATION_CODE_PROMO
+  CREATION_EDITION
+  CONVERSION_EDITION
+  RAPPEL_EXPIRATION_ABONNEMENT
+  EXECUTION_RAPPELS_EXPIRATION
+  VALIDATION_SOUMISSION_ABONNEMENT
+  REJET_SOUMISSION_ABONNEMENT
+  MODIFICATION_ABONNEMENT
+  SUPPRESSION_ABONNEMENT
+  SUPPRESSION_DEFINITIVE_ABONNEMENT
+  RESTAURATION_ABONNEMENT
+  AUTRE
+}
+
+/// Rôles des utilisateurs au sein d'une entreprise.
+enum EnterpriseUserRole {
+  ADMIN_PRIMAIRE
+  ADMIN_SECONDAIRE
+  MANAGER
+  UTILISATEUR
+  SUSPENDU
+}
+
+/// Types de transactions de licences entreprise.
+enum LicenseTransactionType {
+  ACHAT // Achat de nouvelles licences
+  AJUSTEMENT_ADMIN // Ajustement manuel (correction, geste commercial)
+  REMBOURSEMENT // Remboursement partiel
+  MIGRATION_INITIALE // Migration des données existantes
+}
+
+/// Statut d'un utilisateur au sein d'une entreprise.
+enum EnterpriseUserStatus {
+  INVITE
+  ACTIF
+  SUSPENDU
+  SUPPRIME
+}
+
+/// Statut des soumissions manuelles d'abonnement.
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Type de document justificatif.
+enum JustificatifType {
+  RECU_CAISSE
+  BULLETIN_ABONNEMENT
+  FACTURE
+  AUTRE
+}
+
+/// Statuts de transaction de paiement (préparation future PSP).
+enum PaymentStatus {
+  SUCCES
+  ECHEC
+  EN_ATTENTE
+}
+
+// ===== SEGMENTATION ABONNÉS (B2B/B2C) =====
+
+/// Type d'organisation pour la segmentation des entreprises.
+enum OrganizationType {
+  STARTUP // Startup / Scale-up
+  PME // Petites et moyennes entreprises
+  GRAND_GROUPE // Multinationales, holdings
+  ADMINISTRATION // Ministères, collectivités
+  ONG // ONG / Associations
+  EDUCATION // Universités, écoles, laboratoires
+  SANTE // Hôpitaux, cliniques, pharma
+  MEDIA // Médias, agences com/RP
+  PARTICULIER // Abonnés individuels B2C
+}
+
+/// Taille de l'organisation.
+enum OrganizationSize {
+  MICRO // 1-10 employés
+  SMALL // 11-50 employés
+  MEDIUM // 51-200 employés
+  LARGE // 200+ employés
+}
+
+/// Centres d'intérêt pour le ciblage.
+enum InterestCategory {
+  ECONOMIE // Business / Économie / Finance
+  TECH // Tech / Innovation / Digital
+  POLITIQUE // Politique / Fonction publique
+  SOCIETE // Société / Culture / ONG
+  EDUCATION // Éducation / Recherche
+  SPORT // Sport / Loisirs
+}
+
+// ===== CAMPAGNES PUBLICITAIRES =====
+
+/// Statut d'une campagne publicitaire.
+enum AdCampaignStatus {
+  DRAFT // Brouillon
+  SCHEDULED // Programmée
+  ACTIVE // En cours
+  PAUSED // Mise en pause
+  COMPLETED // Terminée
+  CANCELLED // Annulée
+}
+
+/// Canaux de diffusion publicitaire.
+enum AdChannel {
+  EMAIL_EDITION // Email de nouvelle édition
+  EMAIL_NEWSLETTER // Newsletter
+  IN_APP_BANNER // Bannière espace abonné
+  IN_APP_INTERSTITIAL // Interstitiel
+}
+
+// ----- Modèles -----
+
+/// Utilisateurs finaux et administrateurs. Peut appartenir à un compte entreprise.
+model User {
+  id                  String    @id @default(cuid())
+  nom                 String
+  email               String    @unique
+  motDePasseHash      String
+  telephone           String?
+  pays                String?
+  region              String? // Région géographique (pour ciblage pub)
+  role                UserRole
+  dateCreation        DateTime  @default(now())
+  dernierLoginAt      DateTime?
+  deletedAt           DateTime?
+  trashedUntil        DateTime?
+  enterpriseAccountId String?
+
+  // Segmentation / Centres d'intérêt (pour ciblage pub B2C)
+  interests InterestCategory[] @default([])
+
+  // Champs entreprise (si rattaché à une entreprise)
+  enterpriseRole           EnterpriseUserRole?
+  enterpriseStatus         EnterpriseUserStatus?
+  dateAssignmentEnterprise DateTime?
+  assignedById             String?
+  suspendedReason          String?
+  suspendedAt              DateTime?
+
+  enterpriseAccount         EnterpriseAccount?       @relation(fields: [enterpriseAccountId], references: [id])
+  adminOfEnterprise         EnterpriseAccount?       @relation("AdminPrimaire")
+  subscriptions             Subscription[]
+  systemEvents              SystemEvent[]
+  readingSessions           ReadingSession[]
+  paymentTransactions       PaymentTransaction[]
+  enterpriseAuditLogs       EnterpriseAuditLog[]     @relation("AuditPerformedBy")
+  enterpriseAuditLogsTarget EnterpriseAuditLog[]     @relation("AuditTargetUser")
+  passwordResetTokens       PasswordResetToken[]
+  emailVerificationTokens   EmailVerificationToken[]
+  readingProgress           ReadingProgress[]
+  notificationPreferences   NotificationPreferences?
+
+  // Relations pour les soumissions manuelles
+  submittedManualSubscriptions ManualSubscriptionSubmission[] @relation("SubmittedBy")
+  validatedManualSubscriptions ManualSubscriptionSubmission[] @relation("ValidatedBy")
+
+  // Transactions de licences créées par cet utilisateur
+  licenseTransactionsCreated EnterpriseLicenseTransaction[] @relation("LicenseTransactionCreator")
+
+  // Tracking publicitaire
+  adImpressions AdImpression[]
+  adClicks      AdClick[]
+
+  @@index([role])
+  @@index([email])
+  @@index([dateCreation])
+  @@index([enterpriseAccountId])
+  @@index([deletedAt])
+  @@index([role, enterpriseAccountId, deletedAt])
+  @@map("users")
+}
+
+/// Compte entreprise B2B permettant plusieurs utilisateurs.
+model EnterpriseAccount {
+  id               String  @id @default(cuid())
+  nom              String
+  contactEmail     String
+  contactTelephone String?
+
+  // Gestion des licences
+  // LEGACY: nombreUtilisateursInclus sera migré vers licencesAchetees
+  nombreUtilisateursInclus Int @default(0) // DEPRECATED - utiliser licencesAchetees
+  licencesAchetees         Int @default(0) // Total licences achetées (via transactions)
+
+  dateCreation DateTime @default(now())
+
+  // Admin Primaire (acheteur)
+  adminPrimaireId    String? @unique
+  adminPrimaireEmail String? // Email invité si pas encore accepté
+
+  // Compteurs de licences (calculés, mis à jour automatiquement)
+  nombreUtilisateursActifs  Int @default(0)
+  nombreUtilisateursInvites Int @default(0)
+
+  // ===== SEGMENTATION (Ciblage Pub) =====
+  organizationType OrganizationType? // Type d'organisation
+  organizationSize OrganizationSize? // Taille de l'organisation
+  sector           String? // Secteur d'activité (texte libre)
+  interests        InterestCategory[] @default([]) // Centres d'intérêt
+
+  // Informations de facturation
+  adresseFacturation String?
+  numeroSiret        String?
+
+  // Gouvernance et sécurité
+  ssoEnabled         Boolean  @default(false)
+  ssoProvider        String? // "google" | "microsoft" | "saml"
+  ssoConfig          Json? // Configuration SSO (clientId, tenantId, etc.)
+  domaineAutorise    String? // Domaine email autorisé (ex: @entreprise.com)
+  restrictionIp      Boolean  @default(false)
+  plagesIpAutorisees String[] // Liste des plages IP autorisées
+
+  // Niveau de service
+  niveauSla             String? // "standard" | "premium" | "enterprise"
+  contactDedieEmail     String?
+  contactDedieTelephone String?
+
+  // Statut
+  actif Boolean @default(true)
+  notes String? // Notes internes admin
+
+  // Audit
+  createdBy String? // Admin SUPER_ADMIN qui a créé
+
+  // Soft delete
+  deletedAt    DateTime?
+  trashedUntil DateTime?
+  deletedBy    String? // Admin qui a supprimé
+
+  adminPrimaire       User?                          @relation("AdminPrimaire", fields: [adminPrimaireId], references: [id])
+  users               User[]
+  subscriptions       Subscription[]
+  invitations         EnterpriseInvitation[]
+  submissions         ManualSubscriptionSubmission[]
+  auditLogs           EnterpriseAuditLog[]
+  licenseTransactions EnterpriseLicenseTransaction[]
+
+  @@map("enterprise_accounts")
+}
+
+/// Invitation pour rejoindre un compte entreprise.
+model EnterpriseInvitation {
+  id                  String             @id @default(cuid())
+  enterpriseAccountId String
+  email               String
+  role                EnterpriseUserRole @default(UTILISATEUR)
+  token               String             @unique
+  expireAt            DateTime
+  acceptedAt          DateTime?
+  acceptedByUserId    String?
+  createdAt           DateTime           @default(now())
+  createdBy           String // Admin qui a envoyé l'invite
+
+  enterpriseAccount EnterpriseAccount @relation(fields: [enterpriseAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([enterpriseAccountId, email])
+  @@index([token])
+  @@index([enterpriseAccountId])
+  @@map("enterprise_invitations")
+}
+
+/// Transactions de licences entreprise (achat, ajustement, remboursement).
+/// Chaque modification du quota de licences est tracée ici pour audit complet.
+model EnterpriseLicenseTransaction {
+  id                  String                 @id @default(cuid())
+  enterpriseAccountId String
+  type                LicenseTransactionType
+  delta               Int // +10 = achat 10 licences, -2 = retrait 2
+  reason              String? // "Renouvellement annuel 2025"
+  paymentRef          String? // "FAC-2025-0042" ou ID paiement
+  prixUnitaire        Decimal?               @db.Decimal(10, 2)
+  montantTotal        Decimal?               @db.Decimal(10, 2)
+  devise              String?                @default("XAF") @db.VarChar(3)
+  createdBy           String // userId de l'admin
+  createdAt           DateTime               @default(now())
+  meta                Json? // {invoiceUrl, notes, ...}
+
+  enterpriseAccount EnterpriseAccount @relation(fields: [enterpriseAccountId], references: [id], onDelete: Cascade)
+  creator           User              @relation("LicenseTransactionCreator", fields: [createdBy], references: [id])
+
+  @@index([enterpriseAccountId, createdAt])
+  @@index([createdBy])
+  @@map("enterprise_license_transactions")
+}
+
+/// Logs d'audit pour les actions entreprise.
+model EnterpriseAuditLog {
+  id                  String   @id @default(cuid())
+  enterpriseAccountId String
+  action              String // "INVITE_SENT", "USER_ADDED", "ROLE_CHANGED", etc.
+  targetUserId        String?
+  changedFields       Json? // {role: "UTILISATEUR" → "ADMIN_SECONDAIRE"}
+  reason              String?
+  performedBy         String
+  performedAt         DateTime @default(now())
+  ipAddress           String?
+  userAgent           String?
+
+  enterpriseAccount EnterpriseAccount @relation(fields: [enterpriseAccountId], references: [id], onDelete: Cascade)
+  performer         User              @relation("AuditPerformedBy", fields: [performedBy], references: [id])
+  targetUser        User?             @relation("AuditTargetUser", fields: [targetUserId], references: [id])
+
+  @@index([enterpriseAccountId])
+  @@index([performedBy])
+  @@index([targetUserId])
+  @@map("enterprise_audit_logs")
+}
+
+/// Abonnement individuel ou entreprise, relié à un utilisateur OU à un compte entreprise.
+model Subscription {
+  id                  String             @id @default(cuid())
+  type                SubscriptionType
+  statut              SubscriptionStatus
+  dateDebut           DateTime
+  dateFin             DateTime
+  montant             Decimal            @db.Decimal(10, 2)
+  devise              String             @db.VarChar(3)
+  source              SubscriptionSource
+  submissionId        String? // Référence si créée via soumission manuelle
+  userId              String?
+  enterpriseAccountId String?
+  promoCodeId         String?
+  planId              String? // Plan d'abonnement souscrit (optionnel)
+
+  deletedAt    DateTime?
+  trashedUntil DateTime?
+
+  user                User?                         @relation(fields: [userId], references: [id])
+  enterpriseAccount   EnterpriseAccount?            @relation(fields: [enterpriseAccountId], references: [id])
+  promoCode           PromoCode?                    @relation(fields: [promoCodeId], references: [id])
+  submission          ManualSubscriptionSubmission? @relation(fields: [submissionId], references: [id])
+  plan                SubscriptionPlan?             @relation(fields: [planId], references: [id])
+  paymentTransactions PaymentTransaction[]
+
+  @@index([userId, statut, dateFin])
+  @@index([submissionId])
+  @@index([enterpriseAccountId, statut, dateFin])
+  @@index([planId])
+  @@map("subscriptions")
+}
+
+/// Édition du journal (fichier PDF privé sur serveur ou bucket).
+model Edition {
+  id               String      @id @default(cuid())
+  titre            String
+  datePublication  DateTime
+  type             EditionType
+  cheminInternePdf String
+  cheminImageUne   String?
+  nombrePages      Int?
+  prix             Decimal?    @db.Decimal(10, 2)
+  devise           String?     @db.VarChar(3)
+  createdAt        DateTime    @default(now())
+  journalTypeId    String?
+
+  // Soft delete
+  deletedAt    DateTime?
+  trashedUntil DateTime?
+  deletedBy    String? // Admin qui a supprimé
+
+  journalType JournalType? @relation(fields: [journalTypeId], references: [id])
+
+  // Contenu enrichi (Grand Titres & Mots-clés)
+  headlines    Json?       // Liste des grands titres [{ title: string, page: number }]
+  tags         String[]    // Mots-clés pour la recherche
+
+  readingSessions ReadingSession[]
+  readingProgress ReadingProgress[]
+  guestEditions   GuestEdition[]
+
+  @@map("editions")
+}
+
+/// Édition invitée : associe un jour de la semaine à une édition accessible publiquement sans authentification.
+/// Il existe exactement 7 enregistrements permanents (un par jour, lundi=1 à dimanche=7).
+model GuestEdition {
+  id          String    @id @default(cuid())
+  dayOfWeek   Int       @unique // 1=Lundi, 2=Mardi, 3=Mercredi, 4=Jeudi, 5=Vendredi, 6=Samedi, 7=Dimanche
+  dayLabel    String    // "Lundi", "Mardi", etc.
+  editionId   String?
+  publicToken String    @unique @default(cuid())
+  assignedAt  DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  edition     Edition?  @relation(fields: [editionId], references: [id], onDelete: SetNull)
+
+  @@index([dayOfWeek])
+  @@index([publicToken])
+  @@map("guest_editions")
+}
+
+/// Codes promotionnels pour les campagnes marketing.
+model PromoCode {
+  id                       String       @id @default(cuid())
+  code                     String       @unique
+  typeRemise               DiscountType
+  valeurRemise             Decimal      @db.Decimal(10, 2)
+  dateDebut                DateTime
+  dateFin                  DateTime
+  nombreUtilisationsMax    Int?
+  nombreUtilisationsActuel Int          @default(0)
+  actif                    Boolean      @default(true)
+  createdAt                DateTime     @default(now())
+
+  subscriptions Subscription[]
+
+  @@index([actif, dateFin])
+  @@map("promo_codes")
+}
+
+/// Session de lecture d'une édition (pour statistiques et détection de fraude).
+model ReadingSession {
+  id             String   @id @default(cuid())
+  userId         String
+  editionId      String
+  pageDebut      Int
+  pageFin        Int
+  dateHeureDebut DateTime
+  dateHeureFin   DateTime
+  adresseIp      String
+  userAgent      String
+
+  user    User    @relation(fields: [userId], references: [id])
+  edition Edition @relation(fields: [editionId], references: [id])
+
+  @@index([userId, editionId, dateHeureDebut])
+  @@map("reading_sessions")
+}
+
+/// Événements système/audit (connexion, lecture, changements sensibles, etc.).
+model SystemEvent {
+  id            String          @id @default(cuid())
+  typeEvenement SystemEventType
+  userId        String?
+  ip            String?
+  createdAt     DateTime        @default(now())
+  meta          Json
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([typeEvenement, createdAt])
+  @@index([userId, createdAt])
+  @@map("system_events")
+}
+
+/// Préparation à l'intégration PSP : trace les transactions liées aux abonnements.
+model PaymentTransaction {
+  id               String        @id @default(cuid())
+  userId           String?
+  subscriptionId   String
+  montant          Decimal       @db.Decimal(10, 2)
+  devise           String        @db.VarChar(3)
+  statut           PaymentStatus
+  referenceExterne String?       @unique
+  createdAt        DateTime      @default(now())
+  user             User?         @relation(fields: [userId], references: [id])
+  subscription     Subscription  @relation(fields: [subscriptionId], references: [id])
+
+  @@index([subscriptionId, statut, createdAt])
+  @@map("payment_transactions")
+}
+
+/// Soumissions manuelles d'abonnement (papier, en personne, etc.).
+model ManualSubscriptionSubmission {
+  id           String           @id @default(cuid())
+  email        String
+  nom          String
+  telephone    String?
+  pays         String?
+  entrepriseId String? // NULL si abonné individuel
+  type         SubscriptionType // MENSUEL, ANNUEL, etc.
+  periode      String // "2025-01", "2025-12-20"
+  montant      Decimal          @db.Decimal(10, 2)
+  devise       String           @default("XOF") @db.VarChar(3)
+
+  // Statut du processus
+  statut     SubmissionStatus @default(PENDING)
+  motifRejet String? // Raison du rejet
+
+  // Métadonnées
+  soumisA     DateTime  @default(now())
+  soumisParId String? // ID de l'utilisateur (Staff) qui a soumis
+  validePar   String? // ID de l'utilisateur FACTURATION ou SUPPORT
+  valideA     DateTime? // Timestamp de validation/rejet
+
+  // Relations
+  submitter     User?                  @relation("SubmittedBy", fields: [soumisParId], references: [id])
+  validator     User?                  @relation("ValidatedBy", fields: [validePar], references: [id])
+  justificatifs DocumentJustificatif[]
+  subscriptions Subscription[] // Peut créer 1+ abonnements (renouvellements, etc.)
+
+  enterprise EnterpriseAccount? @relation(fields: [entrepriseId], references: [id], onDelete: SetNull)
+
+  @@index([email, statut])
+  @@index([statut, soumisA])
+  @@index([entrepriseId])
+  @@map("manual_subscriptions")
+}
+
+/// Documents justificatifs (reçus, bulletins, etc.) associés à une soumission.
+model DocumentJustificatif {
+  id            String           @id @default(cuid())
+  submissionId  String
+  type          JustificatifType // RECU_CAISSE, BULLETIN_ABONNEMENT, etc.
+  nomFichier    String // Nom original du fichier
+  cheminFichier String // Chemin de stockage
+  tailleMo      Float // Taille en MB
+
+  uploadA DateTime @default(now())
+
+  submission ManualSubscriptionSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@map("justificatifs")
+}
+
+/// Fréquence de publication d'un type de journal.
+enum JournalFrequency {
+  QUOTIDIEN
+  HEBDOMADAIRE
+  MENSUEL
+  HORS_SERIE
+  SPECIAL
+}
+
+/// Types de journaux (ex: Cameroon Tribune, Nyanga Magazine) avec grille tarifaire.
+model JournalType {
+  id            String           @id @default(cuid())
+  name          String           @unique
+  frequency     JournalFrequency
+  unitPrice     Decimal          @db.Decimal(10, 2)
+  titleTemplate String?          @db.VarChar(255)
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  // Soft delete
+  deletedAt    DateTime?
+  trashedUntil DateTime?
+  deletedBy    String? // Admin qui a supprimé
+
+  editions          Edition[]
+  subscriptionPlans SubscriptionPlanJournalType[]
+
+  @@map("journal_types")
+}
+
+model Currency {
+  code      String   @id @db.VarChar(3)
+  name      String
+  isActive  Boolean  @default(true)
+  rateToXaf Decimal  @db.Decimal(18, 6)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("currencies")
+}
+
+// ----- Email System -----
+
+/// Statut d'un modèle d'email.
+enum EmailTemplateStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// Catégorie d'email (pour organisation).
+enum EmailCategory {
+  TRANSACTIONAL
+  MARKETING
+  NOTIFICATION
+  SYSTEM
+}
+
+/// Statut d'un envoi d'email.
+enum EmailSendStatus {
+  PENDING
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  FAILED
+  COMPLAINED
+}
+
+/// Type de trigger pour automatisations.
+enum EmailTriggerType {
+  INSCRIPTION
+  ABONNEMENT_ACTIF
+  ABONNEMENT_EXPIRE
+  ABONNEMENT_EXPIRE_BIENTOT
+  PAIEMENT_RECU
+  PAIEMENT_ECHOUE
+  NOUVELLE_EDITION
+  BIENVENUE_ENTREPRISE
+  INVITATION_ENTREPRISE
+  MANUEL
+}
+
+/// Layout réutilisable (header/footer).
+model EmailLayout {
+  id          String   @id @default(cuid())
+  nom         String   @unique
+  description String?
+  mjml        String   @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  templates EmailTemplate[]
+
+  @@map("email_layouts")
+}
+
+/// Modèle d'email personnalisable.
+model EmailTemplate {
+  id          String              @id @default(cuid())
+  slug        String              @unique
+  nom         String
+  description String?
+  category    EmailCategory       @default(TRANSACTIONAL)
+  sujet       String
+  corps       String              @db.Text // MJML ou HTML
+  corpsText   String?             @db.Text // Version texte brut
+  locale      String              @default("fr") @db.VarChar(5)
+  status      EmailTemplateStatus @default(DRAFT)
+  layoutId    String?
+  tokens      Json? // Liste des tokens attendus avec exemples
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  layout      EmailLayout?           @relation(fields: [layoutId], references: [id])
+  versions    EmailTemplateVersion[]
+  sends       EmailSend[]
+  automations EmailAutomation[]
+
+  @@index([slug, locale])
+  @@index([status, category])
+  @@map("email_templates")
+}
+
+/// Historique des versions d'un modèle.
+model EmailTemplateVersion {
+  id         String   @id @default(cuid())
+  templateId String
+  version    Int
+  sujet      String
+  corps      String   @db.Text
+  corpsText  String?  @db.Text
+  createdAt  DateTime @default(now())
+  createdBy  String? // userId de l'auteur
+
+  template EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, version])
+  @@index([templateId])
+  @@map("email_template_versions")
+}
+
+/// Automatisation d'envoi d'email sur événement.
+model EmailAutomation {
+  id           String           @id @default(cuid())
+  nom          String
+  description  String?
+  triggerType  EmailTriggerType
+  templateId   String
+  delayMinutes Int              @default(0) // Délai avant envoi
+  conditions   Json? // Conditions additionnelles (filtres)
+  active       Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  template EmailTemplate @relation(fields: [templateId], references: [id])
+
+  @@index([triggerType, active])
+  @@map("email_automations")
+}
+
+/// Log de chaque envoi d'email.
+model EmailSend {
+  id                String          @id @default(cuid())
+  templateId        String?
+  recipientEmail    String
+  recipientName     String?
+  userId            String?
+  subject           String
+  status            EmailSendStatus @default(PENDING)
+  providerMessageId String? // ID retourné par Resend/SendGrid
+  metadata          Json? // Données de contexte (tokens résolus, etc.)
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  openedAt          DateTime?
+  clickedAt         DateTime?
+  bouncedAt         DateTime?
+  failedAt          DateTime?
+  errorMessage      String?
+  createdAt         DateTime        @default(now())
+
+  template EmailTemplate? @relation(fields: [templateId], references: [id])
+  events   EmailEvent[]
+
+  @@index([recipientEmail, createdAt])
+  @@index([templateId, status])
+  @@index([userId, createdAt])
+  @@map("email_sends")
+}
+
+/// Événements post-envoi (webhooks provider).
+model EmailEvent {
+  id         String   @id @default(cuid())
+  sendId     String
+  type       String // delivered, opened, clicked, bounced, complained
+  occurredAt DateTime
+  metadata   Json? // Données brutes du webhook
+  createdAt  DateTime @default(now())
+
+  send EmailSend @relation(fields: [sendId], references: [id], onDelete: Cascade)
+
+  @@index([sendId, occurredAt])
+  @@index([type, occurredAt])
+  @@map("email_events")
+}
+
+// ===== PHASE 1 & 2 : Nouveaux modèles UX =====
+
+/// Token de réinitialisation de mot de passe.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+/// Token de vérification d'email.
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+/// Progression de lecture d'une édition par un utilisateur.
+model ReadingProgress {
+  id         String   @id @default(cuid())
+  userId     String
+  editionId  String
+  pageNumber Int
+  totalPages Int
+  percentage Float    @default(0)
+  lastReadAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  edition Edition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, editionId])
+  @@index([userId, lastReadAt])
+  @@map("reading_progress")
+}
+
+/// Préférences de notification utilisateur.
+model NotificationPreferences {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  newEditions      Boolean  @default(true)
+  expirationAlerts Boolean  @default(true)
+  newsletter       Boolean  @default(false)
+  summaryFrequency String   @default("weekly") // "daily" | "weekly" | "never"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+// ----- Système de Plans d'Abonnement Configurables -----
+
+/// Audience cible d'un plan d'abonnement.
+enum PlanTargetAudience {
+  INDIVIDUAL // Abonnement individuel (1 utilisateur)
+  ENTERPRISE // Abonnement entreprise (multi-utilisateurs)
+}
+
+/// Plan d'abonnement configurable par l'admin.
+/// Permet de combiner plusieurs types de journaux avec une durée et un prix.
+/// Supporte les abonnements individuels (B2C) et entreprises (B2B).
+model SubscriptionPlan {
+  id          String  @id @default(cuid())
+  nom         String  @unique // "Abonnement Duo", "Pack Premium", etc.
+  slug        String  @unique // "duo-6-mois", "pack-premium"
+  description String? // Description courte
+
+  // Audience cible
+  targetAudience PlanTargetAudience @default(INDIVIDUAL)
+
+  // Tarification de base
+  durationMonths Int // Durée en mois (1, 3, 6, 12, etc.)
+  basePrice      Decimal @db.Decimal(10, 2) // Prix de base (fixe pour INDIVIDUAL)
+  currency       String  @default("XAF") @db.VarChar(3)
+
+  // Tarification entreprise (uniquement si targetAudience = ENTERPRISE)
+  pricePerUser Decimal? @db.Decimal(10, 2) // Prix par utilisateur supplémentaire
+  minUsers     Int? // Nombre minimum d'utilisateurs (ex: 5)
+  maxUsers     Int? // Nombre maximum (null = illimité)
+
+  // Affichage
+  advantages   Json    @default("[]") // ["Support prioritaire", "Archives illimitées", ...]
+  highlight    Boolean @default(false) // Mise en avant (badge "Populaire")
+  badge        String? // Texte du badge optionnel
+  displayOrder Int     @default(0) // Ordre d'affichage
+
+  // État
+  isActive Boolean @default(true)
+  isPublic Boolean @default(true) // Visible côté public
+
+  // Métadonnées
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  journalTypes  SubscriptionPlanJournalType[]
+  subscriptions Subscription[]
+
+  @@index([isActive, isPublic, targetAudience, displayOrder])
+  @@map("subscription_plans")
+}
+
+/// Table de liaison N:N entre plans et types de journaux.
+model SubscriptionPlanJournalType {
+  id            String @id @default(cuid())
+  planId        String
+  journalTypeId String
+
+  plan        SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  journalType JournalType      @relation(fields: [journalTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, journalTypeId])
+  @@index([planId])
+  @@index([journalTypeId])
+  @@map("subscription_plan_journal_types")
+}
+
+// ===== SYSTÈME PUBLICITAIRE =====
+
+/// Segment d'audience pour le ciblage publicitaire.
+/// Définit des critères de filtrage pour identifier un groupe d'abonnés.
+model AudienceSegment {
+  id          String  @id @default(cuid())
+  nom         String  @unique
+  description String?
+
+  // Critères de filtrage (JSON flexible)
+  // Exemple: { "organizationTypes": ["STARTUP", "PME"], "interests": ["TECH"], "countries": ["CM"] }
+  filters Json @default("{}")
+
+  // Statistiques
+  estimatedReach  Int       @default(0) // Nombre d'abonnés estimés
+  isActive        Boolean   @default(true)
+  lastRefreshedAt DateTime? // Dernière mise à jour du reach
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  campaigns AdCampaignSegment[]
+
+  @@index([isActive])
+  @@map("audience_segments")
+}
+
+/// Annonceur (client qui achète de la publicité).
+model Advertiser {
+  id           String  @id @default(cuid())
+  nom          String
+  contactEmail String
+  contactPhone String?
+  entreprise   String? // Nom de l'entreprise
+  logoUrl      String?
+  isActive     Boolean @default(true)
+  notes        String? // Notes internes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  campaigns AdCampaign[]
+
+  @@index([isActive])
+  @@map("advertisers")
+}
+
+/// Campagne publicitaire.
+model AdCampaign {
+  id           String @id @default(cuid())
+  nom          String
+  advertiserId String
+
+  // Planning
+  status    AdCampaignStatus @default(DRAFT)
+  startDate DateTime
+  endDate   DateTime
+
+  // Budget et priorité
+  budget   Decimal? @db.Decimal(10, 2)
+  currency String   @default("XAF") @db.VarChar(3)
+  priority Int      @default(0) // Plus haut = prioritaire
+
+  // Canaux de diffusion
+  channels AdChannel[] @default([])
+
+  // Exclusivité et limites
+  isExclusive Boolean @default(false) // Exclusif sur le segment
+  dailyCap    Int? // Max impressions/jour
+  totalCap    Int? // Max impressions totales
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  advertiser  Advertiser          @relation(fields: [advertiserId], references: [id])
+  segments    AdCampaignSegment[]
+  creatives   AdCreative[]
+  impressions AdImpression[]
+  clicks      AdClick[]
+
+  @@index([status, startDate, endDate])
+  @@index([advertiserId])
+  @@map("ad_campaigns")
+}
+
+/// Liaison N:N entre campagnes et segments d'audience.
+model AdCampaignSegment {
+  id         String @id @default(cuid())
+  campaignId String
+  segmentId  String
+
+  campaign AdCampaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  segment  AudienceSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, segmentId])
+  @@index([campaignId])
+  @@index([segmentId])
+  @@map("ad_campaign_segments")
+}
+
+/// Créatif publicitaire (bannière, image, HTML).
+model AdCreative {
+  id         String @id @default(cuid())
+  campaignId String
+  nom        String
+
+  // Assets
+  imageUrl String // URL de la bannière
+  clickUrl String // URL de destination au clic
+  altText  String? // Texte alternatif
+
+  // Templates email
+  mjmlSnippet String? @db.Text // Code MJML pour insertion email
+  htmlSnippet String? @db.Text // HTML fallback
+
+  // Dimensions (optionnel, pour bannières)
+  width  Int?
+  height Int?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  campaign    AdCampaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  impressions AdImpression[]
+  clicks      AdClick[]
+
+  @@index([campaignId, isActive])
+  @@map("ad_creatives")
+}
+
+/// Impression publicitaire (vue d'une bannière).
+model AdImpression {
+  id         String  @id @default(cuid())
+  campaignId String
+  creativeId String
+  userId     String?
+
+  channel     AdChannel // EMAIL_EDITION, IN_APP_BANNER, etc.
+  emailSendId String? // Si via email, référence à EmailSend
+
+  viewedAt DateTime @default(now())
+  metadata Json? // Données additionnelles
+
+  // Relations
+  campaign AdCampaign @relation(fields: [campaignId], references: [id])
+  creative AdCreative @relation(fields: [creativeId], references: [id])
+  user     User?      @relation(fields: [userId], references: [id])
+
+  @@index([campaignId, viewedAt])
+  @@index([creativeId, viewedAt])
+  @@index([userId, viewedAt])
+  @@map("ad_impressions")
+}
+
+/// Clic publicitaire.
+model AdClick {
+  id         String  @id @default(cuid())
+  campaignId String
+  creativeId String
+  userId     String?
+
+  channel     AdChannel
+  emailSendId String?
+
+  clickedAt DateTime @default(now())
+  metadata  Json?
+
+  // Relations
+  campaign AdCampaign @relation(fields: [campaignId], references: [id])
+  creative AdCreative @relation(fields: [creativeId], references: [id])
+  user     User?      @relation(fields: [userId], references: [id])
+
+  @@index([campaignId, clickedAt])
+  @@index([creativeId, clickedAt])
+  @@index([userId, clickedAt])
+  @@map("ad_clicks")
+}
