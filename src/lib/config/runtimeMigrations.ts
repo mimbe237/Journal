@@ -1,20 +1,33 @@
 import { PrismaClient } from "@prisma/client";
 
 // ─── DDL Client ────────────────────────────────────────────────────────────
-// Connexion directe à PostgreSQL (port 5432, session PgBouncer) pour les
-// opérations DDL (CREATE TABLE, ALTER TABLE) que PgBouncer transaction
+// Connexion directe à PostgreSQL (port 5432, mode session PgBouncer) pour
+// les opérations DDL (CREATE TABLE, ALTER TABLE) que PgBouncer transaction
 // (port 6543) ne supporte pas.
-// Pour les queries normales, le client standard (pooler) est utilisé.
+//
+// Priorité : DIRECT_DATABASE_URL > déduction automatique depuis DATABASE_URL
+// (remplace :6543 → :5432, retire ?pgbouncer=true&connection_limit=N)
 let _ddlPrisma: PrismaClient | null = null;
+
+function deriveDirectUrl(): string {
+  const url = process.env.DIRECT_DATABASE_URL ?? process.env.DATABASE_URL ?? "";
+  // Remplace le port du pooler transaction (6543) par le port session (5432)
+  // et retire les paramètres pgbouncer/connection_limit qui n'ont pas de sens
+  // en session mode.
+  return url
+    .replace(":6543", ":5432")
+    .replace(/[?&]pgbouncer=true/, "")
+    .replace(/[?&]connection_limit=\d+/, "")
+    .replace(/(\?)(&)/, "?")   // nettoie le ?& résiduel
+    .replace(/\?$/, "");        // nettoie le ? final si tous les params sont retirés
+}
 
 function getDdlPrisma(): PrismaClient {
   if (_ddlPrisma) return _ddlPrisma;
-  const directUrl = process.env.DIRECT_DATABASE_URL;
-  if (!directUrl) {
-    console.warn("[runtime-migrations] DIRECT_DATABASE_URL non défini, DDL ignoré");
-  }
+  const directUrl = deriveDirectUrl();
+  console.log("[runtime-migrations] DDL Prisma initialisé via", directUrl.slice(0, 60) + "...");
   _ddlPrisma = new PrismaClient({
-    datasources: { db: { url: directUrl ?? process.env.DATABASE_URL } },
+    datasources: { db: { url: directUrl } },
   });
   return _ddlPrisma;
 }
