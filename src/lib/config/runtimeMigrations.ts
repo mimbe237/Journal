@@ -50,72 +50,35 @@ async function applyRuntimeMigrations(prisma: PrismaClient) {
     console.error("[runtime-migrations] failed to ensure app_settings table", error);
   }
 
-  // Table guest_editions pour le module éditions invitées (idempotent).
-  // Chaque étape est dans son propre try-catch pour éviter qu'un échec
-  // n'empêche les autres de s'exécuter.
+  // Seed des 7 créneaux guest_editions (lundi à dimanche).
+  // La table est créée par la migration Prisma classique (via directUrl).
+  // Ce bloc ne fait que peupler les slots s'ils n'existent pas encore.
   try {
     await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS "guest_editions" (
-        "id" TEXT NOT NULL,
-        "day_of_week" INTEGER NOT NULL,
-        "day_label" TEXT NOT NULL,
-        "edition_id" TEXT,
-        "public_token" TEXT NOT NULL,
-        "assigned_at" TIMESTAMP(3),
-        "is_active" BOOLEAN NOT NULL DEFAULT true,
-        "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updated_at" TIMESTAMP(3) NOT NULL,
-        CONSTRAINT "guest_editions_pkey" PRIMARY KEY ("id")
+      INSERT INTO "guest_editions" ("id", "day_of_week", "day_label", "edition_id", "public_token", "is_active", "created_at", "updated_at")
+      SELECT
+        md5(random()::text || clock_timestamp()::text),
+        v.day,
+        v.label,
+        NULL,
+        md5(random()::text || clock_timestamp()::text),
+        true,
+        NOW(),
+        NOW()
+      FROM (VALUES
+        (1, 'Lundi'),
+        (2, 'Mardi'),
+        (3, 'Mercredi'),
+        (4, 'Jeudi'),
+        (5, 'Vendredi'),
+        (6, 'Samedi'),
+        (7, 'Dimanche')
+      ) AS v(day, label)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM "guest_editions" WHERE "day_of_week" = v.day
       );
     `);
-    console.log("[runtime-migrations] guest_editions table ensured");
-  } catch (error) {
-    console.error("[runtime-migrations] CREATE TABLE guest_editions failed", error);
-  }
-
-  try {
-    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "guest_editions_day_of_week_key" ON "guest_editions"("day_of_week");`);
-    await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "guest_editions_public_token_key" ON "guest_editions"("public_token");`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "guest_editions_day_of_week_idx" ON "guest_editions"("day_of_week");`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "guest_editions_public_token_idx" ON "guest_editions"("public_token");`);
-    console.log("[runtime-migrations] guest_editions indexes ensured");
-  } catch (error) {
-    console.error("[runtime-migrations] guest_editions indexes failed", error);
-  }
-
-  try {
-    // FK avec DO block : tente l'ALTER TABLE, ignore si la contrainte existe déjà
-    await prisma.$executeRawUnsafe(`
-      DO $$
-      BEGIN
-        ALTER TABLE "guest_editions" ADD CONSTRAINT "guest_editions_edition_id_fkey"
-          FOREIGN KEY ("edition_id") REFERENCES "editions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-      EXCEPTION WHEN duplicate_object THEN
-        -- contrainte déjà existante, rien à faire
-      END $$;
-    `);
-    console.log("[runtime-migrations] guest_editions FK ensured");
-  } catch (error) {
-    console.error("[runtime-migrations] guest_editions FK failed", error);
-  }
-
-  try {
-    // Seed des 7 créneaux (lundi à dimanche) — idempotent via ON CONFLICT
-    // Utilise md5(random()) au lieu de gen_random_uuid() pour éviter toute
-    // dépendance à une extension PostgreSQL.
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO "guest_editions" ("id", "day_of_week", "day_label", "edition_id", "public_token", "is_active", "created_at", "updated_at") VALUES
-        (md5(random()::text || clock_timestamp()::text), 1, 'Lundi',    NULL, md5(random()::text || clock_timestamp()::text), true, NOW(), NOW()),
-        (md5(random()::text || clock_timestamp()::text), 2, 'Mardi',    NULL, md5(random()::text || clock_timestamp()::text), true, NOW(), NOW()),
-        (md5(random()::text || clock_timestamp()::text), 3, 'Mercredi', NULL, md5(random()::text || clock_timestamp()::text), true, NOW(), NOW()),
-        (md5(random()::text || clock_timestamp()::text), 4, 'Jeudi',    NULL, md5(random()::text || clock_timestamp()::text), true, NOW(), NOW()),
-        (md5(random()::text || clock_timestamp()::text), 5, 'Vendredi', NULL, md5(random()::text || clock_timestamp()::text), true, NOW(), NOW()),
-        (md5(random()::text || clock_timestamp()::text), 6, 'Samedi',   NULL, md5(random()::text || clock_timestamp()::text), true, NOW(), NOW()),
-        (md5(random()::text || clock_timestamp()::text), 7, 'Dimanche', NULL, md5(random()::text || clock_timestamp()::text), true, NOW(), NOW())
-      ON CONFLICT ("day_of_week") DO UPDATE
-        SET "day_label" = EXCLUDED."day_label";
-    `);
-    console.log("[runtime-migrations] guest_editions seeded");
+    console.log("[runtime-migrations] guest_editions slots seeded");
   } catch (error) {
     console.error("[runtime-migrations] guest_editions seed failed", error);
   }

@@ -7,19 +7,15 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 const getDatabaseUrl = () => {
   let url = process.env.DATABASE_URL;
   if (process.env.NODE_ENV === "production" && url) {
-    // Fix automatique pour Supabase Transaction Pooler sur Vercel
+    // Ajoute pgbouncer=true pour Supabase Transaction Pooler sur Vercel.
+    // Les migrations Prisma utilisent DIRECT_DATABASE_URL (connexion directe
+    // sans PgBouncer), donc aucun connection_limit n'est nécessaire ici.
     if (url.includes("pooler.supabase.com") || url.includes(":6543")) {
       if (!url.includes("pgbouncer=true")) {
         const separator = url.includes("?") ? "&" : "?";
         url = `${url}${separator}pgbouncer=true`;
       }
-      // 3 connexions suffisent pour runtime migrations + dashboard
-      // sans saturer le pooler Supabase.
-      if (!url.includes("connection_limit=")) {
-        const separator = url.includes("?") ? "&" : "?";
-        url = `${url}${separator}connection_limit=3`;
-      }
-      console.log("Auto-fixed DATABASE_URL to include pgbouncer=true & connection_limit=3");
+      console.log("[prisma] Pooler Supabase détecté, pgbouncer=true ajouté");
     }
   }
   return url;
