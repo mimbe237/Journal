@@ -13,11 +13,13 @@ const getDatabaseUrl = () => {
         const separator = url.includes("?") ? "&" : "?";
         url = `${url}${separator}pgbouncer=true`;
       }
+      // 3 connexions suffisent pour runtime migrations + dashboard
+      // sans saturer le pooler Supabase.
       if (!url.includes("connection_limit=")) {
         const separator = url.includes("?") ? "&" : "?";
-        url = `${url}${separator}connection_limit=1`;
+        url = `${url}${separator}connection_limit=3`;
       }
-      console.log("Auto-fixed DATABASE_URL to include pgbouncer=true & connection_limit=1");
+      console.log("Auto-fixed DATABASE_URL to include pgbouncer=true & connection_limit=3");
     }
   }
   return url;
