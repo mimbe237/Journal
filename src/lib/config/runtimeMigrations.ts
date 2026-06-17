@@ -90,6 +90,20 @@ async function applyRuntimeMigrations(prisma: PrismaClient) {
         FOREIGN KEY ("edition_id") REFERENCES "editions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
       `);
     }
+
+    // Seed des 7 créneaux (lundi à dimanche) — idempotent, ne modifie pas les slots déjà configurés
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "guest_editions" ("id", "day_of_week", "day_label", "edition_id", "public_token", "is_active", "created_at", "updated_at") VALUES
+        (gen_random_uuid(), 1, 'Lundi',    NULL, gen_random_uuid(), true, NOW(), NOW()),
+        (gen_random_uuid(), 2, 'Mardi',    NULL, gen_random_uuid(), true, NOW(), NOW()),
+        (gen_random_uuid(), 3, 'Mercredi', NULL, gen_random_uuid(), true, NOW(), NOW()),
+        (gen_random_uuid(), 4, 'Jeudi',    NULL, gen_random_uuid(), true, NOW(), NOW()),
+        (gen_random_uuid(), 5, 'Vendredi', NULL, gen_random_uuid(), true, NOW(), NOW()),
+        (gen_random_uuid(), 6, 'Samedi',   NULL, gen_random_uuid(), true, NOW(), NOW()),
+        (gen_random_uuid(), 7, 'Dimanche', NULL, gen_random_uuid(), true, NOW(), NOW())
+      ON CONFLICT ("day_of_week") DO UPDATE
+        SET "day_label" = EXCLUDED."day_label";
+    `);
   } catch (error) {
     console.error("[runtime-migrations] failed to ensure guest_editions table", error);
   }
