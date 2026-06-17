@@ -29,6 +29,9 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
+  // Augmente le statement timeout pour les opérations DDL (30s au lieu de 2s)
+  await prisma.$executeRawUnsafe(`SET statement_timeout = '30000';`);
+
   console.log("1. Correction _prisma_migrations...");
   await prisma.$executeRawUnsafe(
     `ALTER TABLE "_prisma_migrations" ADD COLUMN IF NOT EXISTS "applied_steps_count" INTEGER NOT NULL DEFAULT 0;`
@@ -68,14 +71,19 @@ async function main() {
   console.log("   OK");
 
   console.log("4. Foreign key...");
-  await prisma.$executeRawUnsafe(`
-    DO $$ BEGIN
+  // Vérifie d'abord si la FK existe déjà pour éviter le scan coûteux
+  const fkCheck = await prisma.$queryRawUnsafe(
+    `SELECT 1 FROM pg_constraint WHERE conname = 'guest_editions_edition_id_fkey' LIMIT 1;`
+  );
+  if (Array.isArray(fkCheck) && fkCheck.length === 0) {
+    await prisma.$executeRawUnsafe(`
       ALTER TABLE "guest_editions" ADD CONSTRAINT "guest_editions_edition_id_fkey"
         FOREIGN KEY ("edition_id") REFERENCES "editions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-    EXCEPTION WHEN duplicate_object THEN NULL;
-    END $$;
-  `);
-  console.log("   OK");
+    `);
+    console.log("   FK créée");
+  } else {
+    console.log("   FK déjà existante");
+  }
 
   console.log("5. Seed des 7 créneaux...");
   await prisma.$executeRawUnsafe(`
@@ -99,11 +107,50 @@ async function main() {
   `);
   console.log("   OK");
 
+  // ── Autres DDL existants (portés de runtimeMigrations.ts) ──
+
+  console.log("6. Soft-delete subscriptions...");
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "subscriptions" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3), ADD COLUMN IF NOT EXISTS "trashedUntil" TIMESTAMP(3);`
+  );
+  console.log("   OK");
+
+  console.log("7. journal_types titleTemplate...");
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "journal_types" ADD COLUMN IF NOT EXISTS "titleTemplate" VARCHAR(255);`
+  );
+  console.log("   OK");
+
+  console.log("8. app_settings...");
+  await prisma.$executeRawUnsafe(
+    `CREATE TABLE IF NOT EXISTS "app_settings" ("key" TEXT PRIMARY KEY, "value" JSONB NOT NULL, "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now());`
+  );
+  console.log("   OK");
+
+  console.log("9. Enum SystemEventType...");
+  await prisma.$executeRawUnsafe(
+    "DO $$ BEGIN " +
+      "ALTER TYPE \"SystemEventType\" ADD VALUE IF NOT EXISTS 'MODIFICATION_ABONNEMENT';" +
+      "ALTER TYPE \"SystemEventType\" ADD VALUE IF NOT EXISTS 'SUPPRESSION_ABONNEMENT';" +
+      "ALTER TYPE \"SystemEventType\" ADD VALUE IF NOT EXISTS 'SUPPRESSION_DEFINITIVE_ABONNEMENT';" +
+      "ALTER TYPE \"SystemEventType\" ADD VALUE IF NOT EXISTS 'RESTAURATION_ABONNEMENT';" +
+    "END $$;"
+  );
+  console.log("   OK");
+
   // Vérification finale
   const count = await prisma.$queryRawUnsafe(
     `SELECT COUNT(*)::int AS c FROM "guest_editions";`
   );
   console.log(`\nTable guest_editions : ${count[0]?.c ?? "?"} créneaux`);
+
+  console.log("10. Seed app_settings...");
+  await prisma.$executeRaw`
+    INSERT INTO "app_settings" ("key", "value")
+    VALUES (${"registration"}, ${JSON.stringify({ enabled: true })}::jsonb)
+    ON CONFLICT ("key") DO NOTHING;
+  `;
+  console.log("   OK");
 
   await prisma.$disconnect();
   console.log("Terminé.");
