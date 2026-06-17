@@ -46,6 +46,11 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Ignorer les requêtes avec des schémas non supportés (chrome-extension, etc.)
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return;
+  }
+
   // Ne pas intercepter les requêtes API ou auth
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
     return;
