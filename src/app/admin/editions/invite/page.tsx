@@ -81,7 +81,10 @@ export default function GuestEditionsPage() {
     setError(null);
     try {
       const res = await fetch("/api/admin/guest-editions");
-      if (!res.ok) throw new Error(`Erreur ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Erreur ${res.status}`);
+      }
       const data = await res.json();
       setSlots(data);
     } catch (e: any) {

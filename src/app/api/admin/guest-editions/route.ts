@@ -42,7 +42,14 @@ export async function GET(req: NextRequest) {
     if (error instanceof AuthorizationError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("GET /api/admin/guest-editions failed", error);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    console.error("GET /api/admin/guest-editions failed", error?.message ?? error, error?.code, error?.meta);
+    return NextResponse.json(
+      {
+        error: `Erreur serveur : ${error?.message ?? String(error)}`,
+        code: error?.code ?? null,
+        meta: error?.meta ?? null,
+      },
+      { status: 500 }
+    );
   }
 }
