@@ -174,7 +174,7 @@ export function GuestEditionReader({ token }: { token: string }) {
   const [error,         setError]         = useState<string | null>(null);
   const [currentPage,   setCurrentPage]   = useState(1);
   const [zoom,          setZoom]          = useState(1);
-  const [readMode,      setReadMode]      = useState<ReadMode>("livre");
+  const [readMode,      setReadMode]      = useState<ReadMode>("continu");
   const [theme]                           = useState<Theme>("clair");
   const [flipState, setFlipState]         = useState<{
     dir: "fwd" | "bwd";
