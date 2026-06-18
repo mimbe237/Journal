@@ -90,6 +90,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
     </svg>
   ),
+  Gift: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+    </svg>
+  ),
   PromoCodes: (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -228,6 +233,7 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
         items: [
           { href: "/admin/editions", label: "Nouvelle édition", icon: Icons.NewEdition },
           { href: "/admin/editions/list", label: "Gérer les éditions", icon: Icons.ListEditions },
+          { href: "/admin/editions/invite", label: "Invité", icon: Icons.Gift },
         ]
       },
       {
@@ -265,6 +271,7 @@ export function AdminSidebar({ userRole }: AdminSidebarProps) {
           { href: "/admin/editions", label: "Nouvelle édition", icon: Icons.NewEdition },
           { href: "/admin/editions/list", label: "Gérer les éditions", icon: Icons.ListEditions },
           { href: "/admin/editions/bulk-import", label: "Import en masse", icon: Icons.BulkImport },
+          { href: "/admin/editions/invite", label: "Invité", icon: Icons.Gift },
         ]
       },
       {

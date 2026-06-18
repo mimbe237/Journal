@@ -33,7 +33,14 @@ export default function proxy(request: NextRequest) {
   if (pathname.startsWith("/api") || pathname.startsWith("/_next")) {
     return NextResponse.next();
   }
-  
+
+  // Routes invité : injecter x-guest-view pour masquer le Header
+  if (pathname.startsWith("/lire/invite/")) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-guest-view", "1");
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   // Récupérer le token depuis les cookies
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
   const authenticated = token ? isTokenValid(token) : false;

@@ -461,8 +461,29 @@ model Edition {
 
   readingSessions ReadingSession[]
   readingProgress ReadingProgress[]
+  guestEditions   GuestEdition[]
 
   @@map("editions")
+}
+
+/// Édition invitée : associe un jour de la semaine à une édition accessible publiquement sans authentification.
+/// Il existe exactement 7 enregistrements permanents (un par jour, lundi=1 à dimanche=7).
+model GuestEdition {
+  id          String    @id @default(cuid())
+  dayOfWeek   Int       @unique // 1=Lundi, 2=Mardi, 3=Mercredi, 4=Jeudi, 5=Vendredi, 6=Samedi, 7=Dimanche
+  dayLabel    String    // "Lundi", "Mardi", etc.
+  editionId   String?
+  publicToken String    @unique @default(cuid())
+  assignedAt  DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  edition     Edition?  @relation(fields: [editionId], references: [id], onDelete: SetNull)
+
+  @@index([dayOfWeek])
+  @@index([publicToken])
+  @@map("guest_editions")
 }
 
 /// Codes promotionnels pour les campagnes marketing.

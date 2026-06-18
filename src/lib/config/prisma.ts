@@ -7,17 +7,15 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 const getDatabaseUrl = () => {
   let url = process.env.DATABASE_URL;
   if (process.env.NODE_ENV === "production" && url) {
-    // Fix automatique pour Supabase Transaction Pooler sur Vercel
+    // Ajoute pgbouncer=true pour Supabase Transaction Pooler sur Vercel.
+    // Les migrations Prisma utilisent DIRECT_DATABASE_URL (connexion directe
+    // sans PgBouncer), donc aucun connection_limit n'est nécessaire ici.
     if (url.includes("pooler.supabase.com") || url.includes(":6543")) {
       if (!url.includes("pgbouncer=true")) {
         const separator = url.includes("?") ? "&" : "?";
         url = `${url}${separator}pgbouncer=true`;
       }
-      if (!url.includes("connection_limit=")) {
-        const separator = url.includes("?") ? "&" : "?";
-        url = `${url}${separator}connection_limit=1`;
-      }
-      console.log("Auto-fixed DATABASE_URL to include pgbouncer=true & connection_limit=1");
+      console.log("[prisma] Pooler Supabase détecté, pgbouncer=true ajouté");
     }
   }
   return url;
@@ -36,7 +34,8 @@ export const prisma =
 
 const runtimeMigrationsPromise = ensureSubscriptionRuntimeMigrations(prisma).catch((error) => {
   console.error("[prisma] runtime migrations failed", error);
-  throw error;
+  // Ne jamais rejeter : cela bloquerait toutes les APIs qui utilisent prismaRuntimeReady.
+  // Les erreurs sont loggées, le DDL est géré par scripts/ensure-db.js avant le build.
 });
 
 export async function ensurePrismaRuntimeMigrations() {
