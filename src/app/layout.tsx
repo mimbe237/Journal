@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { ConditionalHeader } from "@/components/ConditionalHeader";
+import { GuestAwareHeader } from "@/components/GuestAwareHeader";
 import { ToastProvider } from "@/lib/hooks/useToast";
 import { Toaster } from "@/components/ui/Toaster";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
@@ -45,7 +45,7 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
@@ -70,7 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 antialiased transition-colors">
         <ThemeProvider>
           <ToastProvider>
-            <ConditionalHeader />
+            <GuestAwareHeader />
             {children}
             <Toaster />
             <ServiceWorkerRegistration />
