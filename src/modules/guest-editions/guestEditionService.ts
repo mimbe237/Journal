@@ -10,6 +10,9 @@ const editionSelect = {
   cheminImageUne: true,
   cheminInternePdf: true,
   deletedAt: true,
+  journalType: {
+    select: { name: true },
+  },
 } satisfies Prisma.EditionSelect;
 
 type GuestEditionWithEdition = GuestEdition & {

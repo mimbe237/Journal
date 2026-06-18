@@ -28,6 +28,7 @@ export async function GET(
           datePublication: slot.edition.datePublication,
           type: slot.edition.type,
           nombrePages: slot.edition.nombrePages,
+          journalTypeName: slot.edition.journalType?.name ?? null,
         },
         guestInfo: {
           dayLabel: slot.dayLabel,
