@@ -130,9 +130,18 @@ async function main() {
   );
   console.log("   OK");
 
-  console.log("7. journal_types titleTemplate...");
+  console.log("7. journal_types colonnes manquantes...");
   await prisma.$executeRawUnsafe(
     `ALTER TABLE "journal_types" ADD COLUMN IF NOT EXISTS "titleTemplate" VARCHAR(255);`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "journal_types" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3);`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "journal_types" ADD COLUMN IF NOT EXISTS "trashedUntil" TIMESTAMP(3);`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "journal_types" ADD COLUMN IF NOT EXISTS "deletedBy" TEXT;`
   );
   console.log("   OK");
 

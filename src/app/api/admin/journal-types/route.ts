@@ -82,9 +82,10 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    console.error("Erreur lors de la création du type de journal:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Erreur lors de la création du type de journal:", msg);
     return NextResponse.json(
-      { error: "Erreur lors de la création du type de journal" },
+      { error: `Erreur lors de la création du type de journal : ${msg}` },
       { status: 500 }
     );
   }
