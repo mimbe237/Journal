@@ -205,7 +205,7 @@ export function GuestEditionReader({
   const lastTapRef    = useRef<{ time: number; x: number; y: number } | null>(null);
   const preloadedRef  = useRef<Set<number>>(new Set());
   const lastScrollY   = useRef(0);
-  const panDragRef    = useRef({ active: false, x0: 0, y0: 0, px0: 0, py0: 0 });
+  const panDragRef    = useRef({ active: false, x0: 0, y0: 0, px0: 0, py0: 0, moved: false });
   const panTouchRef   = useRef<{ x: number; y: number } | null>(null);
 
   const totalPages  = edition?.nombrePages ?? 0;
@@ -345,50 +345,65 @@ export function GuestEditionReader({
     if (!edition || raw < 1 || raw > totalPages) return;
     if (navigator.vibrate) navigator.vibrate(20);
 
-    if (readMode === "livre" && !flipState) {
-      const target = raw <= 1 ? 1 : raw % 2 === 1 ? raw : Math.min(raw + 1, totalPages);
-      if (target === rightPage) return;
-      const dir: "fwd" | "bwd" = target > rightPage ? "fwd" : "bwd";
-      const newRight = target;
-      const newLeft: number | null = newRight > 1 ? newRight - 1 : null;
-      const isSingleStep = Math.abs(newRight - rightPage) <= 2;
-
-      if (isSingleStep) {
-        if (dir === "fwd") {
-          setFlipState({
-            dir, frontPage: rightPage,
-            backPage: Math.min(rightPage + 1, totalPages),
-            bgLeft: leftPage,
-            bgRight: newRight <= totalPages ? newRight : null,
-          });
-        } else {
-          if (leftPage === null) return;
-          setFlipState({
-            dir, frontPage: leftPage,
-            backPage: Math.max(1, leftPage - 1),
-            bgLeft: newLeft,
-            bgRight: rightPage,
-          });
-        }
-        setCurrentPage(target);
-        setTimeout(() => setFlipState(null), 700);
-      } else {
-        setCurrentPage(target);
-      }
-    } else if (readMode !== "livre") {
+    if (readMode === "continu") {
       setCurrentPage(raw);
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`gp-${raw}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      return;
     }
-  }, [edition, totalPages, readMode, rightPage, leftPage, flipState]);
+
+    if (readMode === "livre") {
+      if (isMobile) {
+        if (raw === currentPage) return;
+        setCurrentPage(raw);
+        return;
+      }
+
+      if (!flipState) {
+        const target = raw <= 1 ? 1 : raw % 2 === 1 ? raw : Math.min(raw + 1, totalPages);
+        if (target === rightPage) return;
+        const dir: "fwd" | "bwd" = target > rightPage ? "fwd" : "bwd";
+        const newRight = target;
+        const newLeft: number | null = newRight > 1 ? newRight - 1 : null;
+        const isSingleStep = Math.abs(newRight - rightPage) <= 2;
+
+        if (isSingleStep) {
+          if (dir === "fwd") {
+            setFlipState({
+              dir, frontPage: rightPage,
+              backPage: Math.min(rightPage + 1, totalPages),
+              bgLeft: leftPage,
+              bgRight: newRight <= totalPages ? newRight : null,
+            });
+          } else {
+            if (leftPage === null) return;
+            setFlipState({
+              dir, frontPage: leftPage,
+              backPage: Math.max(1, leftPage - 1),
+              bgLeft: newLeft,
+              bgRight: rightPage,
+            });
+          }
+          setCurrentPage(target);
+          setTimeout(() => setFlipState(null), 700);
+        } else {
+          setCurrentPage(target);
+        }
+      }
+    }
+  }, [edition, totalPages, readMode, isMobile, currentPage, rightPage, leftPage, flipState]);
 
   const goNext = useCallback(() => {
-    if (readMode === "livre") goTo(Math.min(rightPage + 2, totalPages));
+    if (readMode === "livre" && !isMobile) goTo(Math.min(rightPage + 2, totalPages));
     else goTo(currentPage + 1);
-  }, [currentPage, rightPage, totalPages, readMode, goTo]);
+  }, [currentPage, rightPage, totalPages, readMode, isMobile, goTo]);
 
   const goBack = useCallback(() => {
-    if (readMode === "livre") goTo(Math.max(1, rightPage - 2));
+    if (readMode === "livre" && !isMobile) goTo(Math.max(1, rightPage - 2));
     else goTo(currentPage - 1);
-  }, [currentPage, rightPage, readMode, goTo]);
+  }, [currentPage, rightPage, readMode, isMobile, goTo]);
 
   // ── Keyboard ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -508,14 +523,15 @@ export function GuestEditionReader({
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (zoom <= 1) return;
     if ((e.target as HTMLElement).closest("button,a,select,option")) return;
-    panDragRef.current = { active: true, x0: e.clientX, y0: e.clientY, px0: panOffset.x, py0: panOffset.y };
+    panDragRef.current = { active: true, x0: e.clientX, y0: e.clientY, px0: panOffset.x, py0: panOffset.y, moved: false };
     e.preventDefault();
   }, [zoom, panOffset.x, panOffset.y]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!panDragRef.current.active) return;
-    const dx   = e.clientX - panDragRef.current.x0;
-    const dy   = e.clientY - panDragRef.current.y0;
+    const dx = e.clientX - panDragRef.current.x0;
+    const dy = e.clientY - panDragRef.current.y0;
+    if (Math.abs(dx) + Math.abs(dy) > 5) panDragRef.current.moved = true;
     const maxX = (window.innerWidth  * (zoom - 1)) / 2;
     const maxY = (window.innerHeight * (zoom - 1)) / 2;
     setPanOffset({
@@ -621,13 +637,13 @@ export function GuestEditionReader({
                 </svg>
               </button>
               <select
-                value={readMode === "livre" ? rightPage : currentPage}
+                value={readMode === "livre" && !isMobile ? rightPage : currentPage}
                 onChange={(e) => goTo(Number(e.target.value))}
                 className={`px-2 py-1 rounded-full border text-xs font-semibold outline-none cursor-pointer ${
                   theme === "sombre" ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-900"
                 }`}
               >
-                {readMode === "livre"
+                {readMode === "livre" && !isMobile
                   ? spreadOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
                   : Array.from({ length: totalPages }, (_, i) => i + 1).map((p) =>
                       <option key={p} value={p}>P.{p}/{totalPages}</option>
@@ -689,13 +705,13 @@ export function GuestEditionReader({
                 </svg>
               </button>
               <select
-                value={readMode === "livre" ? rightPage : currentPage}
+                value={readMode === "livre" && !isMobile ? rightPage : currentPage}
                 onChange={(e) => goTo(Number(e.target.value))}
                 className={`px-3 py-1.5 rounded-full border text-sm font-semibold outline-none cursor-pointer ${
                   theme === "sombre" ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-900"
                 }`}
               >
-                {readMode === "livre"
+                {readMode === "livre" && !isMobile
                   ? spreadOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
                   : Array.from({ length: totalPages }, (_, i) => i + 1).map((p) =>
                       <option key={p} value={p}>Page {p} / {totalPages}</option>
@@ -802,7 +818,7 @@ export function GuestEditionReader({
         onMouseLeave={readMode !== "continu" ? handleMouseUp : undefined}
         onClick={(e) => {
           if (readMode === "continu") return;
-          if (zoom > 1) return;
+          if (zoom > 1 && panDragRef.current.moved) return;
           if ((e.target as HTMLElement).closest("button,a,select")) return;
           const rect = e.currentTarget.getBoundingClientRect();
           const rel  = (e.clientX - rect.left) / rect.width;
@@ -813,7 +829,7 @@ export function GuestEditionReader({
         {readMode === "continu" ? (
           <div style={{ width: zoom === 1 ? "100%" : `${zoom * 100}%`, margin: "0 auto" }}>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <img key={p} src={guestImgUrl(token, p)} alt={`Page ${p}`}
+              <img id={`gp-${p}`} key={p} src={guestImgUrl(token, p)} alt={`Page ${p}`}
                 className="w-full block" loading={p <= 3 ? "eager" : "lazy"} draggable={false} />
             ))}
           </div>
@@ -830,9 +846,9 @@ export function GuestEditionReader({
             {isMobile ? (
               /* Mobile : page unique pleine largeur */
               <img
-                key={`mob-${rightPage}`}
-                src={guestImgUrl(token, rightPage)}
-                alt={`Page ${rightPage}`}
+                key={`mob-${currentPage}`}
+                src={guestImgUrl(token, currentPage)}
+                alt={`Page ${currentPage}`}
                 className="rounded-sm shadow-2xl block"
                 style={{
                   maxWidth: `calc(92vw * ${zoom})`,
