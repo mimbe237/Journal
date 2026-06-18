@@ -32,9 +32,21 @@ export default async function GuestReaderPage({
 }) {
   const { token } = await params;
 
+  let initialJournalTypeName: string | null = null;
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL}/api/invite/${token}`,
+      { cache: "no-store" }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      initialJournalTypeName = data.edition?.journalTypeName ?? null;
+    }
+  } catch {}
+
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      <GuestEditionReader token={token} />
+      <GuestEditionReader token={token} initialJournalTypeName={initialJournalTypeName} />
     </div>
   );
 }

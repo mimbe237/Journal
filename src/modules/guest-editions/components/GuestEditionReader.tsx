@@ -169,7 +169,13 @@ function ThumbnailPanel({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function GuestEditionReader({ token }: { token: string }) {
+export function GuestEditionReader({
+  token,
+  initialJournalTypeName,
+}: {
+  token: string;
+  initialJournalTypeName?: string | null;
+}) {
   const [edition,       setEdition]       = useState<Edition | null>(null);
   const [error,         setError]         = useState<string | null>(null);
   const [currentPage,   setCurrentPage]   = useState(1);
@@ -203,7 +209,10 @@ export function GuestEditionReader({ token }: { token: string }) {
   const panTouchRef   = useRef<{ x: number; y: number } | null>(null);
 
   const totalPages  = edition?.nombrePages ?? 0;
-  const variant     = useMemo(() => detectVariant(edition?.journalTypeName), [edition?.journalTypeName]);
+  const variant     = useMemo(
+    () => detectVariant(edition?.journalTypeName ?? initialJournalTypeName),
+    [edition?.journalTypeName, initialJournalTypeName],
+  );
   const variantCfg  = VARIANTS[variant];
 
   // ── Spread computation ─────────────────────────────────────────────────────
