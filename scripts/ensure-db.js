@@ -143,11 +143,28 @@ async function main() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE "journal_types" ADD COLUMN IF NOT EXISTS "deletedBy" TEXT;`
   );
-  // monthlyPrice existe en DB avec NOT NULL mais n'est plus dans le schéma Prisma.
-  // On lui donne un DEFAULT 0 pour éviter la violation de contrainte au CREATE.
-  await prisma.$executeRawUnsafe(
-    `ALTER TABLE "journal_types" ALTER COLUMN "monthlyPrice" SET DEFAULT 0;`
-  ).catch(() => {/* colonne absente = rien à faire */});
+  // Certaines colonnes existent en DB avec NOT NULL sans DEFAULT mais ne sont plus
+  // dans le schéma Prisma (ex: monthlyPrice, sixMonthPrice, yearlyPrice...).
+  // On détecte toutes ces colonnes et leur attribue DEFAULT 0 pour éviter les
+  // violations de contrainte lors du CREATE.
+  const knownCols = new Set([
+    'id','name','frequency','unitPrice','titleTemplate','isActive',
+    'createdAt','updatedAt','deletedAt','trashedUntil','deletedBy'
+  ]);
+  const extraNotNull = await prisma.$queryRawUnsafe(`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_name = 'journal_types'
+      AND is_nullable = 'NO'
+      AND column_default IS NULL
+  `);
+  for (const row of extraNotNull) {
+    if (!knownCols.has(row.column_name)) {
+      console.log(`   journal_types."${row.column_name}" → DEFAULT 0`);
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "journal_types" ALTER COLUMN "${row.column_name}" SET DEFAULT 0;`
+      ).catch(() => {});
+    }
+  }
   console.log("   OK");
 
   console.log("8. app_settings...");
