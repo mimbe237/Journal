@@ -143,6 +143,11 @@ async function main() {
   await prisma.$executeRawUnsafe(
     `ALTER TABLE "journal_types" ADD COLUMN IF NOT EXISTS "deletedBy" TEXT;`
   );
+  // monthlyPrice existe en DB avec NOT NULL mais n'est plus dans le schéma Prisma.
+  // On lui donne un DEFAULT 0 pour éviter la violation de contrainte au CREATE.
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "journal_types" ALTER COLUMN "monthlyPrice" SET DEFAULT 0;`
+  ).catch(() => {/* colonne absente = rien à faire */});
   console.log("   OK");
 
   console.log("8. app_settings...");
