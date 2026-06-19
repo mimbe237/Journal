@@ -560,7 +560,7 @@ export function GuestEditionReader({
       <div className="text-center">
         <p className="text-white text-lg font-semibold mb-2">Lien invalide ou expiré</p>
         <p className="text-gray-400 text-sm mb-6">{error}</p>
-        <a href="/abonnement"
+        <a href="https://www.offresopecam.online" target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-amber-500 text-white font-semibold text-sm hover:bg-amber-600 transition-colors">
           Découvrir nos abonnements
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -619,7 +619,7 @@ export function GuestEditionReader({
           {/* ── MOBILE ── */}
           <div className="flex sm:hidden items-center gap-2 w-full">
             <a
-              href="/abonnement"
+              href="https://www.offresopecam.online" target="_blank" rel="noopener noreferrer"
               className="relative flex items-center gap-1 px-3 py-1.5 rounded-full border-2 font-semibold text-xs shrink-0"
               style={{ borderColor: variantCfg.offerBorderColor, color: variantCfg.offerTextColor }}
             >
@@ -678,7 +678,7 @@ export function GuestEditionReader({
               </svg>
             </button>
             <a
-              href="/abonnement"
+              href="https://www.offresopecam.online" target="_blank" rel="noopener noreferrer"
               className="relative flex items-center gap-1.5 px-4 py-2 rounded-full border-2 font-semibold text-sm shrink-0"
               style={{ borderColor: variantCfg.offerBorderColor, color: variantCfg.offerTextColor }}
             >
