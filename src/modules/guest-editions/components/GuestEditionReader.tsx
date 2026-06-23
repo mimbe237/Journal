@@ -168,7 +168,7 @@ function ThumbnailPanel({
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
-      <div className={`fixed left-0 top-0 bottom-0 w-52 z-50 shadow-2xl border-r overflow-y-auto ${bg}`}>
+      <div className={`fixed left-0 top-0 bottom-0 w-52 z-50 shadow-2xl border-r overflow-y-auto ${bg}`} onContextMenu={(e) => e.preventDefault()}>
         <div className={`sticky top-0 flex items-center justify-between px-3 py-2 border-b ${bg} z-10`}>
           <span className={`text-xs font-bold tracking-widest ${theme === "sombre" ? "text-gray-400" : "text-gray-500"}`}>
             PAGES
@@ -647,6 +647,7 @@ export function GuestEditionReader({
     <div
       ref={containerRef}
       className={`flex flex-col h-screen ${bgMain} ${textMain} select-none`}
+      onContextMenu={(e) => e.preventDefault()}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
