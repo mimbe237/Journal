@@ -198,6 +198,25 @@ async function main() {
   `;
   console.log("   OK");
 
+  console.log("11. Seed types de journaux manquants...");
+  const journalTypeSeeds = [
+    { name: "Cameroon Business Today", frequency: "HEBDOMADAIRE", unitPrice: 500,  titleTemplate: "Cameroon Business Today - {{date_long}}" },
+    { name: "Cameroon Insider",        frequency: "HEBDOMADAIRE", unitPrice: 500,  titleTemplate: "Cameroon Insider - {{date_long}}" },
+    { name: "Nyanga Magazine",         frequency: "MENSUEL",      unitPrice: 1500, titleTemplate: "Nyanga Magazine - {{date_long}}" },
+  ];
+  for (const jt of journalTypeSeeds) {
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "journal_types" ("id","name","frequency","unitPrice","isActive","createdAt","updatedAt")
+      VALUES (
+        md5(random()::text || clock_timestamp()::text),
+        '${jt.name}', '${jt.frequency}', ${jt.unitPrice}, true, NOW(), NOW()
+      )
+      ON CONFLICT ("name") DO NOTHING;
+    `);
+    console.log(`   ${jt.name} : OK`);
+  }
+  console.log("   OK");
+
   await prisma.$disconnect();
   console.log("Terminé.");
 }
