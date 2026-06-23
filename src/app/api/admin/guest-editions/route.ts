@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 
 import { requireUserWithRoles, AuthorizationError } from "@/lib/auth/authorization";
-import { getAllGuestEditions } from "@/modules/guest-editions/guestEditionService";
+import {
+  getAllGuestEditions,
+  createGuestEditionSlot,
+} from "@/modules/guest-editions/guestEditionService";
 
 export const dynamic = "force-dynamic";
 
@@ -42,14 +45,31 @@ export async function GET(req: NextRequest) {
     if (error instanceof AuthorizationError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("GET /api/admin/guest-editions failed", error?.message ?? error, error?.code, error?.meta);
-    return NextResponse.json(
-      {
-        error: `Erreur serveur : ${error?.message ?? String(error)}`,
-        code: error?.code ?? null,
-        meta: error?.meta ?? null,
-      },
-      { status: 500 }
-    );
+    console.error("GET /api/admin/guest-editions failed", error?.message ?? error);
+    return NextResponse.json({ error: `Erreur serveur : ${error?.message ?? String(error)}` }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    await requireUserWithRoles(req, undefined, ALLOWED_ROLES);
+    const slot = await createGuestEditionSlot();
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    return NextResponse.json({
+      id: slot.id,
+      dayOfWeek: slot.dayOfWeek,
+      dayLabel: slot.dayLabel,
+      editionId: slot.editionId,
+      edition: null,
+      publicToken: slot.publicToken,
+      publicUrl: null,
+      assignedAt: slot.assignedAt,
+      isActive: slot.isActive,
+    }, { status: 201 });
+  } catch (error: any) {
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

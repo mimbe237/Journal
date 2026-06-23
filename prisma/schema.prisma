@@ -466,12 +466,12 @@ model Edition {
   @@map("editions")
 }
 
-/// Édition invitée : associe un jour de la semaine à une édition accessible publiquement sans authentification.
-/// Il existe exactement 7 enregistrements permanents (un par jour, lundi=1 à dimanche=7).
+/// Créneau d'édition invitée : édition accessible publiquement sans authentification.
+/// Nombre illimité de créneaux. dayOfWeek sert à l'ordre d'affichage uniquement.
 model GuestEdition {
   id          String    @id @default(cuid())
-  dayOfWeek   Int       @unique // 1=Lundi, 2=Mardi, 3=Mercredi, 4=Jeudi, 5=Vendredi, 6=Samedi, 7=Dimanche
-  dayLabel    String    // "Lundi", "Mardi", etc.
+  dayOfWeek   Int
+  dayLabel    String    // label libre, ex: "Lundi", "Créneau 8", etc.
   editionId   String?
   publicToken String    @unique @default(cuid())
   assignedAt  DateTime?

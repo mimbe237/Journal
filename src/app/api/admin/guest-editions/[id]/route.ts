@@ -5,6 +5,7 @@ import { requireUserWithRoles, AuthorizationError } from "@/lib/auth/authorizati
 import {
   getGuestEditionById,
   updateGuestEditionSlot,
+  deleteGuestEditionSlot,
 } from "@/modules/guest-editions/guestEditionService";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +71,25 @@ export async function PATCH(
       return NextResponse.json({ error: "Édition introuvable ou supprimée" }, { status: 404 });
     }
     console.error("PATCH /api/admin/guest-editions/[id] failed", error);
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireUserWithRoles(req, undefined, ALLOWED_ROLES);
+    const { id } = await params;
+    const slot = await getGuestEditionById(id);
+    if (!slot) return NextResponse.json({ error: "Créneau introuvable" }, { status: 404 });
+    await deleteGuestEditionSlot(id);
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

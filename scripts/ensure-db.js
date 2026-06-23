@@ -71,7 +71,12 @@ async function main() {
   `);
   console.log("   Table créée (camelCase)");
 
-  console.log("3. Indexes...");
+  console.log("3. Indexes (drop unique dayOfWeek, keep others)...");
+  // On supprime l'index UNIQUE sur dayOfWeek pour permettre des créneaux illimités.
+  // Les liens publics restent valides : ils sont basés sur publicToken (@unique conservé).
+  await prisma.$executeRawUnsafe(
+    `DROP INDEX IF EXISTS "guest_editions_dayOfWeek_key";`
+  );
   await prisma.$executeRawUnsafe(
     `CREATE UNIQUE INDEX IF NOT EXISTS "guest_editions_dayOfWeek_key" ON "guest_editions"("dayOfWeek");`
   );

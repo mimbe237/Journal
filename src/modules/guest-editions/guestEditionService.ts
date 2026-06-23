@@ -21,13 +21,26 @@ type GuestEditionWithEdition = GuestEdition & {
 
 export async function getAllGuestEditions(): Promise<GuestEditionWithEdition[]> {
   return prisma.guestEdition.findMany({
-    orderBy: { dayOfWeek: "asc" },
-    include: {
-      edition: {
-        select: editionSelect,
-      },
-    },
+    orderBy: [{ assignedAt: "desc" }, { createdAt: "desc" }],
+    include: { edition: { select: editionSelect } },
   });
+}
+
+export async function createGuestEditionSlot(): Promise<GuestEditionWithEdition> {
+  const count = await prisma.guestEdition.count();
+  return prisma.guestEdition.create({
+    data: {
+      dayOfWeek: count + 1,
+      dayLabel: `Créneau ${count + 1}`,
+      publicToken: crypto.randomUUID(),
+      isActive: true,
+    },
+    include: { edition: { select: editionSelect } },
+  });
+}
+
+export async function deleteGuestEditionSlot(id: string): Promise<void> {
+  await prisma.guestEdition.delete({ where: { id } });
 }
 
 export async function getGuestEditionByToken(
