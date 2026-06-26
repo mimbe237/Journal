@@ -49,6 +49,27 @@ function fmtDate(dateStr: string): string {
   return format(new Date(dateStr), "dd/MM/yyyy", { locale: fr });
 }
 
+// ─── Day Pill ────────────────────────────────────────────────────────────────
+
+const DAY_COLORS: Record<number, string> = {
+  1: "bg-purple-100 text-purple-700",
+  2: "bg-pink-100 text-pink-700",
+  3: "bg-emerald-100 text-emerald-700",
+  4: "bg-orange-100 text-orange-700",
+  5: "bg-blue-100 text-blue-700",
+  6: "bg-yellow-100 text-yellow-700",
+  0: "bg-slate-100 text-slate-700",
+};
+
+function DayPill({ dayOfWeek, label }: { dayOfWeek: number; label: string }) {
+  const colors = DAY_COLORS[dayOfWeek] ?? "bg-slate-100 text-slate-700";
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${colors}`}>
+      {label}
+    </span>
+  );
+}
+
 // ─── Page Component ──────────────────────────────────────────────────────────
 
 export default function GuestEditionsPage() {
@@ -212,7 +233,7 @@ export default function GuestEditionsPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Éditions invitées</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Liens publics sans connexion. Triés par date de mise à jour.
+              Configurez une édition gratuite pour chaque jour de la semaine. Les liens générés sont accessibles sans connexion.
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
@@ -241,6 +262,7 @@ export default function GuestEditionsPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-slate-200">
               <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Jour</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Mise à jour</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Édition assignée</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Lien public</th>
@@ -250,12 +272,17 @@ export default function GuestEditionsPage() {
             <tbody className="divide-y divide-slate-100">
               {paged.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-12 text-center text-sm text-slate-400">
+                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-slate-400">
                     Aucun créneau. Cliquez sur &quot;Nouveau créneau&quot; pour commencer.
                   </td>
                 </tr>
               ) : paged.map((slot) => (
                 <tr key={slot.id} className={!slot.isActive ? "opacity-50" : ""}>
+
+                  {/* Jour */}
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <DayPill dayOfWeek={slot.dayOfWeek} label={slot.dayLabel} />
+                  </td>
 
                   {/* Date MAJ */}
                   <td className="px-4 py-4 text-sm text-slate-500 whitespace-nowrap">
