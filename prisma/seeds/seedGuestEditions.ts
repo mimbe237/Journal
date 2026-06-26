@@ -16,21 +16,27 @@ async function main() {
   console.log("Seeding guest_editions table...");
 
   for (const day of DAYS) {
-    const result = await prisma.guestEdition.upsert({
+    const existing = await prisma.guestEdition.findFirst({
       where: { dayOfWeek: day.dayOfWeek },
-      create: {
-        dayOfWeek: day.dayOfWeek,
-        dayLabel: day.dayLabel,
-        editionId: null,
-        isActive: true,
-      },
-      update: {
-        dayLabel: day.dayLabel,
-        // Ne jamais écraser editionId, publicToken ou assignedAt s'ils existent déjà
-      },
     });
 
-    console.log(`[${result.dayOfWeek}] ${result.dayLabel} — token: ${result.publicToken.slice(0, 8)}...`);
+    if (existing) {
+      await prisma.guestEdition.update({
+        where: { id: existing.id },
+        data: { dayLabel: day.dayLabel },
+      });
+      console.log(`[${day.dayOfWeek}] ${day.dayLabel} — déjà existant, label mis à jour`);
+    } else {
+      const result = await prisma.guestEdition.create({
+        data: {
+          dayOfWeek: day.dayOfWeek,
+          dayLabel: day.dayLabel,
+          editionId: null,
+          isActive: true,
+        },
+      });
+      console.log(`[${result.dayOfWeek}] ${result.dayLabel} — token: ${result.publicToken.slice(0, 8)}...`);
+    }
   }
 
   console.log("Done. 7 guest edition slots ready.");
