@@ -12,7 +12,9 @@
     "seed:users": "npx ts-node scripts/seedUsers.js",
     "seed:journal-types": "npx ts-node scripts/seedJournalTypes.js",
     "seed:email-templates": "npx ts-node prisma/seeds/seedEmailTemplates.ts",
-    "seed:guest-editions": "npx ts-node prisma/seeds/seedGuestEditions.ts"
+    "seed:guest-editions": "npx ts-node prisma/seeds/seedGuestEditions.ts",
+    "r2:configure-cors": "node scripts/configure-r2-cors.js",
+    "r2:test": "node scripts/test-r2.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.948.0",
