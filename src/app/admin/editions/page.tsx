@@ -119,35 +119,11 @@ export default function AdminEditionsPage() {
     setLastErrorId(null);
 
     try {
-      // 1. Get Presigned URL for PDF
+      // Upload via API (le serveur gère l'upload vers R2, pas de CORS nécessaire)
       setCurrentStep("upload");
-      const presignRes = await fetch("/api/admin/upload-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type })
-      });
-      const presignData = await presignRes.json();
-      if (!presignRes.ok) throw new Error(presignData.error || "Erreur pré-signature");
-
-      // 2. Upload PDF directly to R2
-      try {
-        const uploadRes = await fetch(presignData.url, {
-          method: "PUT",
-          body: file,
-          headers: { "Content-Type": file.type }
-        });
-        if (!uploadRes.ok) throw new Error("Erreur lors de l'upload vers le stockage");
-      } catch (err: any) {
-        if (err.message === "Failed to fetch") {
-          throw new Error("Erreur CORS : Configurez les règles CORS sur votre bucket R2.");
-        }
-        throw err;
-      }
-
-      // 3. Send metadata to backend for processing
       setCurrentStep("conversion");
       const formData = new FormData();
-      formData.append("fileKey", presignData.key); // Send the key, not the file
+      formData.append("file", file); // Envoi direct du PDF
       if (coverImage) formData.append("coverImage", coverImage);
       formData.append("titre", titre);
       formData.append("type", type);
