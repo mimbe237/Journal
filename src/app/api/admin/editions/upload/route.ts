@@ -38,9 +38,8 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData();
-    // Accepte soit un fichier direct (nouveau flux, évite CORS), soit une clé R2 (ancien flux)
-    const pdfFile = formData.get("file") as File | null;
-    let fileKey = formData.get("fileKey") as string | null;
+    // On attend désormais une clé de fichier (uploadé via presigned URL)
+    const fileKey = formData.get("fileKey") as string;
     const coverImage = formData.get("coverImage") as File | null;
     let titre = formData.get("titre") as string;
     const type = (formData.get("type") as string) || "QUOTIDIEN";
@@ -49,14 +48,7 @@ export async function POST(req: NextRequest) {
     const devise = (formData.get("devise") as string | null)?.toUpperCase() || "XAF";
     const journalTypeId = formData.get("journalTypeId") as string | null;
 
-    // Si un fichier PDF est fourni directement, on l'upload vers R2 côté serveur (pas de CORS)
-    if (pdfFile && pdfFile.size > 0) {
-      const pdfBuffer = Buffer.from(await pdfFile.arrayBuffer());
-      fileKey = `uploads/${Date.now()}-${pdfFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      await fileStorageProvider.saveFile({ buffer: pdfBuffer, destinationPath: fileKey });
-    }
-
-    if (!fileKey) return NextResponse.json({ error: "Fichier PDF requis (file ou fileKey manquant)" }, { status: 400 });
+    if (!fileKey) return NextResponse.json({ error: "Fichier PDF requis (fileKey manquant)" }, { status: 400 });
 
     // Génération automatique du titre si manquant et journalTypeId présent
     if (!titre && journalTypeId) {
