@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
           titre: slot.edition.titre,
           datePublication: slot.edition.datePublication,
           type: slot.edition.type,
+          journalTypeId: slot.edition.journalTypeId,
           journalTypeName: slot.edition.journalType?.name ?? null,
           nombrePages: slot.edition.nombrePages,
           cheminImageUne: slot.edition.cheminImageUne,

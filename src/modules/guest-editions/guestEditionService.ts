@@ -6,6 +6,7 @@ const editionSelect = {
   titre: true,
   datePublication: true,
   type: true,
+  journalTypeId: true,
   nombrePages: true,
   cheminImageUne: true,
   cheminInternePdf: true,

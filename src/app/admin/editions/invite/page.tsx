@@ -17,6 +17,7 @@ interface GuestSlot {
     titre: string;
     datePublication: string;
     type: string;
+    journalTypeId?: string | null;
     journalTypeName?: string | null;
     nombrePages: number | null;
     cheminImageUne: string | null;
@@ -116,6 +117,10 @@ export default function GuestEditionsPage() {
   // Copy feedback
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Correction du journal (1 clic)
+  const [journalTypes, setJournalTypes] = useState<Array<{ id: string; name: string }>>([]);
+  const [fixingJournalId, setFixingJournalId] = useState<string | null>(null);
+
   // ── Fetch slots ──
   const fetchSlots = useCallback(async () => {
     setLoading(true);
@@ -132,6 +137,13 @@ export default function GuestEditionsPage() {
   }, []);
 
   useEffect(() => { fetchSlots(); }, [fetchSlots]);
+
+  useEffect(() => {
+    fetch("/api/admin/journal-types")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setJournalTypes(data); })
+      .catch(() => { });
+  }, []);
 
   // ── Create new slot ──
   const createSlot = async () => {
@@ -223,6 +235,28 @@ export default function GuestEditionsPage() {
     await navigator.clipboard.writeText(slot.publicUrl);
     setCopiedId(slot.id);
     setTimeout(() => setCopiedId((p) => (p === slot.id ? null : p)), 2000);
+  };
+
+  // ── Corriger le journal d'une édition (1 clic) ──
+  const fixJournal = async (slot: GuestSlot, journalTypeId: string) => {
+    if (!slot.edition) return;
+    setFixingJournalId(slot.id);
+    try {
+      const res = await fetch(`/api/admin/editions/${slot.edition.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          titre: slot.edition.titre,
+          datePublication: slot.edition.datePublication,
+          type: slot.edition.type,
+          journalTypeId: journalTypeId || null,
+        }),
+      });
+      if (!res.ok) { alert("Erreur : " + (((await res.json().catch(() => ({})))?.error) ?? res.status)); return; }
+      await fetchSlots();
+    } catch { alert("Erreur lors de la correction du journal"); } finally {
+      setFixingJournalId(null);
+    }
   };
 
   const filteredEditions = editions.filter((e) =>
@@ -338,7 +372,21 @@ export default function GuestEditionsPage() {
                   {/* Journal */}
                   <td className="px-4 py-4 whitespace-nowrap">
                     {slot.edition ? (
-                      <JournalBadge name={slot.edition.journalTypeName} title={slot.edition.titre} />
+                      <div className="flex items-center gap-2">
+                        <JournalBadge name={slot.edition.journalTypeName} title={slot.edition.titre} />
+                        <select
+                          value={slot.edition.journalTypeId ?? ""}
+                          onChange={(e) => fixJournal(slot, e.target.value)}
+                          disabled={fixingJournalId === slot.id || journalTypes.length === 0}
+                          title="Corriger le journal de cette édition"
+                          className="text-[11px] border border-slate-200 rounded px-1 py-0.5 text-slate-500 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 max-w-[120px]"
+                        >
+                          <option value="">{fixingJournalId === slot.id ? "…" : "⟲ Corriger"}</option>
+                          {journalTypes.map((jt) => (
+                            <option key={jt.id} value={jt.id}>{jt.name}</option>
+                          ))}
+                        </select>
+                      </div>
                     ) : (
                       <span className="text-sm text-slate-400">—</span>
                     )}
