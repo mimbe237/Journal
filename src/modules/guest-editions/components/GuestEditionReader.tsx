@@ -1,91 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-
-// ─── Variant System ────────────────────────────────────────────────────────────
-
-type VariantKey = "CT" | "WSL" | "CBT" | "CI" | "NYANGA";
-
-interface VariantConfig {
-  brandName: string;
-  loadingGradient: string;
-  progressStyle: React.CSSProperties;
-  offerBorderColor: string;
-  offerTextColor: string;
-  thumbActiveBorder: string;
-}
-
-const VARIANTS: Record<VariantKey, VariantConfig> = {
-  CT: {
-    brandName: "Cameroon Tribune",
-    loadingGradient:
-      "linear-gradient(135deg, #0d3320 0%, #1a5c35 40%, #237a46 70%, #1a5c35 100%)",
-    progressStyle: {
-      background: "linear-gradient(90deg,#f59e0b,#fbbf24,#fde68a)",
-      boxShadow: "0 0 12px #f59e0b88",
-    },
-    offerBorderColor: "#f59e0b",
-    offerTextColor: "#d97706",
-    thumbActiveBorder: "border-amber-500 ring-2 ring-amber-200",
-  },
-  WSL: {
-    brandName: "Weekend Sports & Loisirs",
-    loadingGradient:
-      "linear-gradient(135deg, #7f1d1d 0%, #b91c1c 40%, #dc2626 70%, #b91c1c 100%)",
-    progressStyle: {
-      background: "linear-gradient(90deg,#dc2626,#ef4444,#16a34a)",
-    },
-    offerBorderColor: "#dc2626",
-    offerTextColor: "#b91c1c",
-    thumbActiveBorder: "border-red-500 ring-2 ring-red-200",
-  },
-  CBT: {
-    brandName: "Cameroon Business Today",
-    loadingGradient:
-      "linear-gradient(135deg, #0c1a3d 0%, #1e3a8a 40%, #2563eb 70%, #1e3a8a 100%)",
-    progressStyle: {
-      background: "linear-gradient(90deg,#1d4ed8,#60a5fa,#93c5fd)",
-      boxShadow: "0 0 12px #2563eb88",
-    },
-    offerBorderColor: "#2563eb",
-    offerTextColor: "#1d4ed8",
-    thumbActiveBorder: "border-blue-500 ring-2 ring-blue-200",
-  },
-  CI: {
-    brandName: "Cameroon Insider",
-    loadingGradient:
-      "linear-gradient(135deg, #1a0a0a 0%, #6b1a1a 40%, #9b2c2c 70%, #6b1a1a 100%)",
-    progressStyle: {
-      background: "linear-gradient(90deg,#9b2c2c,#e53e3e,#f97316)",
-      boxShadow: "0 0 12px #9b2c2c88",
-    },
-    offerBorderColor: "#9b2c2c",
-    offerTextColor: "#7b1f1f",
-    thumbActiveBorder: "border-red-800 ring-2 ring-red-300",
-  },
-  NYANGA: {
-    brandName: "Nyanga Magazine",
-    loadingGradient:
-      "linear-gradient(135deg, #431407 0%, #c2410c 40%, #ea580c 70%, #c2410c 100%)",
-    progressStyle: {
-      background: "linear-gradient(90deg,#ea580c,#fb923c,#fbbf24)",
-      boxShadow: "0 0 12px #ea580c88",
-    },
-    offerBorderColor: "#ea580c",
-    offerTextColor: "#c2410c",
-    thumbActiveBorder: "border-orange-500 ring-2 ring-orange-200",
-  },
-};
-
-function detectVariant(name?: string | null): VariantKey {
-  if (!name) return "CT";
-  const n = name.toLowerCase();
-  if (n.includes("wsl") || n.includes("weekend") || n.includes("sport")) return "WSL";
-  if (n.includes("cbt") || n.includes("business")) return "CBT";
-  if (n.includes("insider") || n.includes(" ci") || n === "ci") return "CI";
-  if (n.includes("nyanga")) return "NYANGA";
-  return "CT";
-}
+import { detectVariant, VARIANTS, type VariantKey, type VariantConfig } from "@/modules/editions/components/editionVariants";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -103,9 +19,9 @@ type Theme = "clair" | "sepia" | "sombre";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ZOOM_STEP = 0.1;
-const ZOOM_MIN  = 0.3;
-const ZOOM_MAX  = 4;
-const PRELOAD   = 3;
+const ZOOM_MIN = 0.3;
+const ZOOM_MAX = 4;
+const PRELOAD = 3;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -185,9 +101,8 @@ function ThumbnailPanel({
               key={p}
               ref={p === current ? ref : null}
               onClick={() => { onSelect(p); onClose(); }}
-              className={`relative rounded overflow-hidden border-2 transition-all ${
-                p === current ? variantCfg.thumbActiveBorder : "border-transparent hover:border-gray-300"
-              }`}
+              className={`relative rounded overflow-hidden border-2 transition-all ${p === current ? variantCfg.thumbActiveBorder : "border-transparent hover:border-gray-300"
+                }`}
             >
               <img
                 src={guestImgUrl(token, p)}
@@ -215,13 +130,13 @@ export function GuestEditionReader({
   token: string;
   initialJournalTypeName?: string | null;
 }) {
-  const [edition,       setEdition]       = useState<Edition | null>(null);
-  const [error,         setError]         = useState<string | null>(null);
-  const [currentPage,   setCurrentPage]   = useState(1);
-  const [zoom,          setZoom]          = useState(1);
-  const [readMode,      setReadMode]      = useState<ReadMode>("continu");
-  const [theme]                           = useState<Theme>("clair");
-  const [flipState, setFlipState]         = useState<{
+  const [edition, setEdition] = useState<Edition | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [zoom, setZoom] = useState(1);
+  const [readMode, setReadMode] = useState<ReadMode>("continu");
+  const [theme] = useState<Theme>("clair");
+  const [flipState, setFlipState] = useState<{
     dir: "fwd" | "bwd";
     frontPage: number;
     backPage: number;
@@ -230,29 +145,29 @@ export function GuestEditionReader({
   } | null>(null);
   const [showThumbnails, setShowThumbnails] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [toast,          setToast]          = useState<string | null>(null);
-  const [topBarVisible,  setTopBarVisible]  = useState(true);
-  const [loadPct,        setLoadPct]        = useState(0);
-  const [panOffset,      setPanOffset]      = useState({ x: 0, y: 0 });
-  const [isMobile,       setIsMobile]       = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [topBarVisible, setTopBarVisible] = useState(true);
+  const [loadPct, setLoadPct] = useState(0);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState(false);
 
-  const containerRef  = useRef<HTMLDivElement>(null);
-  const contentRef    = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
-  const pinchDistRef  = useRef<number | null>(null);
-  const pinchZoomRef  = useRef<number>(1);
-  const lastTapRef    = useRef<{ time: number; x: number; y: number } | null>(null);
-  const preloadedRef  = useRef<Set<number>>(new Set());
-  const lastScrollY   = useRef(0);
-  const panDragRef    = useRef({ active: false, x0: 0, y0: 0, px0: 0, py0: 0, moved: false });
-  const panTouchRef   = useRef<{ x: number; y: number } | null>(null);
+  const pinchDistRef = useRef<number | null>(null);
+  const pinchZoomRef = useRef<number>(1);
+  const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
+  const preloadedRef = useRef<Set<number>>(new Set());
+  const lastScrollY = useRef(0);
+  const panDragRef = useRef({ active: false, x0: 0, y0: 0, px0: 0, py0: 0, moved: false });
+  const panTouchRef = useRef<{ x: number; y: number } | null>(null);
 
-  const totalPages  = edition?.nombrePages ?? 0;
-  const variant     = useMemo(
+  const totalPages = edition?.nombrePages ?? 0;
+  const variant = useMemo(
     () => detectVariant(edition?.journalTypeName ?? initialJournalTypeName),
     [edition?.journalTypeName, initialJournalTypeName],
   );
-  const variantCfg  = VARIANTS[variant];
+  const variantCfg = VARIANTS[variant];
 
   // ── Spread computation ─────────────────────────────────────────────────────
   const rightPage = useMemo(() => {
@@ -449,11 +364,11 @@ export function GuestEditionReader({
     const handle = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === "INPUT") return;
       if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); goNext(); }
-      if (e.key === "ArrowLeft")  { e.preventDefault(); goBack(); }
-      if (e.key === "Escape")     { setShowThumbnails(false); }
-      if (e.key === "f")          { containerRef.current?.requestFullscreen(); }
-      if (e.key === "+")          { setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2))); }
-      if (e.key === "-")          { setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2))); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); goBack(); }
+      if (e.key === "Escape") { setShowThumbnails(false); }
+      if (e.key === "f") { containerRef.current?.requestFullscreen(); }
+      if (e.key === "+") { setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2))); }
+      if (e.key === "-") { setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2))); }
     };
     window.addEventListener("keydown", handle);
     return () => window.removeEventListener("keydown", handle);
@@ -464,22 +379,22 @@ export function GuestEditionReader({
     if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
-      pinchDistRef.current  = Math.sqrt(dx * dx + dy * dy);
-      pinchZoomRef.current  = zoom;
+      pinchDistRef.current = Math.sqrt(dx * dx + dy * dy);
+      pinchZoomRef.current = zoom;
       touchStartRef.current = null;
-      panTouchRef.current   = null;
+      panTouchRef.current = null;
     } else {
       touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: Date.now() };
-      pinchDistRef.current  = null;
-      panTouchRef.current   = zoom > 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+      pinchDistRef.current = null;
+      panTouchRef.current = zoom > 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
     }
   }, [zoom]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2 && pinchDistRef.current !== null) {
       e.preventDefault();
-      const dx   = e.touches[0].clientX - e.touches[1].clientX;
-      const dy   = e.touches[0].clientY - e.touches[1].clientY;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       setZoom(+Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, pinchZoomRef.current * (dist / pinchDistRef.current))).toFixed(2));
       return;
@@ -490,7 +405,7 @@ export function GuestEditionReader({
       const dy = e.touches[0].clientY - panTouchRef.current.y;
       panTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       setPanOffset((prev) => {
-        const maxX = (window.innerWidth  * (zoom - 1)) / 2;
+        const maxX = (window.innerWidth * (zoom - 1)) / 2;
         const maxY = (window.innerHeight * (zoom - 1)) / 2;
         return {
           x: Math.max(-maxX, Math.min(maxX, prev.x + dx)),
@@ -502,7 +417,7 @@ export function GuestEditionReader({
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     pinchDistRef.current = null;
-    panTouchRef.current  = null;
+    panTouchRef.current = null;
     if (!touchStartRef.current) return;
 
     const { x, y, time } = touchStartRef.current;
@@ -571,7 +486,7 @@ export function GuestEditionReader({
     const dx = e.clientX - panDragRef.current.x0;
     const dy = e.clientY - panDragRef.current.y0;
     if (Math.abs(dx) + Math.abs(dy) > 5) panDragRef.current.moved = true;
-    const maxX = (window.innerWidth  * (zoom - 1)) / 2;
+    const maxX = (window.innerWidth * (zoom - 1)) / 2;
     const maxY = (window.innerHeight * (zoom - 1)) / 2;
     setPanOffset({
       x: Math.max(-maxX, Math.min(maxX, panDragRef.current.px0 + dx)),
@@ -582,12 +497,12 @@ export function GuestEditionReader({
   const handleMouseUp = useCallback(() => { panDragRef.current.active = false; }, []);
 
   // ── Theme classes ──────────────────────────────────────────────────────────
-  const bgMain    = theme === "sombre" ? "bg-gray-900"  : theme === "sepia" ? "bg-amber-50"  : "bg-white";
-  const bgContent = theme === "sombre" ? "bg-gray-800"  : theme === "sepia" ? "bg-amber-100" : "bg-gray-100";
-  const bgBar     = theme === "sombre" ? "bg-gray-900 border-gray-700" : "bg-white border-gray-200";
-  const textMain  = theme === "sombre" ? "text-white"   : "text-gray-900";
-  const textSub   = theme === "sombre" ? "text-gray-400" : "text-gray-500";
-  const btnHover  = theme === "sombre" ? "hover:bg-gray-800 text-gray-300" : "hover:bg-gray-100 text-gray-600";
+  const bgMain = theme === "sombre" ? "bg-gray-900" : theme === "sepia" ? "bg-amber-50" : "bg-white";
+  const bgContent = theme === "sombre" ? "bg-gray-800" : theme === "sepia" ? "bg-amber-100" : "bg-gray-100";
+  const bgBar = theme === "sombre" ? "bg-gray-900 border-gray-700" : "bg-white border-gray-200";
+  const textMain = theme === "sombre" ? "text-white" : "text-gray-900";
+  const textSub = theme === "sombre" ? "text-gray-400" : "text-gray-500";
+  const btnHover = theme === "sombre" ? "hover:bg-gray-800 text-gray-300" : "hover:bg-gray-100 text-gray-600";
 
   // ── Error state ────────────────────────────────────────────────────────────
   if (error && !edition) return (
@@ -679,15 +594,14 @@ export function GuestEditionReader({
               <select
                 value={readMode === "livre" && !isMobile ? rightPage : currentPage}
                 onChange={(e) => goTo(Number(e.target.value))}
-                className={`px-2 py-1 rounded-full border text-xs font-semibold outline-none cursor-pointer ${
-                  theme === "sombre" ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-900"
-                }`}
+                className={`px-2 py-1 rounded-full border text-xs font-semibold outline-none cursor-pointer ${theme === "sombre" ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-900"
+                  }`}
               >
                 {readMode === "livre" && !isMobile
                   ? spreadOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
                   : Array.from({ length: totalPages }, (_, i) => i + 1).map((p) =>
-                      <option key={p} value={p}>P.{p}/{totalPages}</option>
-                    )
+                    <option key={p} value={p}>P.{p}/{totalPages}</option>
+                  )
                 }
               </select>
               <button onClick={goNext} disabled={currentPage >= totalPages}
@@ -747,15 +661,14 @@ export function GuestEditionReader({
               <select
                 value={readMode === "livre" && !isMobile ? rightPage : currentPage}
                 onChange={(e) => goTo(Number(e.target.value))}
-                className={`px-3 py-1.5 rounded-full border text-sm font-semibold outline-none cursor-pointer ${
-                  theme === "sombre" ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-900"
-                }`}
+                className={`px-3 py-1.5 rounded-full border text-sm font-semibold outline-none cursor-pointer ${theme === "sombre" ? "border-gray-700 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-900"
+                  }`}
               >
                 {readMode === "livre" && !isMobile
                   ? spreadOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
                   : Array.from({ length: totalPages }, (_, i) => i + 1).map((p) =>
-                      <option key={p} value={p}>Page {p} / {totalPages}</option>
-                    )
+                    <option key={p} value={p}>Page {p} / {totalPages}</option>
+                  )
                 }
               </select>
               <button onClick={goNext} disabled={currentPage >= totalPages}
@@ -767,40 +680,37 @@ export function GuestEditionReader({
             </div>
 
             {/* Mode buttons */}
-            <div className={`flex items-center gap-1 p-1 rounded-xl border ${
-              theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"
-            }`}>
+            <div className={`flex items-center gap-1 p-1 rounded-xl border ${theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-50"
+              }`}>
               {([
                 {
                   value: "continu" as ReadMode, label: "Continu",
                   icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                    <rect x="3" y="3" width="18" height="18" rx="1.5"/>
-                    <line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/>
-                    <line x1="7" y1="16" x2="13" y2="16"/>
+                    <rect x="3" y="3" width="18" height="18" rx="1.5" />
+                    <line x1="7" y1="8" x2="17" y2="8" /><line x1="7" y1="12" x2="17" y2="12" />
+                    <line x1="7" y1="16" x2="13" y2="16" />
                   </svg>,
                 },
                 {
                   value: "livre" as ReadMode, label: "Livre",
                   icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                    <path d="M4 4h7v16H4z"/><path d="M13 4h7v16h-7z"/>
+                    <path d="M4 4h7v16H4z" /><path d="M13 4h7v16h-7z" />
                   </svg>,
                 },
               ] as const).map((m) => (
                 <button key={m.value} onClick={() => setReadMode(m.value)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    readMode === m.value
-                      ? "bg-gray-900 text-white"
-                      : theme === "sombre" ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"
-                  }`}>
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${readMode === m.value
+                    ? "bg-gray-900 text-white"
+                    : theme === "sombre" ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-900"
+                    }`}>
                   {m.icon}<span>{m.label}</span>
                 </button>
               ))}
             </div>
 
             {/* Zoom */}
-            <div className={`flex items-center gap-1 px-2 py-1 rounded-full border ${
-              theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200"
-            }`}>
+            <div className={`flex items-center gap-1 px-2 py-1 rounded-full border ${theme === "sombre" ? "border-gray-700 bg-gray-800" : "border-gray-200"
+              }`}>
               <button
                 onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
                 disabled={zoom <= ZOOM_MIN}
@@ -840,16 +750,15 @@ export function GuestEditionReader({
       {/* CONTENT */}
       <div
         ref={contentRef}
-        className={`flex-1 overflow-auto flex items-center justify-center ${
-          readMode === "continu" ? "p-0 items-start" : ""
-        } ${bgContent}`}
+        className={`flex-1 overflow-auto flex items-center justify-center ${readMode === "continu" ? "p-0 items-start" : ""
+          } ${bgContent}`}
         style={{
           touchAction: readMode === "continu" ? "pan-x pan-y pinch-zoom"
-                     : zoom > 1             ? "none"
-                                            : "pan-y pinch-zoom",
+            : zoom > 1 ? "none"
+              : "pan-y pinch-zoom",
           cursor: readMode !== "continu" && zoom > 1
-                    ? (panDragRef.current.active ? "grabbing" : "grab")
-                    : "default",
+            ? (panDragRef.current.active ? "grabbing" : "grab")
+            : "default",
           userSelect: "none",
         }}
         onMouseDown={readMode !== "continu" ? handleMouseDown : undefined}
@@ -861,7 +770,7 @@ export function GuestEditionReader({
           if (zoom > 1 && panDragRef.current.moved) return;
           if ((e.target as HTMLElement).closest("button,a,select")) return;
           const rect = e.currentTarget.getBoundingClientRect();
-          const rel  = (e.clientX - rect.left) / rect.width;
+          const rel = (e.clientX - rect.left) / rect.width;
           if (rel < 0.5) goBack();
           else goNext();
         }}
@@ -1052,22 +961,20 @@ export function GuestEditionReader({
             <p className="text-xs font-bold tracking-widest text-gray-400 mb-3">MODE DE LECTURE</p>
             <div className="grid grid-cols-2 gap-2 mb-3">
               <button onClick={() => { setReadMode("continu"); setShowMobileMenu(false); }}
-                className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${
-                  readMode === "continu" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
-                }`}>
+                className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${readMode === "continu" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
+                  }`}>
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                  <rect x="3" y="3" width="18" height="18" rx="1.5"/>
-                  <line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/>
-                  <line x1="7" y1="16" x2="13" y2="16"/>
+                  <rect x="3" y="3" width="18" height="18" rx="1.5" />
+                  <line x1="7" y1="8" x2="17" y2="8" /><line x1="7" y1="12" x2="17" y2="12" />
+                  <line x1="7" y1="16" x2="13" y2="16" />
                 </svg>
                 Continu
               </button>
               <button onClick={() => { setReadMode("livre"); setShowMobileMenu(false); }}
-                className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${
-                  readMode === "livre" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
-                }`}>
+                className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${readMode === "livre" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"
+                  }`}>
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                  <path d="M4 4h7v16H4z"/><path d="M13 4h7v16h-7z"/>
+                  <path d="M4 4h7v16H4z" /><path d="M13 4h7v16h-7z" />
                 </svg>
                 Livre
               </button>

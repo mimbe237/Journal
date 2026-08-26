@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { detectVariant } from "@/modules/editions/components/editionVariants";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,7 @@ interface GuestSlot {
     titre: string;
     datePublication: string;
     type: string;
+    journalTypeName?: string | null;
     nombrePages: number | null;
     cheminImageUne: string | null;
     deletedAt: string | null;
@@ -70,22 +72,46 @@ function DayPill({ dayOfWeek, label }: { dayOfWeek: number; label: string }) {
   );
 }
 
+// ─── Badge du journal (CT / WSL / CBT / CI / NYANGA) ──────────────────────────
+
+const JOURNAL_META: Record<string, { code: string; label: string; classes: string }> = {
+  CT: { code: "CT", label: "Cameroon Tribune", classes: "bg-emerald-100 text-emerald-700" },
+  WSL: { code: "WSL", label: "Weekend Sports & Loisirs", classes: "bg-red-100 text-red-700" },
+  CBT: { code: "CBT", label: "Cameroon Business Today", classes: "bg-blue-100 text-blue-700" },
+  CI: { code: "CI", label: "Cameroon Insider", classes: "bg-rose-100 text-rose-700" },
+  NYANGA: { code: "NYANGA", label: "Nyanga Magazine", classes: "bg-orange-100 text-orange-700" },
+};
+
+function JournalBadge({ name }: { name?: string | null }) {
+  if (!name) return <span className="text-sm text-slate-400">—</span>;
+  const key = detectVariant(name);
+  const meta = JOURNAL_META[key] ?? { code: key, label: name, classes: "bg-slate-100 text-slate-700" };
+  return (
+    <span
+      title={meta.label}
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${meta.classes}`}
+    >
+      {meta.code}
+    </span>
+  );
+}
+
 // ─── Page Component ──────────────────────────────────────────────────────────
 
 export default function GuestEditionsPage() {
-  const [slots, setSlots]       = useState<GuestSlot[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
+  const [slots, setSlots] = useState<GuestSlot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [page, setPage]         = useState(1);
+  const [page, setPage] = useState(1);
 
   // Modal
-  const [editingSlot, setEditingSlot]     = useState<GuestSlot | null>(null);
-  const [editions, setEditions]           = useState<EditionOption[]>([]);
+  const [editingSlot, setEditingSlot] = useState<GuestSlot | null>(null);
+  const [editions, setEditions] = useState<EditionOption[]>([]);
   const [editionsLoading, setEditionsLoading] = useState(false);
-  const [editionsLoaded, setEditionsLoaded]   = useState(false);
-  const [searchQuery, setSearchQuery]     = useState("");
-  const [saving, setSaving]               = useState(false);
+  const [editionsLoaded, setEditionsLoaded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [saving, setSaving] = useState(false);
 
   // Copy feedback
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -265,6 +291,7 @@ export default function GuestEditionsPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Jour</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Mise à jour</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Édition assignée</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Journal</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Lien public</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Actions</th>
               </tr>
@@ -272,7 +299,7 @@ export default function GuestEditionsPage() {
             <tbody className="divide-y divide-slate-100">
               {paged.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-slate-400">
+                  <td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-400">
                     Aucun créneau. Cliquez sur &quot;Nouveau créneau&quot; pour commencer.
                   </td>
                 </tr>
@@ -305,6 +332,15 @@ export default function GuestEditionsPage() {
                       <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
                         Non configuré
                       </span>
+                    )}
+                  </td>
+
+                  {/* Journal */}
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    {slot.edition ? (
+                      <JournalBadge name={slot.edition.journalTypeName} />
+                    ) : (
+                      <span className="text-sm text-slate-400">—</span>
                     )}
                   </td>
 
@@ -380,9 +416,8 @@ export default function GuestEditionsPage() {
                 </button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                   <button key={p} onClick={() => setPage(p)}
-                    className={`w-7 h-7 rounded text-xs font-medium transition ${
-                      p === page ? "bg-emerald-600 text-white" : "hover:bg-slate-200 text-slate-600"
-                    }`}>
+                    className={`w-7 h-7 rounded text-xs font-medium transition ${p === page ? "bg-emerald-600 text-white" : "hover:bg-slate-200 text-slate-600"
+                      }`}>
                     {p}
                   </button>
                 ))}
@@ -435,9 +470,8 @@ export default function GuestEditionsPage() {
                     return (
                       <li key={edition.id}>
                         <button onClick={() => selectEdition(edition.id)} disabled={saving}
-                          className={`w-full flex items-center justify-between px-6 py-3 text-left hover:bg-slate-50 transition disabled:opacity-50 ${
-                            isCurrent ? "ring-2 ring-inset ring-emerald-400 bg-emerald-50" : ""
-                          }`}>
+                          className={`w-full flex items-center justify-between px-6 py-3 text-left hover:bg-slate-50 transition disabled:opacity-50 ${isCurrent ? "ring-2 ring-inset ring-emerald-400 bg-emerald-50" : ""
+                            }`}>
                           <div className="flex items-center gap-3">
                             {isCurrent && (
                               <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">

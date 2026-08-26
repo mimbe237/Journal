@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { ButtonSecondary } from "@/components/ui/Button";
+import { detectVariant, VARIANTS, type VariantKey } from "./editionVariants";
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -11,6 +12,7 @@ interface Edition {
   id: string;
   titre: string;
   nombrePages: number;
+  journalTypeName?: string | null;
 }
 
 interface EditionReaderProps {
@@ -185,9 +187,9 @@ function getPreviousBookPage(spread: BookSpread): number | null {
 // ============================================================================
 
 // Progress Bar
-function ProgressBar({ current, total, onPageClick }: { current: number; total: number; onPageClick: (page: number) => void }) {
+function ProgressBar({ current, total, onPageClick, variantStyle }: { current: number; total: number; onPageClick: (page: number) => void; variantStyle?: React.CSSProperties }) {
   const percentage = (current / total) * 100;
-  
+
   return (
     <div className="relative w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full cursor-pointer group"
       onClick={(e) => {
@@ -197,9 +199,9 @@ function ProgressBar({ current, total, onPageClick }: { current: number; total: 
         onPageClick(Math.max(1, Math.min(total, page)));
       }}
     >
-      <div 
+      <div
         className="absolute left-0 top-0 h-full bg-blue-500 rounded-full transition-all duration-300"
-        style={{ width: `${percentage}%` }}
+        style={{ width: `${percentage}%`, ...variantStyle }}
       />
       <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs px-2 py-1 rounded pointer-events-none">
         {current} / {total}
@@ -209,22 +211,24 @@ function ProgressBar({ current, total, onPageClick }: { current: number; total: 
 }
 
 // Thumbnail Panel
-function ThumbnailPanel({ 
-  editionId, 
-  total, 
-  current, 
-  onSelect, 
+function ThumbnailPanel({
+  editionId,
+  total,
+  current,
+  onSelect,
   bookmarks,
   isOpen,
-  onClose 
-}: { 
-  editionId: string; 
-  total: number; 
-  current: number; 
+  onClose,
+  thumbActiveBorder
+}: {
+  editionId: string;
+  total: number;
+  current: number;
   onSelect: (page: number) => void;
   bookmarks: Bookmark[];
   isOpen: boolean;
   onClose: () => void;
+  thumbActiveBorder: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const currentThumbRef = useRef<HTMLButtonElement>(null);
@@ -240,7 +244,7 @@ function ThumbnailPanel({
   const bookmarkedPages = new Set(bookmarks.map(b => b.page));
 
   return (
-    <div 
+    <div
       ref={panelRef}
       className="absolute left-0 top-0 bottom-0 w-48 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-xl z-40 overflow-y-auto"
     >
@@ -258,14 +262,13 @@ function ThumbnailPanel({
             key={page}
             ref={page === current ? currentThumbRef : null}
             onClick={() => { onSelect(page); onClose(); }}
-            className={`relative aspect-[3/4] rounded overflow-hidden border-2 transition-all ${
-              page === current 
-                ? "border-blue-500 ring-2 ring-blue-200" 
-                : "border-transparent hover:border-gray-300"
-            }`}
+            className={`relative aspect-[3/4] rounded overflow-hidden border-2 transition-all ${page === current
+              ? thumbActiveBorder
+              : "border-transparent hover:border-gray-300"
+              }`}
           >
-            <img 
-              src={getImageUrl(editionId, page)} 
+            <img
+              src={getImageUrl(editionId, page)}
               alt={`Page ${page}`}
               className="w-full h-full object-cover"
               loading="lazy"
@@ -288,16 +291,16 @@ function ThumbnailPanel({
 }
 
 // Go To Page Dialog
-function GoToPageDialog({ 
-  isOpen, 
-  onClose, 
-  onGo, 
-  total, 
-  current 
-}: { 
-  isOpen: boolean; 
-  onClose: () => void; 
-  onGo: (page: number) => void; 
+function GoToPageDialog({
+  isOpen,
+  onClose,
+  onGo,
+  total,
+  current
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onGo: (page: number) => void;
   total: number;
   current: number;
 }) {
@@ -324,7 +327,7 @@ function GoToPageDialog({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <form 
+      <form
         onSubmit={handleSubmit}
         onClick={(e) => e.stopPropagation()}
         className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-72"
@@ -386,7 +389,7 @@ function BookmarksPanel({
       ) : (
         <div className="max-h-64 overflow-y-auto">
           {bookmarks.sort((a, b) => a.page - b.page).map((bookmark) => (
-            <div 
+            <div
               key={bookmark.page}
               className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer group"
               onClick={() => { onSelect(bookmark.page); onClose(); }}
@@ -397,7 +400,7 @@ function BookmarksPanel({
                 </svg>
                 <span className="text-gray-900 dark:text-white">Page {bookmark.page}</span>
               </div>
-              <button 
+              <button
                 onClick={(e) => { e.stopPropagation(); onRemove(bookmark.page); }}
                 className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-500"
               >
@@ -436,8 +439,8 @@ function SettingsPanel({
   return (
     <>
       {/* Backdrop to close on click outside */}
-      <div 
-        className="fixed inset-0 z-[9998] bg-black/20" 
+      <div
+        className="fixed inset-0 z-[9998] bg-black/20"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -454,96 +457,92 @@ function SettingsPanel({
         <div className="p-4 space-y-4">
           {/* Theme */}
           <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Thème</label>
-          <div className="flex gap-2">
-            {[
-              { value: "light", label: "Clair", icon: "☀️" },
-              { value: "dark", label: "Sombre", icon: "🌙" },
-              { value: "sepia", label: "Sépia", icon: "📜" },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setTheme(opt.value as ThemeMode)}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                  theme === opt.value
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Thème</label>
+            <div className="flex gap-2">
+              {[
+                { value: "light", label: "Clair", icon: "☀️" },
+                { value: "dark", label: "Sombre", icon: "🌙" },
+                { value: "sepia", label: "Sépia", icon: "📜" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setTheme(opt.value as ThemeMode)}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${theme === opt.value
                     ? "bg-blue-500 text-white"
                     : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                <span className="block text-lg mb-1">{opt.icon}</span>
-                {opt.label}
-              </button>
-            ))}
+                    }`}
+                >
+                  <span className="block text-lg mb-1">{opt.icon}</span>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* View Mode */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mode d'affichage</label>
-          {isMobile ? (
-            <>
-              <div className="flex gap-2 mb-2">
+          {/* View Mode */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mode d'affichage</label>
+            {isMobile ? (
+              <>
+                <div className="flex gap-2 mb-2">
+                  <button
+                    onClick={() => setViewMode("single")}
+                    className="flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all bg-blue-500 text-white"
+                  >
+                    Simple
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Les modes Feuilleter et Double page nécessitent un écran plus large (tablette ou ordinateur).</p>
+              </>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setViewMode("flip")}
+                  className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${viewMode === "flip"
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    }`}
+                >
+                  📖 Feuilleter
+                </button>
                 <button
                   onClick={() => setViewMode("single")}
-                  className="flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all bg-blue-500 text-white"
+                  className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${viewMode === "single"
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    }`}
                 >
                   Simple
                 </button>
+                <button
+                  onClick={() => setViewMode("double")}
+                  className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${viewMode === "double"
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    }`}
+                >
+                  Double
+                </button>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Les modes Feuilleter et Double page nécessitent un écran plus large (tablette ou ordinateur).</p>
-            </>
-          ) : (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode("flip")}
-                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
-                  viewMode === "flip"
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                📖 Feuilleter
-              </button>
-              <button
-                onClick={() => setViewMode("single")}
-                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
-                  viewMode === "single"
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                Simple
-              </button>
-              <button
-                onClick={() => setViewMode("double")}
-                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
-                  viewMode === "double"
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-              >
-                Double
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
-    </div>
     </>
   );
 }
 
 // Control Button
-function ControlButton({ 
-  onClick, 
-  title, 
-  children, 
+function ControlButton({
+  onClick,
+  title,
+  children,
   active = false,
   disabled = false,
   hideOnMobile = false
-}: { 
-  onClick: () => void; 
-  title: string; 
+}: {
+  onClick: () => void;
+  title: string;
   children: React.ReactNode;
   active?: boolean;
   disabled?: boolean;
@@ -554,15 +553,13 @@ function ControlButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`p-2 sm:p-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded-lg transition-all ${
-        hideOnMobile ? "hidden sm:flex" : ""
-      } ${
-        disabled 
+      className={`p-2 sm:p-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded-lg transition-all ${hideOnMobile ? "hidden sm:flex" : ""
+        } ${disabled
           ? "opacity-40 cursor-not-allowed"
           : active
             ? "bg-blue-500 text-white"
             : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 active:bg-gray-200 dark:active:bg-gray-600"
-      }`}
+        }`}
     >
       {children}
     </button>
@@ -651,12 +648,12 @@ export function EditionReader({ editionId }: EditionReaderProps) {
   }, [editionId, currentPage, sessionId]);
 
   // Refs
-  const containerRef   = useRef<HTMLDivElement>(null);
-  const imageRef       = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const touchStartRef  = useRef<{ x: number; y: number; time: number } | null>(null);
-  const panDragRef     = useRef({ active: false, x0: 0, y0: 0, px0: 0, py0: 0 });
-  const panTouchRef    = useRef<{ x: number; y: number } | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const panDragRef = useRef({ active: false, x0: 0, y0: 0, px0: 0, py0: 0 });
+  const panTouchRef = useRef<{ x: number; y: number } | null>(null);
 
   const totalPages = edition?.nombrePages ?? 0;
   const isBookMode = effectiveViewMode === "flip" || effectiveViewMode === "double";
@@ -668,6 +665,13 @@ export function EditionReader({ editionId }: EditionReaderProps) {
     if (bookSpread.left && bookSpread.right) return `Pages ${bookSpread.left}-${bookSpread.right} / ${totalPages}`;
     return `Page ${bookSpread.left ?? bookSpread.right ?? currentPage} / ${totalPages}`;
   }, [bookSpread, currentPage, isBookMode, totalPages]);
+
+  // Variant detection pour les styles spécifiques au type d'édition
+  const variant = useMemo(
+    () => detectVariant(edition?.journalTypeName),
+    [edition?.journalTypeName],
+  );
+  const variantCfg = VARIANTS[variant];
 
   // Fetch edition data
   useEffect(() => {
@@ -809,7 +813,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showGoToPage, flipState, currentPage, totalPages, bookmarks, setBookmarks]);
 
   // Fullscreen change
@@ -935,7 +939,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
       const dy = e.touches[0].clientY - panTouchRef.current.y;
       panTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       setPanOffset(prev => {
-        const maxX = (window.innerWidth  * (zoom - 1)) / 2;
+        const maxX = (window.innerWidth * (zoom - 1)) / 2;
         const maxY = (window.innerHeight * (zoom - 1)) / 2;
         return { x: Math.max(-maxX, Math.min(maxX, prev.x + dx)), y: Math.max(-maxY, Math.min(maxY, prev.y + dy)) };
       });
@@ -964,7 +968,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!panDragRef.current.active) return;
-    const maxX = (window.innerWidth  * (zoom - 1)) / 2;
+    const maxX = (window.innerWidth * (zoom - 1)) / 2;
     const maxY = (window.innerHeight * (zoom - 1)) / 2;
     setPanOffset({
       x: Math.max(-maxX, Math.min(maxX, panDragRef.current.px0 + e.clientX - panDragRef.current.x0)),
@@ -1082,19 +1086,18 @@ export function EditionReader({ editionId }: EditionReaderProps) {
         bookmarks={bookmarks}
         isOpen={showThumbnails}
         onClose={() => setShowThumbnails(false)}
+        thumbActiveBorder={variantCfg.thumbActiveBorder}
       />
 
       {/* Top Controls */}
       <div
-        className={`flex items-center justify-between px-2 sm:px-4 py-2 border-b transition-all duration-300 ${
-          theme === "dark" 
-            ? "bg-gray-800/90 border-gray-700" 
-            : theme === "sepia"
-              ? "bg-amber-100/90 border-amber-200"
-              : "bg-white/90 border-gray-200"
-        } backdrop-blur-sm ${
-          showControls || !isFullscreen ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"
-        }`}
+        className={`flex items-center justify-between px-2 sm:px-4 py-2 border-b transition-all duration-300 ${theme === "dark"
+          ? "bg-gray-800/90 border-gray-700"
+          : theme === "sepia"
+            ? "bg-amber-100/90 border-amber-200"
+            : "bg-white/90 border-gray-200"
+          } backdrop-blur-sm ${showControls || !isFullscreen ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"
+          }`}
       >
         {/* Left controls */}
         <div className="flex items-center gap-0.5 sm:gap-1">
@@ -1103,7 +1106,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
             </svg>
           </ControlButton>
-          
+
           <ControlButton onClick={() => setShowGoToPage(true)} title="Aller à la page (G)" hideOnMobile>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -1117,9 +1120,9 @@ export function EditionReader({ editionId }: EditionReaderProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
             </svg>
           </ControlButton>
-          
+
           <span className="text-sm font-medium min-w-[3rem] text-center hidden sm:block">{Math.round(zoom * 100)}%</span>
-          
+
           <ControlButton onClick={handleZoomIn} title="Zoom +" disabled={zoom >= ZOOM_MAX} hideOnMobile>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
@@ -1135,8 +1138,8 @@ export function EditionReader({ editionId }: EditionReaderProps) {
 
         {/* Center - Page info */}
         <div className="flex items-center gap-1 sm:gap-3">
-          <button 
-            onClick={goToPrevPage} 
+          <button
+            onClick={goToPrevPage}
             disabled={(isBookMode ? previousBookPage === null : currentPage <= 1) || !!flipState}
             className="p-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 sm:p-1 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 rounded disabled:opacity-40 active:bg-gray-300 dark:active:bg-gray-600"
           >
@@ -1144,15 +1147,15 @@ export function EditionReader({ editionId }: EditionReaderProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <button 
+          <button
             onClick={() => setShowGoToPage(true)}
             className="text-sm font-medium whitespace-nowrap"
           >
             <span className="sm:hidden">{pageLabel}</span>
             <span className="hidden sm:inline">{pageLabel}</span>
           </button>
-          <button 
-            onClick={goToNextPage} 
+          <button
+            onClick={goToNextPage}
             disabled={(isBookMode ? nextBookPage === null : currentPage >= totalPages) || !!flipState}
             className="p-2 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 sm:p-1 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 rounded disabled:opacity-40 active:bg-gray-300 dark:active:bg-gray-600"
           >
@@ -1217,7 +1220,7 @@ export function EditionReader({ editionId }: EditionReaderProps) {
 
       {/* Progress Bar */}
       <div className={`px-4 py-1 ${theme === "dark" ? "bg-gray-800" : theme === "sepia" ? "bg-amber-100" : "bg-white"}`}>
-        <ProgressBar current={currentPage} total={totalPages} onPageClick={goToPage} />
+        <ProgressBar current={currentPage} total={totalPages} onPageClick={goToPage} variantStyle={variantCfg.progressStyle} />
       </div>
 
       {/* Main Content */}
@@ -1418,15 +1421,13 @@ export function EditionReader({ editionId }: EditionReaderProps) {
 
       {/* Bottom info bar */}
       <div
-        className={`flex flex-col sm:flex-row items-center justify-between px-2 sm:px-4 py-2 text-xs border-t transition-all duration-300 ${
-          theme === "dark"
-            ? "bg-gray-800/90 border-gray-700 text-gray-400"
-            : theme === "sepia"
-              ? "bg-amber-100/90 border-amber-200 text-amber-700"
-              : "bg-white/90 border-gray-200 text-gray-500"
-        } backdrop-blur-sm ${
-          showControls || !isFullscreen ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
-        }`}
+        className={`flex flex-col sm:flex-row items-center justify-between px-2 sm:px-4 py-2 text-xs border-t transition-all duration-300 ${theme === "dark"
+          ? "bg-gray-800/90 border-gray-700 text-gray-400"
+          : theme === "sepia"
+            ? "bg-amber-100/90 border-amber-200 text-amber-700"
+            : "bg-white/90 border-gray-200 text-gray-500"
+          } backdrop-blur-sm ${showControls || !isFullscreen ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
+          }`}
       >
         <div className="flex items-center gap-2 sm:gap-4">
           <span>⏱ ~{formatTime(remainingTime)}</span>

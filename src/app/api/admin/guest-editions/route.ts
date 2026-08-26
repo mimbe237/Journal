@@ -25,14 +25,15 @@ export async function GET(req: NextRequest) {
       editionId: slot.editionId,
       edition: slot.edition
         ? {
-            id: slot.edition.id,
-            titre: slot.edition.titre,
-            datePublication: slot.edition.datePublication,
-            type: slot.edition.type,
-            nombrePages: slot.edition.nombrePages,
-            cheminImageUne: slot.edition.cheminImageUne,
-            deletedAt: slot.edition.deletedAt,
-          }
+          id: slot.edition.id,
+          titre: slot.edition.titre,
+          datePublication: slot.edition.datePublication,
+          type: slot.edition.type,
+          journalTypeName: slot.edition.journalType?.name ?? null,
+          nombrePages: slot.edition.nombrePages,
+          cheminImageUne: slot.edition.cheminImageUne,
+          deletedAt: slot.edition.deletedAt,
+        }
         : null,
       publicToken: slot.publicToken,
       publicUrl: slot.editionId ? `${baseUrl}/lire/invite/${slot.publicToken}` : null,

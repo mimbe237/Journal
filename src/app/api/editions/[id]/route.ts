@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { prisma } from "@/lib/config/prisma";
 import { getCurrentUserFromRequest } from "@/lib/auth/currentUser";
 import { canUserAccessEdition } from "@/modules/enterprises/enterpriseService";
 import { getEditionById } from "@/modules/editions/editionService";
@@ -20,6 +21,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const canAccess = await canUserAccessEdition({ userId: user.id, editionId: edition.id });
     if (!canAccess) return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
 
+    // Récupérer le nom du journal type pour la détection de variante dans le lecteur
+    let journalTypeName: string | null = null;
+    if (edition.journalTypeId) {
+      const journalType = await prisma.journalType.findUnique({
+        where: { id: edition.journalTypeId },
+        select: { name: true }
+      });
+      journalTypeName = journalType?.name ?? null;
+    }
+
     return NextResponse.json({
       edition: {
         id: edition.id,
@@ -27,7 +38,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         datePublication: edition.datePublication,
         type: edition.type,
         nombrePages: edition.nombrePages,
-        createdAt: edition.createdAt
+        createdAt: edition.createdAt,
+        journalTypeName
       }
     });
   } catch (error: any) {
