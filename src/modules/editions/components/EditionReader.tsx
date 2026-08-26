@@ -667,9 +667,10 @@ export function EditionReader({ editionId }: EditionReaderProps) {
   }, [bookSpread, currentPage, isBookMode, totalPages]);
 
   // Variant detection pour les styles spécifiques au type d'édition
+  // Repli sur le titre si le journalTypeName n'est pas renseigné (ex: "CBT19 août 2026")
   const variant = useMemo(
-    () => detectVariant(edition?.journalTypeName),
-    [edition?.journalTypeName],
+    () => detectVariant(edition?.journalTypeName ?? edition?.titre),
+    [edition?.journalTypeName, edition?.titre],
   );
   const variantCfg = VARIANTS[variant];
 

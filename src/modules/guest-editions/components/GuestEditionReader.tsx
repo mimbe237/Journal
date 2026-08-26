@@ -164,8 +164,8 @@ export function GuestEditionReader({
 
   const totalPages = edition?.nombrePages ?? 0;
   const variant = useMemo(
-    () => detectVariant(edition?.journalTypeName ?? initialJournalTypeName),
-    [edition?.journalTypeName, initialJournalTypeName],
+    () => detectVariant(edition?.journalTypeName ?? initialJournalTypeName ?? edition?.titre),
+    [edition?.journalTypeName, initialJournalTypeName, edition?.titre],
   );
   const variantCfg = VARIANTS[variant];
 

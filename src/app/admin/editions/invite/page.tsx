@@ -82,10 +82,10 @@ const JOURNAL_META: Record<string, { code: string; label: string; classes: strin
   NYANGA: { code: "NYANGA", label: "Nyanga Magazine", classes: "bg-orange-100 text-orange-700" },
 };
 
-function JournalBadge({ name }: { name?: string | null }) {
-  if (!name) return <span className="text-sm text-slate-400">—</span>;
-  const key = detectVariant(name);
-  const meta = JOURNAL_META[key] ?? { code: key, label: name, classes: "bg-slate-100 text-slate-700" };
+function JournalBadge({ name, title }: { name?: string | null; title?: string | null }) {
+  if (!name && !title) return <span className="text-sm text-slate-400">—</span>;
+  const key = detectVariant(name ?? title);
+  const meta = JOURNAL_META[key] ?? { code: key, label: name ?? title ?? key, classes: "bg-slate-100 text-slate-700" };
   return (
     <span
       title={meta.label}
@@ -338,7 +338,7 @@ export default function GuestEditionsPage() {
                   {/* Journal */}
                   <td className="px-4 py-4 whitespace-nowrap">
                     {slot.edition ? (
-                      <JournalBadge name={slot.edition.journalTypeName} />
+                      <JournalBadge name={slot.edition.journalTypeName} title={slot.edition.titre} />
                     ) : (
                       <span className="text-sm text-slate-400">—</span>
                     )}
