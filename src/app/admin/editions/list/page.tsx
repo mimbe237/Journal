@@ -14,6 +14,7 @@ type Edition = {
   type: string;
   nombrePages: number | null;
   cheminImageUne: string | null;
+  journalTypeId?: string | null;
   headlines?: any;
   tags?: string[];
 };
@@ -25,14 +26,23 @@ export default function EditionsListPage() {
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [editMode, setEditMode] = useState<'cover' | 'details' | 'metadata' | null>(null);
+  const [journalTypes, setJournalTypes] = useState<Array<{ id: string; name: string }>>([]);
   const [editFormData, setEditFormData] = useState({
     titre: '',
     datePublication: '',
-    type: 'PAPIER'
+    type: 'PAPIER',
+    journalTypeId: ''
   });
 
   useEffect(() => {
     fetchEditions();
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/admin/journal-types")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setJournalTypes(data); })
+      .catch(() => { });
   }, []);
 
   async function fetchEditions() {
@@ -86,6 +96,7 @@ export default function EditionsListPage() {
           titre: editFormData.titre,
           datePublication: editFormData.datePublication,
           type: editFormData.type,
+          journalTypeId: editFormData.journalTypeId || null,
         }),
       });
 
@@ -176,7 +187,8 @@ export default function EditionsListPage() {
                         setEditFormData({
                           titre: edition.titre,
                           datePublication: new Date(edition.datePublication).toISOString().split('T')[0],
-                          type: edition.type
+                          type: edition.type,
+                          journalTypeId: edition.journalTypeId ?? ''
                         });
                         setEditMode('details');
                       }}
@@ -311,6 +323,25 @@ export default function EditionsListPage() {
                     <option value="SPECIAL">Spécial</option>
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Journal
+                  </label>
+                  <select
+                    value={editFormData.journalTypeId}
+                    onChange={(e) => setEditFormData({ ...editFormData, journalTypeId: e.target.value })}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">— Aucun (CT par défaut) —</option>
+                    {journalTypes.map((jt) => (
+                      <option key={jt.id} value={jt.id}>{jt.name}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Détermine le design de lecture (CT, WSL, CBT, CI, NYANGA).
+                  </p>
+                </div>
               </div>
 
               {/* Actions */}
@@ -355,7 +386,7 @@ export default function EditionsListPage() {
                     ✕
                   </button>
                 </div>
-                
+
                 <HeadlinesEditor
                   editionId={selectedEdition.id}
                   initialHeadlines={selectedEdition.headlines || []}

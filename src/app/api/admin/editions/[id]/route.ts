@@ -51,7 +51,7 @@ export async function PATCH(
       );
     }
 
-    const { titre, datePublication, type } = await request.json();
+    const { titre, datePublication, type, journalTypeId } = await request.json();
 
     if (!titre || !datePublication || !type) {
       return NextResponse.json(
@@ -68,6 +68,7 @@ export async function PATCH(
         titre,
         datePublication: new Date(datePublication),
         type,
+        ...(journalTypeId !== undefined ? { journalTypeId: journalTypeId || null } : {}),
       },
     });
 
