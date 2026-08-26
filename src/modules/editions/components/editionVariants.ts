@@ -91,3 +91,22 @@ export function detectVariant(name?: string | null): VariantKey {
   if (n.includes("nyanga")) return "NYANGA";
   return "CT";
 }
+
+/**
+ * Détecte la variante en croisant le nom du journal (relation DB) et le titre de l'édition.
+ *
+ * Le nom du journal est la source d'autorité SAUF lorsqu'il retombe sur le défaut (CT)
+ * alors que le titre identifie clairement un autre journal. C'est le cas des éditions
+ * dont le journalTypeId est mal configuré en base (ex: titre "CBT19 août 2026" mais
+ * journalType pointant vers "Cameroon Tribune"). Le titre étant généré depuis le
+ * type de journal à la création, il reste fiable.
+ */
+export function detectVariantFromSource(
+  journalTypeName?: string | null,
+  titre?: string | null,
+): VariantKey {
+  const fromType = detectVariant(journalTypeName);
+  const fromTitle = detectVariant(titre);
+  if (fromType === "CT" && fromTitle !== "CT") return fromTitle;
+  return fromType;
+}

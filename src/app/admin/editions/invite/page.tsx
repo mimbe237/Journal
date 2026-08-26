@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { detectVariant } from "@/modules/editions/components/editionVariants";
+import { detectVariantFromSource } from "@/modules/editions/components/editionVariants";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -84,7 +84,7 @@ const JOURNAL_META: Record<string, { code: string; label: string; classes: strin
 
 function JournalBadge({ name, title }: { name?: string | null; title?: string | null }) {
   if (!name && !title) return <span className="text-sm text-slate-400">—</span>;
-  const key = detectVariant(name ?? title);
+  const key = detectVariantFromSource(name, title);
   const meta = JOURNAL_META[key] ?? { code: key, label: name ?? title ?? key, classes: "bg-slate-100 text-slate-700" };
   return (
     <span

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { detectVariant, VARIANTS, type VariantKey, type VariantConfig } from "@/modules/editions/components/editionVariants";
+import { detectVariantFromSource, VARIANTS, type VariantKey, type VariantConfig } from "@/modules/editions/components/editionVariants";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -164,7 +164,7 @@ export function GuestEditionReader({
 
   const totalPages = edition?.nombrePages ?? 0;
   const variant = useMemo(
-    () => detectVariant(edition?.journalTypeName ?? initialJournalTypeName ?? edition?.titre),
+    () => detectVariantFromSource(edition?.journalTypeName ?? initialJournalTypeName, edition?.titre),
     [edition?.journalTypeName, initialJournalTypeName, edition?.titre],
   );
   const variantCfg = VARIANTS[variant];

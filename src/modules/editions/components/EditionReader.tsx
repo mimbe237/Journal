@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { ButtonSecondary } from "@/components/ui/Button";
-import { detectVariant, VARIANTS, type VariantKey } from "./editionVariants";
+import { detectVariantFromSource, VARIANTS, type VariantKey } from "./editionVariants";
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -667,9 +667,10 @@ export function EditionReader({ editionId }: EditionReaderProps) {
   }, [bookSpread, currentPage, isBookMode, totalPages]);
 
   // Variant detection pour les styles spécifiques au type d'édition
-  // Repli sur le titre si le journalTypeName n'est pas renseigné (ex: "CBT19 août 2026")
+  // Croise le nom du journal (relation DB) et le titre (le titre généré depuis le
+  // type de journal est fiable même si journalTypeId est mal configuré en base)
   const variant = useMemo(
-    () => detectVariant(edition?.journalTypeName ?? edition?.titre),
+    () => detectVariantFromSource(edition?.journalTypeName, edition?.titre),
     [edition?.journalTypeName, edition?.titre],
   );
   const variantCfg = VARIANTS[variant];
