@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { ButtonPrimary } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EditionType } from "@prisma/client";
@@ -199,7 +200,7 @@ export default function AdminEditionsPage() {
       setCoverImage(null);
       setTitre("");
       setHint(null);
-
+      
       // Réinitialiser l'étape après 2 secondes
       setTimeout(() => setCurrentStep(null), 2000);
     } catch (err: any) {
@@ -230,6 +231,12 @@ export default function AdminEditionsPage() {
               <h1 className="text-3xl font-bold text-slate-900">Nouvelle édition</h1>
               <p className="mt-2 text-slate-600">Uploadez un PDF pour créer une nouvelle édition</p>
             </div>
+            <Link 
+              href="/admin/editions/list" 
+              className="text-sm text-emerald-600 hover:text-emerald-700 underline"
+            >
+              Voir toutes les éditions →
+            </Link>
           </div>
         </div>
 
@@ -308,9 +315,9 @@ export default function AdminEditionsPage() {
                 {coverImage && (
                   <div className="mt-2">
                     <p className="mb-2 text-sm text-emerald-600">✓ {coverImage.name}</p>
-                    <img
-                      src={URL.createObjectURL(coverImage)}
-                      alt="Aperçu"
+                    <img 
+                      src={URL.createObjectURL(coverImage)} 
+                      alt="Aperçu" 
                       className="h-32 w-auto rounded border border-slate-200 shadow-sm"
                     />
                   </div>
@@ -323,10 +330,11 @@ export default function AdminEditionsPage() {
 
             {message && (
               <div
-                className={`rounded-xl border p-4 shadow-sm ${state === "success"
+                className={`rounded-xl border p-4 shadow-sm ${
+                  state === "success"
                     ? "border-emerald-200 bg-emerald-50 text-emerald-900"
                     : "border-rose-200 bg-rose-50 text-rose-900"
-                  }`}
+                }`}
               >
                 <div className="flex items-start gap-3">
                   {state === "success" ? (
@@ -342,6 +350,12 @@ export default function AdminEditionsPage() {
                         <code className="rounded bg-emerald-100 px-2 py-1 font-mono text-sm text-emerald-800">
                           {editionId}
                         </code>
+                        <Link
+                          href="/admin/editions/list"
+                          className="font-medium text-emerald-700 underline-offset-4 hover:underline"
+                        >
+                          Voir la liste
+                        </Link>
                       </div>
                     )}
                     {state === "success" && guestUrl && (
@@ -408,7 +422,7 @@ export default function AdminEditionsPage() {
                     {steps.findIndex((s) => s.key === currentStep) + 1} / {steps.length}
                   </span>
                 </div>
-
+                
                 {/* Barre de progression visuelle */}
                 <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
                   <div

@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
 
     const editionId = require("crypto").randomUUID();
-
+    
     // Création d'un dossier temporaire pour le traitement
     tempDir = path.join(os.tmpdir(), "journal-upload", editionId);
     await mkdir(tempDir, { recursive: true });
