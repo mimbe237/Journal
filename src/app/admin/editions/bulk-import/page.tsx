@@ -443,12 +443,6 @@ export default function BulkImportPage() {
             >
               Nouvel import
             </button>
-            <a
-              href="/admin/editions/list"
-              className="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300"
-            >
-              Voir les éditions
-            </a>
           </div>
         </div>
       )}

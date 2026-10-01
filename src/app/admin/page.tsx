@@ -89,7 +89,6 @@ export default async function AdminLandingPage() {
   if (isSuperAdmin) {
     quickLinks.push(
       { href: "/admin/editions/bulk-import", label: "Import en masse" },
-      { href: "/admin/editions/list", label: "Gérer les éditions" },
       { href: "/admin/subscribers", label: "Abonnés" },
       { href: "/admin/exports", label: "Exports" },
       { href: "/admin/promocodes", label: "Codes promo" }
@@ -104,7 +103,6 @@ export default async function AdminLandingPage() {
     quickLinks.push(
       { href: "/admin/facturation/soumissions", label: "Soumissions" },
       { href: "/admin/users", label: "Utilisateurs" },
-      { href: "/admin/editions/list", label: "Gérer les éditions" },
       { href: "/admin/enterprises", label: "Entreprises" }
     );
   }
