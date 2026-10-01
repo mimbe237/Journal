@@ -2,6 +2,9 @@
   "name": "digital-journal-platform",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/ensure-db.js && next build",
