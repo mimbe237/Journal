@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { ButtonPrimary } from "@/components/ui/Button";
-import { DeleteButton } from "@/components/admin/DeleteButton";
-import { HeadlinesEditor } from "@/components/admin/editions/HeadlinesEditor";
 
 type Edition = {
   id: string;
@@ -15,39 +13,24 @@ type Edition = {
   nombrePages: number | null;
   cheminImageUne: string | null;
   journalTypeId?: string | null;
-  headlines?: any;
-  tags?: string[];
+  deletedAt?: string | null;
+  guestUrl?: string | null;
 };
 
 export default function EditionsListPage() {
   const [editions, setEditions] = useState<Edition[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedEdition, setSelectedEdition] = useState<Edition | null>(null);
-  const [coverImage, setCoverImage] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [editMode, setEditMode] = useState<'cover' | 'details' | 'metadata' | null>(null);
-  const [journalTypes, setJournalTypes] = useState<Array<{ id: string; name: string }>>([]);
-  const [editFormData, setEditFormData] = useState({
-    titre: '',
-    datePublication: '',
-    type: 'PAPIER',
-    journalTypeId: ''
-  });
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchEditions();
   }, []);
 
-  useEffect(() => {
-    fetch("/api/admin/journal-types")
-      .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setJournalTypes(data); })
-      .catch(() => { });
-  }, []);
-
   async function fetchEditions() {
     try {
-      const res = await fetch("/api/admin/editions");
+      // withGuestLinks : garantit qu'un lien de lecture invité existe pour
+      // chaque édition affichée et le retourne dans `guestUrl`.
+      const res = await fetch("/api/admin/editions?withGuestLinks=true");
       if (res.ok) {
         const data = await res.json();
         setEditions(data.editions || []);
@@ -59,59 +42,16 @@ export default function EditionsListPage() {
     }
   }
 
-  async function handleUploadCover(editionId: string) {
-    if (!coverImage) return;
-
-    setUploading(true);
+  async function copyLink(edition: Edition) {
+    if (!edition.guestUrl) return;
     try {
-      const formData = new FormData();
-      formData.append("coverImage", coverImage);
-
-      const res = await fetch(`/api/admin/editions/${editionId}/cover`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) throw new Error("Échec upload");
-
-      alert("Image de une mise à jour !");
-      setCoverImage(null);
-      setSelectedEdition(null);
-      fetchEditions();
-    } catch (err: any) {
-      alert(err.message || "Erreur upload");
-    } finally {
-      setUploading(false);
+      await navigator.clipboard.writeText(edition.guestUrl);
+      setCopiedId(edition.id);
+      setTimeout(() => setCopiedId((prev) => (prev === edition.id ? null : prev)), 2000);
+    } catch {
+      /* presse-papiers indisponible */
     }
   }
-
-  const handleUpdateDetails = async (editionId: string) => {
-    try {
-      setUploading(true);
-
-      const res = await fetch(`/api/admin/editions/${editionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          titre: editFormData.titre,
-          datePublication: editFormData.datePublication,
-          type: editFormData.type,
-          journalTypeId: editFormData.journalTypeId || null,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Échec mise à jour");
-
-      alert("Édition mise à jour !");
-      setSelectedEdition(null);
-      setEditMode(null);
-      fetchEditions();
-    } catch (err: any) {
-      alert(err.message || "Erreur mise à jour");
-    } finally {
-      setUploading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-8">
@@ -119,7 +59,7 @@ export default function EditionsListPage() {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Gérer les éditions</h1>
-            <p className="mt-2 text-slate-600">Modifier les couvertures et gérer vos publications</p>
+            <p className="mt-2 text-slate-600">Chaque édition et son lien de lecture invité</p>
           </div>
           <Link href="/admin/editions">
             <ButtonPrimary>+ Nouvelle édition</ButtonPrimary>
@@ -170,49 +110,49 @@ export default function EditionsListPage() {
                     </p>
                   </div>
 
-                  {/* Boutons d'action */}
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => {
-                        setSelectedEdition(edition);
-                        setEditMode('cover');
-                      }}
-                      className="w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white hover:bg-emerald-700 transition-colors"
-                    >
-                      Modifier la une
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedEdition(edition);
-                        setEditFormData({
-                          titre: edition.titre,
-                          datePublication: new Date(edition.datePublication).toISOString().split('T')[0],
-                          type: edition.type,
-                          journalTypeId: edition.journalTypeId ?? ''
-                        });
-                        setEditMode('details');
-                      }}
-                      className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700 transition-colors"
-                    >
-                      Modifier les infos
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedEdition(edition);
-                        setEditMode('metadata');
-                      }}
-                      className="w-full rounded-lg bg-purple-600 px-3 py-2 text-sm text-white hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <span>✨</span> Enrichir (IA)
-                    </button>
-                    <DeleteButton
-                      type="edition"
-                      id={edition.id}
-                      name={edition.titre}
-                      onDeleted={fetchEditions}
-                      size="md"
-                      className="w-full justify-center"
-                    />
+                  {/* Lien de lecture invité */}
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      Lien invité
+                    </p>
+                    {edition.guestUrl ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          readOnly
+                          value={edition.guestUrl}
+                          onFocus={(e) => e.currentTarget.select()}
+                          className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-600"
+                        />
+                        <button
+                          onClick={() => copyLink(edition)}
+                          title="Copier le lien"
+                          className="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-slate-100"
+                        >
+                          {copiedId === edition.id ? (
+                            <svg className="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                        </button>
+                        <a
+                          href={edition.guestUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Ouvrir le lien"
+                          className="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-slate-100"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400">—</p>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -220,187 +160,6 @@ export default function EditionsListPage() {
           </div>
         )}
 
-        {/* Modal pour modifier la couverture */}
-        {selectedEdition && editMode === 'cover' && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <Card className="max-w-md w-full bg-white p-6 space-y-4">
-              <h2 className="text-xl font-bold text-slate-900">
-                Modifier la une
-              </h2>
-              <p className="text-sm text-slate-600">
-                {selectedEdition.titre}
-              </p>
-
-              {/* Upload */}
-              <div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setCoverImage(e.target.files?.[0] ?? null)}
-                  className="w-full rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600 file:rounded file:border-0 file:bg-emerald-600 file:px-3 file:py-1 file:text-white hover:border-emerald-500"
-                />
-                {coverImage && (
-                  <div className="mt-3">
-                    <p className="text-sm text-emerald-600 mb-2">✓ {coverImage.name}</p>
-                    <img
-                      src={URL.createObjectURL(coverImage)}
-                      alt="Aperçu"
-                      className="h-48 w-auto rounded border border-slate-300 mx-auto"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setSelectedEdition(null);
-                    setCoverImage(null);
-                  }}
-                  className="flex-1 rounded-lg bg-slate-200 px-4 py-2 text-slate-900 hover:bg-slate-300"
-                  disabled={uploading}
-                >
-                  Annuler
-                </button>
-                <ButtonPrimary
-                  onClick={() => handleUploadCover(selectedEdition.id)}
-                  disabled={!coverImage || uploading}
-                  className="flex-1"
-                >
-                  {uploading ? "Upload..." : "Mettre à jour"}
-                </ButtonPrimary>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* Modal pour modifier les infos */}
-        {selectedEdition && editMode === 'details' && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <Card className="max-w-md w-full bg-white p-6 space-y-4">
-              <h2 className="text-xl font-bold text-slate-900">
-                Modifier les infos
-              </h2>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Titre
-                  </label>
-                  <input
-                    type="text"
-                    value={editFormData.titre}
-                    onChange={(e) => setEditFormData({ ...editFormData, titre: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Titre de l'édition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Date de publication
-                  </label>
-                  <input
-                    type="date"
-                    value={editFormData.datePublication}
-                    onChange={(e) => setEditFormData({ ...editFormData, datePublication: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Type
-                  </label>
-                  <select
-                    value={editFormData.type}
-                    onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="PAPIER">Papier</option>
-                    <option value="NUMERIQUE">Numérique</option>
-                    <option value="SPECIAL">Spécial</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Journal
-                  </label>
-                  <select
-                    value={editFormData.journalTypeId}
-                    onChange={(e) => setEditFormData({ ...editFormData, journalTypeId: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">— Aucun (CT par défaut) —</option>
-                    {journalTypes.map((jt) => (
-                      <option key={jt.id} value={jt.id}>{jt.name}</option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Détermine le design de lecture (CT, WSL, CBT, CI, NYANGA).
-                  </p>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setSelectedEdition(null);
-                    setEditMode(null);
-                  }}
-                  className="flex-1 rounded-lg bg-slate-200 px-4 py-2 text-slate-900 hover:bg-slate-300"
-                  disabled={uploading}
-                >
-                  Annuler
-                </button>
-                <ButtonPrimary
-                  onClick={() => handleUpdateDetails(selectedEdition.id)}
-                  disabled={uploading}
-                  className="flex-1"
-                >
-                  {uploading ? "Sauvegarde..." : "Sauvegarder"}
-                </ButtonPrimary>
-              </div>
-            </Card>
-          </div>
-        )}
-        {/* Modal pour enrichir (Headlines & Tags) */}
-        {selectedEdition && editMode === 'metadata' && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-            <div className="relative w-full max-w-2xl bg-white dark:bg-slate-800 rounded-xl shadow-2xl my-8">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                    Enrichir l'édition : {selectedEdition.titre}
-                  </h2>
-                  <button
-                    onClick={() => {
-                      setSelectedEdition(null);
-                      setEditMode(null);
-                    }}
-                    className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                <HeadlinesEditor
-                  editionId={selectedEdition.id}
-                  initialHeadlines={selectedEdition.headlines || []}
-                  initialTags={selectedEdition.tags || []}
-                  onSave={() => {
-                    fetchEditions(); // Refresh list
-                    setSelectedEdition(null);
-                    setEditMode(null);
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

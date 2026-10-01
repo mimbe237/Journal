@@ -3,6 +3,7 @@ import { EditionType, UserRole } from "@prisma/client";
 
 import { requireUserWithRoles } from "@/lib/auth/authorization";
 import { createEdition, listEditions } from "@/modules/editions/editionService";
+import { ensureGuestLinksForEditions } from "@/modules/guest-editions/guestEditionService";
 import { fileStorageProvider } from "@/services/fileStorage";
 import { convertPdfToImages } from "@/services/pdf/pdfConversionService";
 import path from "path";
@@ -17,13 +18,35 @@ export async function GET(req: NextRequest) {
     const pageSize = parseInt(searchParams.get("pageSize") ?? "20", 10);
     const type = searchParams.get("type") as EditionType | null;
     const order = (searchParams.get("order") as "ASC" | "DESC") ?? "DESC";
+    const withGuestLinks = searchParams.get("withGuestLinks") === "true";
 
     const result = await listEditions({ page, pageSize, type: type ?? undefined, order });
-    return NextResponse.json({ 
-      editions: result.data, 
+
+    if (!withGuestLinks) {
+      return NextResponse.json({
+        editions: result.data,
+        total: result.total,
+        page,
+        pageSize
+      });
+    }
+
+    // Lien de lecture invité : un token public par édition (créé à la demande).
+    // Les éditions supprimées sont exclues (le lecteur invité les refuse).
+    const eligibleIds = result.data.filter((e) => e.deletedAt === null).map((e) => e.id);
+    const guestLinks = await ensureGuestLinksForEditions(eligibleIds);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
+
+    return NextResponse.json({
+      editions: result.data.map((edition) => ({
+        ...edition,
+        guestUrl: guestLinks[edition.id]
+          ? `${baseUrl}/lire/invite/${guestLinks[edition.id].token}`
+          : null,
+      })),
       total: result.total,
       page,
-      pageSize 
+      pageSize
     });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message ?? "Erreur de récupération" }, { status: 400 });

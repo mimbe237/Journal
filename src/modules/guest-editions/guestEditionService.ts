@@ -103,3 +103,61 @@ export async function getGuestEditionById(
     where: { id },
   });
 }
+
+/**
+ * Lien de lecture invité par édition.
+ *
+ * Le token public n'existe que porté par un créneau `GuestEdition`. Pour chaque
+ * édition passée en paramètre :
+ *  - si un créneau actif lui est déjà rattaché, on réutilise son token ;
+ *  - sinon un créneau est créé à la volée (jour libre = max + 1) et devient son lien.
+ *
+ * Le token reste stable tant que le créneau n'est pas reconfiguré : un token n'est
+ * régénéré que lors d'une réassignation depuis /admin/editions/invite.
+ */
+export async function ensureGuestLinksForEditions(
+  editionIds: string[]
+): Promise<Record<string, { token: string }>> {
+  const uniqueIds = Array.from(new Set(editionIds.filter((id) => Boolean(id))));
+  if (uniqueIds.length === 0) return {};
+
+  const existing = await prisma.guestEdition.findMany({
+    where: { editionId: { in: uniqueIds }, isActive: true },
+    orderBy: [{ assignedAt: "desc" }, { createdAt: "desc" }],
+    select: { editionId: true, publicToken: true },
+  });
+
+  const links: Record<string, { token: string }> = {};
+  for (const slot of existing) {
+    if (slot.editionId && !links[slot.editionId]) {
+      links[slot.editionId] = { token: slot.publicToken };
+    }
+  }
+
+  const missing = uniqueIds.filter((id) => !links[id]);
+  if (missing.length === 0) return links;
+
+  const aggregate = await prisma.guestEdition.aggregate({
+    _max: { dayOfWeek: true },
+  });
+  let nextDayOfWeek = (aggregate._max.dayOfWeek ?? 0) + 1;
+
+  for (const editionId of missing) {
+    const slot = await prisma.guestEdition.create({
+      data: {
+        dayOfWeek: nextDayOfWeek,
+        dayLabel: "Lien direct",
+        editionId,
+        publicToken: crypto.randomUUID(),
+        assignedAt: new Date(),
+        isActive: true,
+      },
+      select: { publicToken: true },
+    });
+
+    links[editionId] = { token: slot.publicToken };
+    nextDayOfWeek += 1;
+  }
+
+  return links;
+}
