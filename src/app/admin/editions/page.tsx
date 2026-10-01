@@ -34,6 +34,8 @@ export default function AdminEditionsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [editionId, setEditionId] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
+  const [guestUrl, setGuestUrl] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const [journalTypes, setJournalTypes] = useState<JournalType[]>([]);
   const [selectedJournalTypeId, setSelectedJournalTypeId] = useState<string>("");
@@ -91,6 +93,17 @@ export default function AdminEditionsPage() {
     { key: "complete" as UploadStep, label: "Terminé" },
   ];
 
+  async function copyGuestLink() {
+    if (!guestUrl) return;
+    try {
+      await navigator.clipboard.writeText(guestUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {
+      /* presse-papiers indisponible */
+    }
+  }
+
   async function readJsonResponse(response: Response) {
     const raw = await response.text();
     if (!raw) {
@@ -115,6 +128,8 @@ export default function AdminEditionsPage() {
     setState("uploading");
     setMessage(null);
     setEditionId(null);
+    setGuestUrl(null);
+    setCopiedLink(false);
     setCurrentStep("upload");
     setLastErrorId(null);
 
@@ -180,6 +195,7 @@ export default function AdminEditionsPage() {
       setState("success");
       setMessage(`Édition créée : ${json.pageCount} pages converties`);
       setEditionId(json.editionId);
+      setGuestUrl(typeof json.guestUrl === "string" && json.guestUrl.length > 0 ? json.guestUrl : null);
       setFile(null);
       setCoverImage(null);
       setTitre("");
@@ -340,6 +356,48 @@ export default function AdminEditionsPage() {
                         >
                           Voir la liste
                         </Link>
+                      </div>
+                    )}
+                    {state === "success" && guestUrl && (
+                      <div className="space-y-1.5 rounded-lg border border-emerald-200 bg-white/80 p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                          Lien de lecture invité
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            readOnly
+                            value={guestUrl}
+                            onFocus={(e) => e.currentTarget.select()}
+                            className="min-w-0 flex-1 rounded-lg border border-emerald-200 bg-white px-2 py-1.5 text-xs text-slate-600"
+                          />
+                          <button
+                            type="button"
+                            onClick={copyGuestLink}
+                            title="Copier le lien"
+                            className="shrink-0 rounded-lg p-2 text-emerald-700 transition hover:bg-emerald-100"
+                          >
+                            {copiedLink ? (
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
+                          <a
+                            href={guestUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Ouvrir le lien"
+                            className="shrink-0 rounded-lg p-2 text-emerald-700 transition hover:bg-emerald-100"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        </div>
                       </div>
                     )}
                     {state === "error" && lastErrorId && (

@@ -149,7 +149,21 @@ export async function POST(req: NextRequest) {
       journalTypeId
     });
 
-    // 7. Supprimer le fichier temporaire uploadé (nettoyage)
+    // 7. Lien de lecture invité de l'édition qui vient d'être créée
+    // (non bloquant : la création réussit même si le lien échoue)
+    let guestUrl: string | null = null;
+    try {
+      const { ensureGuestLinksForEditions } = await import("@/modules/guest-editions/guestEditionService");
+      const guestLinks = await ensureGuestLinksForEditions([edition.id]);
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
+      if (guestLinks[edition.id]) {
+        guestUrl = `${baseUrl}/lire/invite/${guestLinks[edition.id].token}`;
+      }
+    } catch (linkError) {
+      console.warn("Guest link generation failed:", linkError);
+    }
+
+    // 8. Supprimer le fichier temporaire uploadé (nettoyage)
     try {
       await fileStorageProvider.deleteFile({ path: fileKey });
     } catch (cleanupErr) {
@@ -163,6 +177,7 @@ export async function POST(req: NextRequest) {
         editionId: edition.id,
         titre: edition.titre,
         pageCount,
+        guestUrl,
         message: `${pageCount} pages converties`
       },
       { status: 201 }
